@@ -29,22 +29,37 @@ const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
 const browser = await chromium.launch({ executablePath: browserExe, headless: true,
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
 let failed = 0;
+// one page per picture size, kept open for all pictures of that size: renderer, environment and shaders are made once (index.html: window.renderUnit)
+const pages = new Map();
+async function pageFor(size) {
+  if (!pages.has(size)) {
+    const page = await browser.newPage({ viewport: { width: size, height: size } });
+    page.errors = [];
+    page.on('pageerror', e => page.errors.push(e.message));
+    page.on('console', m => { if (m.text().startsWith('timing')) console.log(m.text()); else if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) page.errors.push(m.text()); });
+    await page.goto(`http://127.0.0.1:${port}/index.html?size=${size}`);
+    await page.waitForFunction('window.__ready === true', null, { timeout: 120000 });
+    pages.set(size, page);
+  }
+  return pages.get(size);
+}
 for (const job of jobs) {
   const size = parseInt(new URLSearchParams(job.query).get('size') || '400', 10);
-  const page = await browser.newPage({ viewport: { width: size, height: size } });
-  let error = null;
-  page.on('pageerror', e => { error = e.message; });
-  page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) error = error || m.text(); });
+  let page = null;
   try {
-    await page.goto(`http://127.0.0.1:${port}/index.html?${job.query}`);
-    await page.waitForFunction('window.__done === true', null, { timeout: 120000 });
+    page = await pageFor(size);
+    page.errors.length = 0;
+    const t0 = Date.now();
+    await page.evaluate(q => window.renderUnit(q), job.query);
+    const t1 = Date.now();
     await page.locator('canvas').screenshot({ path: job.out, omitBackground: true });   // transparent background
+    if (new URLSearchParams(job.query).has('timing')) console.log(`timing render ${t1 - t0} ms, screenshot ${Date.now() - t1} ms`);
     console.log('ok', job.out);
   } catch (e) {
     failed++;
-    console.log('FAILED', job.out, error || e.message);
+    console.log('FAILED', job.out, (page && page.errors[0]) || e.message);
+    if (page) { await page.close(); pages.delete(size); }   // after an error the page starts again
   }
-  await page.close();
 }
 await browser.close(); server.close();
 process.exit(failed ? 1 : 0);

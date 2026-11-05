@@ -17,7 +17,7 @@ Default: only the unit names; the model is looked for by the name of the unit (o
 the Raptors (their model is not named like the unit).
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
-import argparse, gzip, io, json, os, re, shutil, struct, subprocess, sys, tempfile
+import argparse, concurrent.futures, gzip, io, json, os, re, shutil, struct, subprocess, sys, tempfile, time
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +25,7 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 
+DEFAULT_JOBS = max(1, min(4, (os.cpu_count() or 2) // 2))   # software rendering needs the processor and some 400 MB of memory per browser
 DEFAULT_SIZE = 400   # edge of the square picture in pixels: the pictures on beyondallreason.info are 400 x 400 (checked on legnavyscout.webp, 2026-11-05)
 
 # colour of the team colour parts of the pictures, by faction (the colours are put through the same colour grading as the rest, so they look a bit different on the picture)
@@ -374,12 +375,18 @@ def main():
     ap.add_argument('--avif-speed', type=int, default=6, help='AVIF encoder speed 0 (slowest, smallest) to 10 (fastest) (default 6)')
     ap.add_argument('--webp-quality', type=int, default=85, help='WebP quality 0 to 100 (default 85)')
     ap.add_argument('--webp-method', type=int, default=4, help='WebP effort 0 (fast) to 6 (slowest, smallest) (default 4)')
+    ap.add_argument('--jobs', type=int, default=DEFAULT_JOBS, help=f'how many browsers render at the same time, and how many processes convert the textures and encode (default {DEFAULT_JOBS}: half of the processor cores, at most 4); 1 = one after the other')
     ap.add_argument('--no-quality-check', action='store_true', help='with several formats the quality of each against the lossless picture is measured (PSNR, SSIM); this switches it off')
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
     ap.add_argument('-v', '--verbose', action='store_true', help='say which pieces are left out and which team colour is used')
     a = ap.parse_args()
     work, out = Path(a.work), Path(a.out)
+    clock = [time.time()]
+    def lap(what):   # with -v: how long each phase took
+        if a.verbose:
+            print(f'  [{time.time() - clock[0]:5.1f} s] {what}', flush=True)
+        clock[0] = time.time()
     one_team = tuple(int(x) for x in a.team.split(',')) if a.team else None
     formats = list(FORMATS) if a.format.strip().lower() == 'all' else list(dict.fromkeys('jpeg' if f.strip().lower() == 'jpg' else f.strip().lower() for f in a.format.split(',') if f.strip()))
     for f in formats:
@@ -395,7 +402,7 @@ def main():
     (work / 'models').mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
 
-    jobs, problems = [], []
+    jobs, problems, bases, teams = [], [], {}, {}
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
         u = info.get(unit)
         model = (u['editor']['model'].lower() if u else None)
@@ -420,28 +427,52 @@ def main():
         if a.verbose:
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')
         base = work / 'tex' / f'{Path(tex1).stem}__{Path(tex2).stem}'
-        prepare_base(pool, tex1, tex2, base, a.tex_size, game)
         team_dir = base / ('team_%d_%d_%d' % team)
-        prepare_team(base, team_dir, team)
+        bases[base] = (tex1, tex2)
+        teams[(base, team_dir)] = team
         (work / 'models' / f'{unit}.s3o').write_bytes(data)
         query = (f'model=/work/models/{unit}.s3o&base=/work/tex/{base.name}&tex=/work/tex/{base.name}/{team_dir.name}&size={a.size}'
                  + (f'&hide={",".join(sorted(hidden))}' if hidden else '') + ''.join('&' + p for p in a.param))
         jobs.append({'out': str(work / 'render' / f'{unit}.png'), 'query': query})   # the lossless picture of the browser; the wanted formats are made from it
 
+    lap('units, models, scripts read')
+    # the textures: every texture set once (the work of the sets is independent, so several at the same time), then the team colours
+    n = max(1, a.jobs)
+    with concurrent.futures.ThreadPoolExecutor(n) as ex:
+        for f in [ex.submit(prepare_base, pool, t1, t2, b, a.tex_size, game) for b, (t1, t2) in bases.items()]:
+            f.result()
+        for f in [ex.submit(prepare_team, b, d, tm) for (b, d), tm in teams.items()]:
+            f.result()
+
+    lap('textures prepared')
     failed = 0
     if jobs:
         ensure_node_modules()
-        (work / 'jobs.json').write_text(json.dumps(jobs))
         node = shutil.which('node')
         if not node:
             sys.exit('ERROR: Node.js not found.')
-        failed = subprocess.run([node, str(HERE / 'renderer' / 'render.mjs'), str(work / 'jobs.json'), str(work), find_browser(a.browser)], cwd=HERE).returncode
+        browser = find_browser(a.browser)
+        # the rendering: `--jobs` browsers at the same time, each takes every n-th picture (software rendering uses the processor, not the graphics card)
+        slices = [jobs[i::n] for i in range(min(n, len(jobs)))]
+        for j in jobs:
+            Path(j['out']).unlink(missing_ok=True)   # no picture of an earlier run is taken for this one
+        procs = []
+        for i, part in enumerate(slices):
+            (work / f'jobs_{i}.json').write_text(json.dumps(part))
+            procs.append(subprocess.Popen([node, str(HERE / 'renderer' / 'render.mjs'), str(work / f'jobs_{i}.json'), str(work), browser], cwd=HERE))
+        failed = sum(1 for pr in procs if pr.wait() != 0)
+    lap('rendered in the browsers')
     table, pairs = [], []
-    for job in jobs:
-        src = Path(job['out'])
-        if src.exists():
-            table.append((src.stem, encode(src, out / src.stem, formats, a)))
-            pairs.append((src, {f: out / f'{src.stem}.{EXTENSION.get(f, f)}' for f in formats}))
+    done = [Path(j['out']) for j in jobs if Path(j['out']).exists()]
+    if len(done) > 2 and n > 1:   # the encoding (AVIF is slow) in several processes
+        with concurrent.futures.ProcessPoolExecutor(n) as ex:
+            sizes = list(ex.map(encode, done, [out / s.stem for s in done], [formats] * len(done), [a] * len(done)))
+    else:
+        sizes = [encode(s, out / s.stem, formats, a) for s in done]
+    lap('encoded')
+    for src, size in zip(done, sizes):
+        table.append((src.stem, size))
+        pairs.append((src, {f: out / f'{src.stem}.{EXTENSION.get(f, f)}' for f in formats}))
     if table:
         print('\nfile sizes (bytes):')
         print('  ' + 'unit'.ljust(40) + ''.join(f.rjust(10) for f in formats))

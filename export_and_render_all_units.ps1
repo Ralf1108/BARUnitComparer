@@ -7,7 +7,7 @@ param([string]$Faction = '', [int]$Limit = 0, [switch]$Yes)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $out = Join-Path $root 'out'
-$chunk = 20   # units per call of render_unit.py: every call starts the browser once and then renders its units; the counter is updated after each call
+$chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
 
 function Fail($text) {
