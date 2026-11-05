@@ -60,6 +60,8 @@ return function(host)
 	"transportCapacity", "transportMass", "transportSize", "transportUnloadMethod", "turnInPlace", "turnInPlaceSpeedLimit", "turnRadius", "turnRate",
 	"unitFallSpeed", "upDirSmoothing", "upright", "useBuildingGroundDecal", "useSmoothMesh", "verticalSpeed", "wantedHeight", "waterline", "weapons",
 	"windGenerator", "wingAngle", "wingDrag", "wreckName", "xsize", "zsize",
+	-- found by the walk over the definition in game test-31820 (fields that the list did not have): kept here for the fallback
+	"cost", "translatedHumanName", "translatedTooltip", "wDefs",
 	}
 	local WEAPON_FIELDS = {
 	"accuracy", "avoidFeature", "avoidFriendly", "avoidNeutral", "beamTTL", "beamburst", "beamtime", "bouncerebound", "canAttackGround", "cegTag",
