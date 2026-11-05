@@ -39,3 +39,6 @@ luac.out
 *.x86_64
 *.hex
 
+
+# Output of extractor/extract_units.ps1 (the exported JSON files are not part of the repository for now)
+extractor/out/
