@@ -1,10 +1,13 @@
 # Unit export for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-export.lua write the data of all units, and copies the result to -Out:
-#   <Out>\units-<game version>.json   all units with their values (the version of the game is in the name and in the file)
-#   <Out>\equivalences.json             the equivalence ids (an existing file in <Out> is given to the game first: its ids are kept, only new units are added)
+#   <Out>\<version>\data\units-<version>.json   all units with their values (the version of the game is in the name and in the file)
+#   <Out>\equivalences.json                     the equivalence ids, for all versions (an existing file is given to the game first: its ids are kept, only new units are added)
+#   <Out>\<version>\data\units-<version>.reduced.json.gz and <Out>\<version>\images\icons\   the data of the website (reduce_units.py)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
 #   .\export_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
+# -Out: default website\assets\.
+# -PrintGame: only prints the game that would be exported ("Beyond All Reason <version>") and ends, without starting anything.
 # -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places.
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
 # -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
@@ -12,13 +15,14 @@
 # installed as a package first, see SPECIFICATION.md "Several game versions").
 # Exit code 1 and a message on stderr if the export failed; nothing is copied to -Out then.
 param(
-    [string]$Out = (Join-Path $PSScriptRoot 'out'),
+    [string]$Out = (Join-Path (Split-Path $PSScriptRoot -Parent) 'website\assets'),
     [string]$Data = '',
     [string]$Work = (Join-Path $env:TEMP 'unit_export'),
     [int]$WaitSec = 300,
     [string]$Map = '',
     [string]$Game = '',
-    [string]$Engine = ''
+    [string]$Engine = '',
+    [switch]$PrintGame
 )
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -83,6 +87,7 @@ public class WinUx { [DllImport("user32.dll")] public static extern bool SetWind
 $Data = Find-DataDir $Data
 $exe = (Get-Engine $Data $Engine).FullName + '\spring.exe'
 if (-not $Game) { $Game = Get-GameVersion $Data }
+if ($PrintGame) { $Game; exit 0 }
 
 # game and map have to be known to the engine: otherwise it stops at a message box that waits for a click, until the timeout
 $archiveCache = (Get-ChildItem "$Data\cache\ArchiveCache*.lua" | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
@@ -184,7 +189,26 @@ $line = "$(Get-Content $status -Raw)".Trim()
 if (-not $line.StartsWith('ok')) { Fail "The export failed: $line. Log: $log" }
 Write-Host "      widget: $line"
 New-Item -ItemType Directory $Out -Force | Out-Null
-Get-ChildItem $we -Filter 'units-*.json' | ForEach-Object { $size = [math]::Round($_.Length / 1e6, 1); Move-Item $_.FullName $Out -Force; "moved $($_.Name) ($size MB) to $Out" }
+$exported = @()
+Get-ChildItem $we -Filter 'units-*.json' | ForEach-Object {
+    $size = [math]::Round($_.Length / 1e6, 1)
+    $folder = Join-Path (Join-Path $Out ($_.BaseName -replace '^units-', '')) 'data'
+    New-Item -ItemType Directory $folder -Force | Out-Null
+    Move-Item $_.FullName $folder -Force
+    $exported += (Join-Path $folder $_.Name)
+    "moved $($_.Name) ($size MB) to $folder"
+}
 Move-Item (Join-Path $we 'equivalences.json') $Out -Force
 "moved equivalences.json to $Out"
+
+# the data of the website: the reduced file, the list of versions, the icons. A problem here is a warning: the export itself has worked
+$reduced = $false
+try {
+    $reduced = $true
+    foreach ($file in $exported) {   # a new export replaces the reduced file of that version
+        & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --force 2>&1 | ForEach-Object { "$_" }
+        if ($LASTEXITCODE -ne 0) { $reduced = $false }
+    }
+} catch { "$_" }
+if (-not $reduced) { Write-Host "WARNING: the data of the website was not made (exporter\reduce_units.py needs Python)." -ForegroundColor Yellow }
 Remove-Item $Work -Recurse -Force   # the sandbox is not needed any more (after an error it stays, for the log)

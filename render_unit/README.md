@@ -10,10 +10,10 @@ render_unit.bat                                              (double click: asks
 Examples:
 
 ```
-python render_unit.py armllt legnavyscout                                  PNG of two units into out/
+python render_unit.py armllt legnavyscout                                  PNG of two units
 python render_unit.py --format avif --avif-quality 80 armllt               AVIF with quality 80
 python render_unit.py --format all armllt                                  all five formats and a quality table
-python render_unit.py --units ../exporter/out/units-<version>.json raptor_land_swarmer_basic_t1_v1
+python render_unit.py --units ../website/assets/<version>/data/units-<version>.json raptor_land_swarmer_basic_t1_v1
 ```
 
 ## How it works
@@ -27,7 +27,7 @@ python render_unit.py --units ../exporter/out/units-<version>.json raptor_land_s
 | Option | Default | Meaning |
 |---|---|---|
 | `<unit> ...` | | Unit names (`armllt`, `legnavyscout`, ...); `@file` reads names from a file |
-| `--out DIR` | `out` next to the script | Folder for the pictures: `<unit>.<format>` |
+| `--out DIR` | `website/assets/<game version>/images` of the repository | Folder for the pictures: `<unit>.<format>` |
 | `--units FILE` | none | `units-<version>.json` of the exporter. Gives model, script and faction of every unit. **Needed for the Raptors** (their models are not named like the unit). Without it the model is looked for as `objects3d/units/<unit>.s3o` (Scavenger copies use the model of their unit). An error if the file is missing |
 | `--format` | `png` | `png`, `jpeg` (or `jpg`), `bmp`, `avif`, `webp`, several separated by commas, or `all`. BMP and JPEG have no transparency (white background) |
 | `--size` | 400 | Edge of the square picture in pixels (the size of the pictures on beyondallreason.info) |
@@ -60,7 +60,7 @@ Mean file sizes at 400 x 400 pixels (the lossless PNG is about 87 KB): AVIF 70 a
 
 ## render_unit.bat
 
-Asks for the unit names (Enter = `armllt`, a quick test), the format (default all five), the quality per format (`avif=80 jpeg=95`, Enter = defaults), whether to run the quality check and the units file (Enter = none). The pictures go to `render_unit/out`.
+Asks for the unit names (Enter = `armllt`, a quick test), the format (default all five), the quality per format (`avif=80 jpeg=95`, Enter = defaults), whether to run the quality check and the units file (Enter = none). The pictures go to `website/assets/<game version>/images`.
 
 ## compare_quality.py
 

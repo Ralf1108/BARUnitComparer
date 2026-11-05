@@ -48,5 +48,7 @@ render_unit/node_modules/
 render_unit/out/
 __pycache__/
 
-# export and render all units.bat: the pictures
-/out/
+# website/assets/ is in Git (an overwritten or deleted result can be restored from there); only what is temporary stays out
+website/assets/**/*.part
+website/assets/.render_state.json
+render_errors.txt

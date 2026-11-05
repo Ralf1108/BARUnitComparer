@@ -1,12 +1,14 @@
-# Exports the unit data of the installed Beyond All Reason (exporter\export_units.ps1) and renders a picture of every unit in it (render_unit\render_unit.py),
-# in the chosen format (default AVIF) with the default quality and size, into the folder out\ next to this file. Started by "export and render all units.bat".
-# The output of the two scripts is not shown, only the progress: the steps of the export, then a counter with the size so far and the time still needed.
+# Everything for one game version, every step only if its result is missing (SPECIFICATION.md, section 6). Started by "export and render all units.bat".
+#   1. export       website\assets\<version>\data\units-<version>.json           (exporter\export_units.ps1, starts the game)
+#   2. reduce       website\assets\<version>\data\units-<version>.reduced.json.gz   (exporter\reduce_units.py)
+#   3. pictures     website\assets\<version>\images\<unit>.<format>              (render_unit\render_unit.py), only for the units without a picture
+# So an aborted run can be started again and goes on. The output of the scripts is not shown, only the progress.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
-# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. Pictures that are there already (made for the same game version) are skipped, so an aborted run can be started again and goes on; -Force renders everything again. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
-param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '')
+# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. -Game "Beyond All Reason <version>": another installed version (default: the installed one). -Force: all three steps again, even if the results are there. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
+param([string]$Faction = '', [string]$Format = '', [string]$Game = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$out = if ($Out) { $Out } else { Join-Path $root 'out' }   # -Out: another folder for the pictures (for tests: never the real out\)
+$out = if ($Out) { $Out } else { Join-Path $root 'website\assets' }   # -Out: another folder for the pictures (for tests: never the real website\assets\)
 $chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
 $unsupported = New-Object System.Collections.Generic.List[string]   # units whose model is not an S3O file: no picture, not an error
@@ -43,12 +45,25 @@ if ($formats -contains 'all') { $formats = $knownFormats }
 foreach ($f in $formats) { if ($knownFormats -notcontains $f) { Fail "Unknown format '$f' (avif, webp, jpeg, png, bmp, all)." } }
 $formatText = ($formats -join ', ').ToUpper()
 
+# which game version, and what is there already (without starting the game)
+$exporter = Join-Path $root 'exporter\export_units.ps1'
+$printed = if ($Game) { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame -Game $Game } else { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame }
+if ($LASTEXITCODE -ne 0 -or -not $printed) { Fail 'The game version could not be found (see above).' }
+$gameName = @($printed)[-1].Trim()
+$version = ($gameName -replace '^Beyond All Reason\s+', '') -replace '[^A-Za-z0-9._-]', '_'   # the same rule as the file name of the export
+$dataDir = Join-Path (Join-Path $out $version) 'data'
+$versionDir = Join-Path (Join-Path $out $version) 'images'   # the pictures
+$unitsFile = Join-Path $dataDir "units-$version.json"
+$reducedFile = Join-Path $dataDir "units-$version.reduced.json.gz"
+$needExport = $Force -or -not (Test-Path $unitsFile)
+$state = { param($needed, $text) if ($needed) { $text } else { 'there already, skipped' } }
+
 Write-Host ''
-Write-Host 'This will do two things:' -ForegroundColor Cyan
-Write-Host '  1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes'
-Write-Host '     units-<game version>.json and equivalences.json to exporter\out (it and equivalences.json are copied to out\ as well).'
-Write-Host "  2. Render a picture of $what in that file as $formatText in the default quality and size, to the folder out\ of this repository."
-Write-Host '     This takes a while (roughly 0.1 to 0.5 seconds per unit).'
+Write-Host "Game version $version" -ForegroundColor Cyan
+Write-Host "  1. Export the unit data:  $(& $state $needExport 'the game is started once in a small window (about 30 seconds)')"
+Write-Host "  2. Reduced data of the website:  $(& $state ($needExport -or -not (Test-Path $reducedFile)) 'will be made')"
+Write-Host "  3. Pictures of $what as $formatText in the default quality and size, to $versionDir"
+Write-Host '     Only the missing ones (roughly 0.1 to 0.5 seconds per picture).'
 Write-Host ''
 if (-not $Yes) {
     $answer = Read-Host 'Start? [Enter = yes, n = cancel]'
@@ -58,11 +73,11 @@ if (-not $Yes) {
 $t0 = Get-Date
 
 # ---------------------------------------------------------------- 1. the export
-Write-Host '== 1/2  Exporting the unit data from Beyond All Reason ==' -ForegroundColor Cyan
+Write-Host '== 1/3  Unit data from Beyond All Reason ==' -ForegroundColor Cyan
+if (-not $needExport) { Write-Host "   $(Split-Path $unitsFile -Leaf) is there already, the export is skipped" -ForegroundColor Green } else {
 $log = Join-Path $env:TEMP 'export_units_log.txt'
 $errLog = Join-Path $env:TEMP 'export_units_errors.txt'
-$exportStart = Get-Date
-$p = Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$root\exporter\export_units.ps1`"") `
+$p = Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$root\exporter\export_units.ps1`"", '-Out', "`"$out`"", '-Game', "`"$gameName`"") `
     -RedirectStandardOutput $log -RedirectStandardError $errLog -WindowStyle Hidden -PassThru
 $null = $p.Handle   # keeps the handle, otherwise the exit code of the process is empty afterwards (Windows PowerShell 5.1)
 $seen = @{}
@@ -80,44 +95,43 @@ if ($p.ExitCode -ne 0) {
     $why = (@(Get-Content $errLog -ErrorAction SilentlyContinue) + @(Get-Content $log -Tail 5 -ErrorAction SilentlyContinue)) -join "`n"
     Fail "The export failed:`n$why`n(logs: $log, $errLog)"
 }
-$units = Get-ChildItem (Join-Path $root 'exporter\out') -Filter 'units-*.json' | Where-Object { $_.LastWriteTime -ge $exportStart.AddSeconds(-5) } | Sort-Object LastWriteTime | Select-Object -Last 1
-if (-not $units) { Fail "The export ran, but no units-<game version>.json was written (log: $log)." }
-New-Item -ItemType Directory $out -Force | Out-Null
-Copy-Item $units.FullName $out -Force   # the unit data and the equivalences are also in out\ next to the pictures (the originals stay in exporter\out)
-if (Test-Path (Join-Path $root 'exporter\out\equivalences.json')) { Copy-Item (Join-Path $root 'exporter\out\equivalences.json') $out -Force }
-Write-Host ("   Unit data collected: {0} ({1:N1} MB), after {2}; a copy of it and of equivalences.json is in {3}" -f $units.Name, ($units.Length / 1MB), (Clock ((Get-Date) - $t0)), $out) -ForegroundColor Green
+if (-not (Test-Path $unitsFile)) { Fail "The export ran, but $unitsFile was not written (log: $log)." }
+Write-Host ("   Unit data collected: {0} ({1:N1} MB), after {2}" -f (Split-Path $unitsFile -Leaf), ((Get-Item $unitsFile).Length / 1MB), (Clock ((Get-Date) - $t0))) -ForegroundColor Green
+}
+$units = Get-Item $unitsFile
+New-Item -ItemType Directory $versionDir -Force | Out-Null
 
-# ---------------------------------------------------------------- 2. the pictures
+# ---------------------------------------------------------------- 2. the reduced data of the website
+Write-Host ''
+Write-Host '== 2/3  Reduced data of the website ==' -ForegroundColor Cyan
+if (Test-Path $reducedFile) {
+    Write-Host "   $(Split-Path $reducedFile -Leaf) $(if ($needExport) { 'made with the export' } else { 'is there already, skipped' })" -ForegroundColor Green
+} else {
+    $reduceLog = Join-Path $env:TEMP 'reduce_units_log.txt'
+    try { & python (Join-Path $root 'exporter\reduce_units.py') --units $unitsFile --out $out *> $reduceLog } catch { }
+    if (Test-Path $reducedFile) { Write-Host "   $(Split-Path $reducedFile -Leaf) made" -ForegroundColor Green }
+    else { Write-Host "   The reduced data could not be made, see $reduceLog. The pictures are made all the same." -ForegroundColor Yellow }
+}
+
+# ---------------------------------------------------------------- 3. the pictures
 $names = New-Object System.Collections.Generic.List[string]
 foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { if (-not $wanted.Count -or $wanted -contains (Get-Faction $Matches[1])) { $names.Add($Matches[1]) } } }   # one unit per line (SPECIFICATION.md, section 2.1)
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
-New-Item -ItemType Directory $out -Force | Out-Null
-Remove-Item (Join-Path $out 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
+Remove-Item (Join-Path $versionDir 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
 
-# pictures that are there already are left alone: a picture counts as up to date if its files are all there and are not older than `$since` = the start of the first run for this
-# game version (kept in out\.render_state.json); a new game version, or -Force, starts again from now. The files are written complete or not at all (render_unit.py).
-$gameVersion = $units.BaseName -replace '^units-', ''
-$stampFile = Join-Path $out '.render_state.json'
-$since = Get-Date
-if (-not $Force -and (Test-Path $stampFile)) {
-    try {
-        $st = Get-Content $stampFile -Raw | ConvertFrom-Json
-        if ($st.gameVersion -eq $gameVersion) { $since = (New-Object DateTime ([int64]$st.sinceTicks), ([DateTimeKind]::Utc)).ToLocalTime() }
-    } catch { }
-}
-(@{ gameVersion = $gameVersion; sinceTicks = $since.ToUniversalTime().Ticks } | ConvertTo-Json) | Set-Content $stampFile
-function Files-Of($u) { @($formats | ForEach-Object { Join-Path $out ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) }) }
+# a picture that is there is left alone: its files are written complete or not at all (render_unit.py), and every game version has its own folder
+function Files-Of($u) { @($formats | ForEach-Object { Join-Path $versionDir ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) }) }
 $todo = New-Object System.Collections.Generic.List[string]; $skipped = 0; $bytes = 0
 foreach ($u in $names) {
     $files = Files-Of $u
-    if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $since }).Count -eq $files.Count) { $skipped++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $todo.Add($u) }
+    if (-not $Force -and @($files | Where-Object { Test-Path $_ }).Count -eq $files.Count) { $skipped++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $todo.Add($u) }
 }
 Write-Host ''
-Write-Host "== 2/2  Rendering $($names.Count) units ($what) as $formatText (default quality and size) into $out ==" -ForegroundColor Cyan
+Write-Host "== 3/3  Pictures of $($names.Count) units ($what) as $formatText (default quality and size) in $versionDir ==" -ForegroundColor Cyan
 $renderLog = Join-Path $env:TEMP 'render_unit_log.txt'
 $work = Join-Path $env:TEMP 'render_unit'          # the work folder of render_unit.py: every picture appears there as a lossless PNG as soon as it is rendered
-if ($skipped) { Write-Host "   $skipped of $($names.Count) pictures are there already (from an earlier run with this game version) and are skipped; -Force renders everything again." -ForegroundColor Green }
+if ($skipped) { Write-Host "   $skipped of $($names.Count) pictures are there already and are skipped." -ForegroundColor Green }
 $t1 = Get-Date; $done = $skipped; $ok = $skipped
 function Show($now, $last) {   # ONE line that is rewritten: counter, percentage, size of the finished pictures, elapsed, ETA with the seconds per picture it is calculated from, last unit
     $el = (Get-Date) - $t1
@@ -133,7 +147,7 @@ $shown = [math]::Floor($skipped / 20)   # the line is rewritten every 20 picture
 for ($i = 0; $i -lt $todo.Count; $i += $chunk) {
     $batch = $todo.GetRange($i, [math]::Min($chunk, $todo.Count - $i))
     $chunkStart = Get-Date
-    $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$out`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $batch
+    $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$versionDir`"", '--game', "`"$gameName`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $batch
     $p = Start-Process python -ArgumentList $renderArgs -RedirectStandardOutput $renderLog -RedirectStandardError "$renderLog.err" -WindowStyle Hidden -PassThru
     $null = $p.Handle
     $mine = New-Object System.Collections.Generic.HashSet[string]; foreach ($u in $batch) { [void]$mine.Add("$u.png") }
@@ -162,10 +176,10 @@ Write-Host "   Unit data:  $($units.FullName)"
 Write-Host ("   Pictures:   {0} of {1} units done ({2} made now, {3} were there already), {4} failed" -f $ok, $names.Count, ($ok - $skipped), $skipped, ($names.Count - $ok - $unsupported.Count))
 if ($unsupported.Count) { Write-Host "   No picture:  $($unsupported -join ', ') (the model is not an S3O file, such models are not supported)" -ForegroundColor Yellow }
 Write-Host ("   Size:       {0:N1} MB in total, {1:N1} KB per picture" -f ($bytes / 1MB), $(if ($ok) { $bytes / $ok / 1KB } else { 0 }))
-Write-Host "   Folder:     $out"
+Write-Host "   Folder:     $versionDir"
 Write-Host ("   Time:       {0} (export {1}, rendering {2})" -f (Clock $total), (Clock ($t1 - $t0)), (Clock ((Get-Date) - $t1)))
 if ($errors.Count) {
-    $errFile = Join-Path $out 'render_errors.txt'
+    $errFile = Join-Path $versionDir 'render_errors.txt'
     $errors | Set-Content $errFile
     Write-Host "   Not rendered (see $errFile): $(($errors | Select-Object -First 10) -join ', ')$(if ($errors.Count -gt 10) { ', ...' })" -ForegroundColor Yellow
     exit 1

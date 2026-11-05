@@ -1,5 +1,5 @@
 @echo off
-rem Asks for the units and the format, then renders the pictures (render_unit.py) into the folder "out" next to this file.
+rem Asks for the units and the format, then renders the pictures (render_unit.py) into website\assets\<game version>\images of the repository.
 setlocal enabledelayedexpansion
 set "NAMES="
 set "FMT="
@@ -27,13 +27,13 @@ echo With several formats the quality of each against the lossless picture can b
 set /p QC=Quality check [Y/n]: 
 if /i "%QC%"=="n" set ARGS=!ARGS! --no-quality-check
 echo.
-echo The Raptors need the unit data of the exporter (units-...json), e.g. exporter\out\units-test-31820-45ea098.json
+echo The Raptors need the unit data of the exporter (units-...json), e.g. website\assets\test-31820-45ea098\data\units-test-31820-45ea098.json
 set /p UNITSFILE=Unit data file [Enter = none]: 
 if defined UNITSFILE set ARGS=%ARGS% --units "%UNITSFILE:"=%"
 echo.
-python "%~dp0render_unit.py" --out "%~dp0out" --format %FMT% %ARGS% %NAMES%
+python "%~dp0render_unit.py" --format %FMT% %ARGS% %NAMES%
 set RC=%ERRORLEVEL%
 echo.
-if %RC%==0 (echo Done. The pictures are in %~dp0out) else (echo FAILED, see the message above.)
+if %RC%==0 (echo Done, the folder is named above.) else (echo FAILED, see the message above.)
 pause
 exit /b %RC%

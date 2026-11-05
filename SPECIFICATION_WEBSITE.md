@@ -1,0 +1,113 @@
+# Unit comparison website
+
+The website of the project: a unit catalog and a comparison of any number of units. The tools that produce its content are described in [SPECIFICATION.md](SPECIFICATION.md); the reduced data comes from `exporter/reduce_units.py`. Look and layout follow the unit pages and the compare page of beyondallreason.info (black background, Poppins, faction colours).
+
+| Part | What it is |
+|---|---|
+| `website/index.html`, `style.css`, `app.js` | the page: plain HTML, CSS and JavaScript, no build step |
+| `website/serve.py`, `serve.bat` | small local web server for testing (a page opened from a file cannot load its data) |
+
+## 1. Data
+
+The page reads everything from `website/assets/` (what of it goes into Git is still open: section 6):
+
+```
+website/assets/                                everything the tools make
+  equivalences.json                            unit name -> equivalence id, for all versions; corrected by hand here, kept by every export
+  versions.json                                the game versions there are, newest last
+  <version>/
+    data/units-<version>.json                  all data of the exporter
+    data/units-<version>.reduced.json.gz       what the website shows
+    images/<unit>.<format>                     the pictures
+    images/icons/<file>.png                    the role icons of the game version
+```
+
+A missing AVIF picture: the page tries WebP, PNG and JPEG, and all of them once more a moment later (a failed request is not always a missing file). The reduced file has 55 KB (the full file 15.7 MB).
+
+**Loaded dynamically:** the page contains no unit data. It reads `versions.json` and loads the `.reduced.json.gz` of the chosen version with `fetch` (default the newest; the choice appears as soon as there are two versions). Pictures and icons come from the folder of that version.
+
+`exporter/export_units.ps1` runs `exporter/reduce_units.py` at the end of every export. It can also be run alone (`python exporter/reduce_units.py`): it makes what is missing, `--force` makes it again. If it fails, the export has still worked and the script only warns. Without the game installed everything but the icons is made; the page works without icons.
+
+### The reduced file
+
+Normal JSON (`{ "format": 1, "gameName": ..., "gameVersion": ..., "count": ..., "units": { "<unit>": { ... } } }`, one unit per line), as **gzip at its maximum** (written with Zopfli, 100 iterations; a normal gzip file, 7-Zip opens it). There is no unpacked version. Measured on `test-31820`:
+
+| Format | Size |
+|---|---|
+| unpacked | 526 KB |
+| gzip -9 | 57.8 KB |
+| **gzip with Zopfli** | **54.6 KB** |
+| for comparison: zstd level 22 | 41 KB |
+| for comparison: Brotli 11 | 37 KB |
+
+**Why gzip and not Brotli or zstd:** they are smaller, but a browser unpacks them only if the server sends the header `Content-Encoding`, and GitHub Pages cannot set headers; the browser's `DecompressionStream` reads gzip everywhere (Edge 156: gzip and deflate, not Brotli or zstd). The page unpacks the file itself, so no server setting is needed (tested with the local server, not on GitHub Pages itself). Of these formats, 7-Zip 26 reads gzip and zstd, not Brotli.
+
+`reduce_units.py` needs `pip install zopfli`; without it it writes the same format with `gzip -9`.
+
+### Fields of a unit in the reduced file
+
+| Field | Page | From `units-<version>.json` |
+|---|---|---|
+| `name`, `description` | name, description | `editor.humanName`, `editor.description`; some units have no translation in the game (the text is a key like `units.names.armprowl`, 14 units): the description is then the name if it is a real text, otherwise the unit name |
+| `faction` | faction filter | `editor.faction`: `arm`, `cor`, `leg`, `scv`, `rap` |
+| `category` | category filter (new property) | see below |
+| `tech` | T1, T2, T3 | `editor.tech` |
+| `icon` | role icon | `game.iconType` -> `bitmap` in `gamedata/icontypes.lua` of the game |
+| `metal`, `energy` | Metal, Energy | `game.metalCost`, `game.energyCost` |
+| `buildTime` | Buildtime | `game.buildTime / 100` in seconds (at a build power of 100), shown as mm:ss |
+| `buildPower` | Buildpower | `game.buildSpeed` |
+| `energyMake` | Energy Make | `game.energyMake - game.energyUpkeep` if above 0 (a solar collector has a negative upkeep), plus `game.windGenerator` and `game.tidalGenerator` |
+| `hitpoints` | Hitpoints | `game.health` |
+| `radar` | Radar Range | `game.radarDistance` |
+| `speed` | Speed | `game.speed`, shown without decimals |
+| `weapons` | Weapons | the different `type` values of `editor.weapons` (`BeamLaser`, ...), without the `bogus` weapons (`customParams.bogus`) |
+| `dps` | DPS | sum over the weapons of `max(damages.default, damages.vtol) * projectiles * salvoSize / reload`; left out: `bogus` weapons, shields, interceptors, paralyzers, stockpile weapons (nukes) and manual-fire weapons (D-gun): their figures do not say what a unit deals continuously |
+| `range` | Weapon Range | `game.maxWeaponRange` |
+
+Checked against the compare page of beyondallreason.info: `armwar` (Centurion) 270 metal, 3100 energy, 00:42, 1590 hitpoints, speed 45, BeamLaser, DPS 183, range 325; `corstorm` (Aggravator) 110, 1150, 00:20, 740, 47, MissileLauncher, 41, 475.
+
+### Category
+
+| Category | Rule, the first that fits |
+|---|---|
+| `factories` | `game.isFactory` |
+| `defense` | `editor.group` = `turrets`, or `editor.filler` (dragon's teeth, walls) |
+| `bots`, `vehicles`, `air`, `sea`, `hover` | `editor.group` = `bot`, `vehicle`, `air`, `ships`, `hover` |
+| `buildings` | all other units |
+
+## 2. Faction colours
+
+As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion green (130, 218, 105), Scavengers purple (175, 105, 225), Raptors black (20, 20, 20). Black text cannot be read on the black page: for the Raptors, names and active buttons are black with a light outline or light text.
+
+## 3. Catalog (`#/catalog/<faction>/<category>`)
+
+- Title: faction and category, next to it "Switch to" with the other factions.
+- Category menu with icons: Bots, Vehicles, Air, Sea, Hover, Factories, Defense, Buildings.
+- **List** or **Grid**, the switch **Show names**; search and T1 / T2 / T3 as additional filters.
+- Units sorted by tech level, then by metal cost. A card has the tech level, the role icon, the picture, the name and the description.
+- A click on a unit marks it for the comparison, a bar at the bottom shows the marked units and leads to the compare page.
+
+## 4. Compare (`#/compare/<unit>,<unit>,...`)
+
+- Any number of columns; "+ Add column" adds one, the columns scroll sideways when they do not fit. The title names the factions ("Armada vs. Cortex"), the buttons below it show all columns or those of one faction.
+- Every column has the same filters: faction, search ("Showing N units"; a search looks in all categories of the faction), category. They open a list of the matching units to choose from.
+- Below that: the picture of the unit, name, description, tech level, the **equivalents** (units with the same id in `equivalences.json`; a click adds a column with that unit; Scavenger copies are only offered for a Scavenger unit) and the values: Metal, Energy, Buildtime, Buildpower, Energy Make, Hitpoints, Radar Range, Speed, Weapons, DPS, Weapon Range.
+- The bars of a row are scaled to the largest value of that row among the shown units. A value of 0 shows no bar.
+- With exactly two columns the bars are mirrored and meet in the middle, as on the page of beyondallreason.info; with any other number they all run from left to right.
+- The address holds the chosen units, so a comparison can be kept as a link.
+
+## 5. Running it
+
+```
+"export and render all units.bat"    (makes what is missing: data and pictures)
+website\serve.bat                    (or python website/serve.py [--port 8000]; opens http://localhost:8000/)
+```
+
+The server listens only on `127.0.0.1` and serves the folder `website/` (the page takes its data from `assets/` next to it). It keeps its connections open (HTTP/1.1): one connection per picture used up the buffers of Windows on pages with hundreds of pictures. The font Poppins comes from Google Fonts; without internet the page uses a system font.
+
+## 6. Open
+
+- What of `website/assets/` is checked in: the repository is public and most models and textures are under CC BY-NC-ND (`SPECIFICATION.md`, sections 7 and 8).
+- Showing the differences between two game versions (`SPECIFICATION.md`, section 3.5) is not built; the data of several versions is already loaded per version (section 1).
+- A 3D view of the model is not built (`SPECIFICATION.md`, section 4.2).
+- `equivalences.json` is still the generated proposal: many units have no partner until the ids are corrected by hand.

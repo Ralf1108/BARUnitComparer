@@ -15,13 +15,14 @@ powershell -File export_units.ps1 [-Out <folder>] [-Data <folder>] [-Work <folde
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `-Out` | `out` next to the script | Folder for the result files. An `equivalences.json` that is already there is given to the game first: its ids stay, only new units are added |
+| `-Out` | `website/assets` | Folder for the results, see below. An `equivalences.json` that is already there is given to the game first: its ids stay, only new units are added |
 | `-Data` | `BAR_DATA`, else the usual places | The data folder of the BAR installation (the one with `packages`, `pool`, `engine`, `cache`). A given folder that is none is an error |
 | `-Work` | `%TEMP%\unit_export` | Sandbox: the game's own write folder with widget, config and log |
 | `-WaitSec` | 300 | How long to wait for the export before the game is ended (the first start of a version can take a while) |
 | `-Map` | `Hooked 1.1.1`, else the first installed map | Map to load. Any map will do, only the units are read; a small one loads fast |
 | `-Game` | the installed one | Game as the engine names it, e.g. `Beyond All Reason test-31820-45ea098` (to export an older installed version) |
 | `-Engine` | the newest | Name of the engine folder in `<Data>\engine` (an old game version may need the engine of its time) |
+| `-PrintGame` | off | Only prints the game that would be exported and ends |
 
 Game and map are checked in the engine's archive cache before the start (otherwise the engine would wait at a message box). Exit code 1 and `ERROR: ...` on stderr if the export failed; nothing is copied then.
 
@@ -29,8 +30,9 @@ Game and map are checked in the engine's archive cache before the start (otherwi
 
 | File | Content |
 |---|---|
-| `units-<game version>.json` | One line per unit: `game` (all fields of the unit definition) and `editor` (faction, group, tech level, names, model, weapons with all fields and damage per armor class, what it builds, main shot figures) |
+| `<version>/data/units-<version>.json` | One line per unit: `game` (all fields of the unit definition) and `editor` (faction, group, tech level, names, model, weapons with all fields and damage per armor class, what it builds, main shot figures) |
 | `equivalences.json` | Unit name -> equivalence id. Units with the same id belong together. One file for all game versions; meant to be corrected by hand |
+| `<version>/data/units-<version>.reduced.json.gz` | Only the values the website shows, plus the new property `category`; also `<version>/images/icons/` (the role icons of the game) and `versions.json`. Made by `reduce_units.py`, which also runs alone and makes only what is missing: `python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--force]`. Needs Python, for the smallest file with `zopfli` (`pip install zopfli`); if it fails the export has still worked and the script warns |
 
 The export does not depend on a list of fields: everything the engine knows about a unit and a weapon is written, so new fields of a newer version appear by themselves.
 
@@ -45,6 +47,7 @@ The export does not depend on a list of fields: everything the engine knows abou
 | File | |
 |---|---|
 | `export_units.ps1`, `export_units.bat` | start script and double-click starter |
+| `reduce_units.py` | the reduced data for the website |
 | `unit-export.lua` | the widget that runs in the game |
 | `lua/led_export.lua` | the export code (JSON writing, field walk, equivalences) |
 | `lua/editor_common.lua`, `lua/bar_rules.lua` | the unit catalog (faction, type, tech level) and the rules behind it; copies from the BARLevelEditor project |

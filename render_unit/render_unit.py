@@ -355,7 +355,7 @@ def ensure_node_modules():
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0], fromfile_prefix_chars='@')
     ap.add_argument('units', nargs='+', help='unit names (armllt, legnavyscout, ...); @file: a file with one name per line')
-    ap.add_argument('--out', default=str(HERE / 'out'), help='folder for the pictures (default: out next to this script)')
+    ap.add_argument('--out', default='', help='folder for the pictures (default: website/assets/<game version>/images of the repository)')
     ap.add_argument('--units', dest='units_file', default='', metavar='FILE', help='units-<game version>.json of the exporter: the model, script and faction of every unit come from it (needed for Raptors); without it the model is looked for by the unit name')
     ap.add_argument('--data', default='', help='data folder of the BAR installation (only read); default: $BAR_DATA, otherwise the usual places')
     ap.add_argument('--game', default='', help='"Beyond All Reason <version>"; default: the newest installed game')
@@ -379,7 +379,7 @@ def main():
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
     ap.add_argument('-v', '--verbose', action='store_true', help='say which pieces are left out and which team colour is used')
     a = ap.parse_args()
-    work, out = Path(a.work), Path(a.out)
+    work = Path(a.work)
     clock = [time.time()]
     def lap(what):   # with -v: how long each phase took
         if a.verbose:
@@ -395,6 +395,7 @@ def main():
     data_dir = find_data_dir(a.data)
     sdp, game = find_game(data_dir, a.game)
     print(f'game: {game}', flush=True)
+    out = Path(a.out) if a.out else HERE.parent / 'website' / 'assets' / re.sub(r'[^A-Za-z0-9._-]', '_', game.replace('Beyond All Reason ', '', 1)) / 'images'
     pool = Pool(data_dir, sdp)
     info = load_units(a.units_file, game)
     (work / 'models').mkdir(parents=True, exist_ok=True)
