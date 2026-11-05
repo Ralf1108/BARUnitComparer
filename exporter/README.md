@@ -15,7 +15,7 @@ powershell -File export_units.ps1 [-Out <folder>] [-Data <folder>] [-Work <folde
 
 | Parameter | Default | Meaning |
 |---|---|---|
-| `-Out` | `website/assets` | Folder for the results, see below. An `equivalences.json` that is already there is given to the game first: its ids stay, only new units are added |
+| `-Out` | `website/assets` | Folder for the results, see below. A `counterparts.json` that is already there is given to the game first: its ids stay, only new units are added |
 | `-Data` | `BAR_DATA`, else the usual places | The data folder of the BAR installation (the one with `packages`, `pool`, `engine`, `cache`). A given folder that is none is an error |
 | `-Work` | `%TEMP%\unit_export` | Sandbox: the game's own write folder with widget, config and log |
 | `-WaitSec` | 300 | How long to wait for the export before the game is ended (the first start of a version can take a while) |
@@ -31,7 +31,7 @@ Game and map are checked in the engine's archive cache before the start (otherwi
 | File | Content |
 |---|---|
 | `<version>/data/units-<version>.json` | One line per unit: `game` (all fields of the unit definition) and `editor` (faction, group, tech level, names, model, weapons with all fields and damage per armor class, what it builds, main shot figures) |
-| `equivalences.json` | Unit name -> equivalence id. Units with the same id belong together. One file for all game versions; meant to be corrected by hand |
+| `counterparts.json` | Unit name -> counterpart id. Units with the same id belong together. One file for all game versions; meant to be corrected by hand |
 | `<version>/data/units-<version>.reduced.json.gz` | Only the values the website shows, plus the new property `category`; also `<version>/images/icons/` (the role icons of the game) and `versions.json`. Made by `reduce_units.py`, which also runs alone and makes only what is missing: `python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--force]`. Needs Python, for the smallest file with `zopfli` (`pip install zopfli`); if it fails the export has still worked and the script warns |
 
 The export does not depend on a list of fields: everything the engine knows about a unit and a weapon is written, so new fields of a newer version appear by themselves.
@@ -50,5 +50,5 @@ The export does not depend on a list of fields: everything the engine knows abou
 | `reduce_units.py` | the reduced data for the website |
 | `export_counters.py`, `export_counters.bat` | separate from the game export: fetches the counter charts of Armada and Cortex from beyondallreason.info and writes `website/assets/counters.json` (`python exporter/export_counters.py [--out FILE]`). The file maps a unit codename to the codenames of the units that counter it: `{"counters": {"corak": ["armwar", "armllt", "armbeamer"], ...}}`. The website's **Counters** button uses it. Codenames that the newest unit data does not know are reported |
 | `unit-export.lua` | the widget that runs in the game |
-| `lua/led_export.lua` | the export code (JSON writing, field walk, equivalences) |
+| `lua/led_export.lua` | the export code (JSON writing, field walk, counterparts) |
 | `lua/editor_common.lua`, `lua/bar_rules.lua` | the unit catalog (faction, type, tech level) and the rules behind it; copies from the BARLevelEditor project |

@@ -33,7 +33,7 @@ const STATS = [
 
 const app = document.getElementById('app');
 const state = {
-  units: {}, equivalent: {}, versions: [], version: '',
+  units: {}, counterpart: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
   columns: [],
@@ -95,10 +95,10 @@ async function start() {
     return;
   }
   try {
-    const eq = (await loadJson('equivalences.json')).units;   // id -> units; without the file there are simply no equivalents
-    for (const [unit, id] of Object.entries(eq)) (state.equivalent[id] = state.equivalent[id] || []).push(unit);
-    state.equivalenceOf = eq;
-  } catch { state.equivalenceOf = {}; }
+    const eq = (await loadJson('counterparts.json')).units;   // id -> units; without the file there are simply no counterparts
+    for (const [unit, id] of Object.entries(eq)) (state.counterpart[id] = state.counterpart[id] || []).push(unit);
+    state.counterpartOf = eq;
+  } catch { state.counterpartOf = {}; }
   try { state.counters = (await loadJson('counters.json')).counters; } catch { state.counters = {}; }   // unit -> the units that counter it (exporter/export_counters.py)
   window.addEventListener('hashchange', route);
   route();
@@ -278,19 +278,19 @@ function pickerHtml(c, list) {
 // the units that counter this one (a scavenger unit like its normal unit)
 const countersOf = unit => (state.counters[unit.replace(/_scav$/, '')] || []).filter(n => state.units[n]);
 
-function equivalentsOf(unit) {
-  const id = state.equivalenceOf[unit];
+function counterpartsOf(unit) {
+  const id = state.counterpartOf[unit];
   if (id === undefined) return [];
   const own = state.units[unit];
-  return (state.equivalent[id] || []).filter(n => n !== unit && state.units[n] && (own.faction === 'scv' ? true : state.units[n].faction !== 'scv'));
+  return (state.counterpart[id] || []).filter(n => n !== unit && state.units[n] && (own.faction === 'scv' ? true : state.units[n].faction !== 'scv'));
 }
 
 function unitHtml(c, u) {
-  const eq = equivalentsOf(c.unit);
+  const eq = counterpartsOf(c.unit);
   return `<div class="c-pic">${pictureTag(c.unit, '')}<button class="x square" data-a="col-unit-clear" title="Choose another unit">&#10005;</button></div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
-    ${eq.length ? `<div class="c-eq">Equivalent: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
+    ${eq.length ? `<div class="c-eq">Counterparts: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
 }
 
 function statHtml(s, u, max, ref) {

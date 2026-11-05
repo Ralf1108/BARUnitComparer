@@ -1,10 +1,10 @@
--- Export buttons of the settings page (button O) of the Level Editor: "Export Units Info" and "Export Equivalence".
+-- Export buttons of the settings page (button O) of the Level Editor: "Export Units Info" and "Export Counterparts".
 -- Loaded by lvl_level_editor.lua (VFS.Include("luaui/Include/led_export.lua")) as a function that gets the host and returns the table `ex`:
--- ex.actions (the buttons for Shared.newOptions: { label, tip, fn }; fn returns the message shown under the buttons), ex.exportUnits(), ex.exportEquivalence()
+-- ex.actions (the buttons for Shared.newOptions: { label, tip, fn }; fn returns the message shown under the buttons), ex.exportUnits(), ex.exportCounterparts()
 -- (both return the message and true if they succeeded, false if not).
 --   host.Shared, host.outDir ("LevelEditor/"), host.say(text); host.dir (optional): the folder of the two files, with a "/" at the end
 -- (default <outDir>Other/; unit-export.lua, a user widget, sets it to a folder it may write to)
--- Both files go to <outDir>Other/ in the data folder of the game (units-<game version>.json, equivalences.json). Their content and use: SPECIFICATION.md.
+-- Both files go to <outDir>Other/ in the data folder of the game (units-<game version>.json, counterparts.json). Their content and use: SPECIFICATION.md.
 return function(host)
 	local Shared = host.Shared
 	local DIR = host.dir or (host.outDir .. "Other/")
@@ -323,8 +323,8 @@ return function(host)
 		return string.format("Exported %d units (%.1f MB) to\n%s%s", #list, size / 1e6, DIR, file), true
 	end
 
-	---------------------------------------------------------------- the equivalence ids
-	-- Proposal of the equivalence id of a unit: the name without the faction letters (armllt, corllt, legllt -> llt); a Scavenger copy gets the id of its unit,
+	---------------------------------------------------------------- the counterpart ids
+	-- Proposal of the counterpart id of a unit: the name without the faction letters (armllt, corllt, legllt -> llt); a Scavenger copy gets the id of its unit,
 	-- a raptor and a unit of no faction its own name. The proposals are only a start: the file is corrected by hand (SPECIFICATION.md).
 	local function proposal(name)
 		local key, base = Shared.factionOf(name)
@@ -338,7 +338,7 @@ return function(host)
 		return base
 	end
 
-	-- The unit names and ids of an equivalences.json: { name = id }; nil if the text has no "units" object. The file has a simple shape (written by this module, corrected
+	-- The unit names and ids of a counterparts.json: { name = id }; nil if the text has no "units" object. The file has a simple shape (written by this module, corrected
 	-- by hand), so no JSON library is needed (the unit export widget of a plain game cannot load the game's json.lua): the pairs "name": "id" inside "units".
 	local UNESC = { b = "\b", f = "\f", n = "\n", r = "\r", t = "\t", ['"'] = '"', ["\\"] = "\\", ["/"] = "/" }
 
@@ -388,9 +388,9 @@ return function(host)
 		end
 	end
 
-	-- The unit names and ids of an equivalences.json: { name = id }. Returns nil and the reason (with the line) if the file cannot be read completely, so that nothing is
+	-- The unit names and ids of a counterparts.json: { name = id }. Returns nil and the reason (with the line) if the file cannot be read completely, so that nothing is
 	-- lost when it is written again. Small JSON reader for the "units" object only (the widget of a plain game cannot load the game's json.lua); texts may have escapes.
-	local function parseEquivalence(text)
+	local function parseCounterparts(text)
 		local function fail(at, why)
 			local _, lines = text:sub(1, at):gsub("\n", "")
 			return nil, string.format("line %d: %s", lines + 1, why)
@@ -444,15 +444,15 @@ return function(host)
 		end
 	end
 
-	-- Writes equivalences.json: { "version": 1, "units": { "<unit name>": "<equivalence id>", ... } }, one unit per line. An existing file is kept as it is:
+	-- Writes counterparts.json: { "version": 1, "units": { "<unit name>": "<counterpart id>", ... } }, one unit per line. An existing file is kept as it is:
 	-- the ids that are in it stay (they were corrected by hand), only the units that are not in it yet are added, with a proposed id.
-	function ex.exportEquivalence()
+	function ex.exportCounterparts()
 		local old = {}
-		local text = readFile("equivalences.json")
+		local text = readFile("counterparts.json")
 		if text then
-			local data, why = parseEquivalence(text)
+			local data, why = parseCounterparts(text)
 			if not data then
-				return "equivalences.json cannot be read (" .. why .. "), left as it is:\n" .. DIR .. "equivalences.json", false
+				return "counterparts.json cannot be read (" .. why .. "), left as it is:\n" .. DIR .. "counterparts.json", false
 			end
 			old = data
 		end
@@ -479,18 +479,18 @@ return function(host)
 			lines[#lines + 1] = "\t" .. quote(name) .. ": " .. quote(ids[name])
 		end
 		local out = '{\n"version": 1,\n"units": {\n' .. table.concat(lines, ",\n") .. "\n}\n}\n"
-		local ok, err = writeFile("equivalences.json", out)
+		local ok, err = writeFile("counterparts.json", out)
 		if not ok then
-			return "Could not write " .. DIR .. "equivalences.json: " .. err, false
+			return "Could not write " .. DIR .. "counterparts.json: " .. err, false
 		end
-		return string.format("equivalences.json: %d units kept, %d added\n(%s)", kept, added, DIR), true
+		return string.format("counterparts.json: %d units kept, %d added\n(%s)", kept, added, DIR), true
 	end
 
 	ex.actions = {
 		{ label = "Export Units Info", tip = "Writes the data of all units (the ones of the Place menu, all factions) into units-<game version>.json in the folder LevelEditor/Other of the game's data folder (the version is in the file name and in the file)",
 			fn = function() local m = ex.exportUnits(); host.say((m:gsub("\n", " "))); return m end },
-		{ label = "Export Equivalence", tip = "Writes equivalences.json (unit name and equivalence id) into LevelEditor/Other: the units with the same id are shown side by side on the website. An existing file is kept, only new units are added",
-			fn = function() local m = ex.exportEquivalence(); host.say((m:gsub("\n", " "))); return m end },
+		{ label = "Export Counterparts", tip = "Writes counterparts.json (unit name and counterpart id) into LevelEditor/Other: the units with the same id are shown side by side on the website. An existing file is kept, only new units are added",
+			fn = function() local m = ex.exportCounterparts(); host.say((m:gsub("\n", " "))); return m end },
 	}
 	-- test hooks (the test widget is a user widget and may not open files in the data folder)
 	ex.actions.read, ex.actions.write, ex.actions.unitsFile = readFile, writeFile, ex.unitsFileName

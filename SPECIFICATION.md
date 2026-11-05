@@ -21,7 +21,7 @@ All tools write into `website/assets/`, per game version (checked in, so a delet
 
 ```
 website/assets/                                everything the tools make
-  equivalences.json                            unit name -> equivalence id, for all versions; corrected by hand here, kept by every export
+  counterparts.json                            unit name -> counterpart id, for all versions; corrected by hand here, kept by every export
   versions.json                                the game versions there are, newest last
   <version>/
     data/units-<version>.json                  all data of the exporter
@@ -38,13 +38,13 @@ The data comes from the **running normal game** (not from the Level Editor): it 
 
 | File | What it is |
 |---|---|
-| `unit-export.lua` | widget for a plain BAR game: a moment after the start (game frame 5) it writes `units-<version>.json`, `equivalences.json` and `status.txt` ("ok ..." or "error ...") into `LuaUI/Config/WebsiteExport/` (a user widget may write only into `LuaUI/Config` and `LuaUI/Widgets`); if `quit.txt` is there, the game ends itself (`quitforce`) |
+| `unit-export.lua` | widget for a plain BAR game: a moment after the start (game frame 5) it writes `units-<version>.json`, `counterparts.json` and `status.txt` ("ok ..." or "error ...") into `LuaUI/Config/WebsiteExport/` (a user widget may write only into `LuaUI/Config` and `LuaUI/Widgets`); if `quit.txt` is there, the game ends itself (`quitforce`) |
 | `export_units.ps1`, `export_units.bat` | start script (PowerShell, Windows; the `.bat` is a double click): starts the game in a sandbox folder with the widget, waits, moves the result to `-Out`, deletes the sandbox, runs `reduce_units.py` |
 | `reduce_units.py` | makes the small data file of the website from `units-<version>.json` (`SPECIFICATION_WEBSITE.md`, section 1); it is written next to the full file, the icons to `images/icons/` of that version |
-| `lua/led_export.lua` | the export code the widget calls: `exportUnits()`, `exportEquivalence()` |
+| `lua/led_export.lua` | the export code the widget calls: `exportUnits()`, `exportCounterparts()` |
 | `lua/editor_common.lua`, `lua/bar_rules.lua` | the unit catalog (faction, type, tech level, water, filler: `buildUnitCache`), the main weapon figures (`shotInfo`) and their rules |
 
-The three Lua files are **copies** of `LevelEditor/scripts/led_export.lua`, `shared/editor_common.lua` and `shared/bar_rules.lua` of the BARLevelEditor repository (state 2026-11-05, commit `86df38f`). One change was made: `exportUnits()` / `exportEquivalence()` also return whether they succeeded, and a failed write is an error (a new copy has to keep this). `editor_common.lua` is large because the Level Editor's menus live in it; only the catalog is used. The Level Editor's own export buttons are **not** a source: the editor game changes data (the `builds` lists of 66 builders and the model fields of 16 units differ).
+The three Lua files are **copies** of `LevelEditor/scripts/led_export.lua`, `shared/editor_common.lua` and `shared/bar_rules.lua` of the BARLevelEditor repository (state 2026-11-05, commit `86df38f`). One change was made: `exportUnits()` / `exportCounterparts()` also return whether they succeeded, and a failed write is an error (a new copy has to keep this). `editor_common.lua` is large because the Level Editor's menus live in it; only the catalog is used. The Level Editor's own export buttons are **not** a source: the editor game changes data (the `builds` lists of 66 builders and the model fields of 16 units differ).
 
 ### 3.1 `units-<game version>.json`
 
@@ -79,15 +79,15 @@ One unit per line, sorted by unit name, keys sorted (two exports of the same gam
 
 Damage per second of a weapon: `damages.default * projectiles * salvoSize / reload` (anti-air weapons: class `vtol`).
 
-### 3.2 `equivalences.json`
+### 3.2 `counterparts.json`
 
 ```
 { "version": 1, "units": { "armsolar": "solar", "corsolar": "solar", "legsolar": "solar" } }
 ```
 
-Unit name -> equivalence id. The id is a free text; units with the same id belong together. **One file for all game versions** (not versioned): a name without a unit in the chosen version is simply unused. The file is **meant to be corrected by hand** and kept in `website/assets/`: the first export writes a proposal, later exports only **add** units that are not in it yet; an id that is there is never changed, no line is removed. The proposal: the unit name without the three faction letters (`armsolar` -> `solar`), a Scavenger copy gets the id of its unit, a raptor its own name. Not all will be right (there is no `legllt`, the Legion light laser tower has another name and gets an id of its own until corrected). To correct: same id for units that belong together, a unique id for a unit alone; units of one faction may share an id too.
+Unit name -> counterpart id. The id is a free text; units with the same id belong together. **One file for all game versions** (not versioned): a name without a unit in the chosen version is simply unused. The file is **meant to be corrected by hand** and kept in `website/assets/`: the first export writes a proposal, later exports only **add** units that are not in it yet; an id that is there is never changed, no line is removed. The proposal: the unit name without the three faction letters (`armsolar` -> `solar`), a Scavenger copy gets the id of its unit, a raptor its own name. Not all will be right (there is no `legllt`, the Legion light laser tower has another name and gets an id of its own until corrected). To correct: same id for units that belong together, a unique id for a unit alone; units of one faction may share an id too.
 
-An existing `website/assets/equivalences.json` is given to the game first. It is read with a small JSON reader (ids may contain any character, also quotes, backslashes, escapes). A file that cannot be read completely (no `"units"` object, a broken line) is left as it is and the export fails with the line number, so no id is lost. Other top-level keys are not kept.
+An existing `website/assets/counterparts.json` is given to the game first. It is read with a small JSON reader (ids may contain any character, also quotes, backslashes, escapes). A file that cannot be read completely (no `"units"` object, a broken line) is left as it is and the export fails with the line number, so no id is lost. Other top-level keys are not kept.
 
 ### 3.3 Using the start script
 
@@ -100,7 +100,7 @@ An existing `website/assets/equivalences.json` is given to the game first. It is
 - `-Map` (default `Hooked 1.1.1`, else the first installed map): any map will do; the default is small (19 MB) so that the game loads fast. Game and map are checked in the archive cache before the start, because otherwise the engine waits at a message box.
 - `-Game`: default the installed one (`byar:test`, else `byar:stable`, whichever has its package installed). `-Engine`: folder name in `<Data>\engine`, default the newest. `-PrintGame`: only prints the game that would be exported and ends, without starting anything.
 - The game opens in a small framed window that is put to the back and ends itself; only the process the script started is ever stopped (after `-WaitSec`). The script explains why the game is started (the values come from the running game) and shows four steps: sandbox, game start, waiting (a note every 15 s), result.
-- Exit code 1 and `ERROR: ...` on stderr if the game or map is not installed, the game ended or timed out without a result, or the widget reports an error (no units, unwritable file, broken `equivalences.json`, memory limit, ...). Nothing is copied to `-Out` then.
+- Exit code 1 and `ERROR: ...` on stderr if the game or map is not installed, the game ended or timed out without a result, or the widget reports an error (no units, unwritable file, broken `counterparts.json`, memory limit, ...). Nothing is copied to `-Out` then.
 
 What the script sets (relevant if the game is started another way):
 - the Lua files into `LuaUI/Include/`, the widget into `LuaUI/Widgets/`, `LuaUI/Config/WebsiteExport/quit.txt`;
@@ -199,7 +199,7 @@ The rendered pictures, the role icons and the converted textures are probably de
 ## 8. Next steps and open points
 
 - Ask the BAR developers whether the published pictures and the site are in order (section 7).
-- Correct `website/assets/equivalences.json` by hand.
+- Correct `website/assets/counterparts.json` by hand.
 - Choose the final picture format and quality for the website (AVIF 70 is the default so far).
 - Try the exporter with an older game version (section 3.5).
 - Not covered: units of other games or mods (the file has what the running game knows); animations; shine and glow in the 3D view (texture 2 of the S3O) if it is built with colour only at first.

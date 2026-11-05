@@ -1,7 +1,7 @@
 # Unit export for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-export.lua write the data of all units, and copies the result to -Out:
 #   <Out>\<version>\data\units-<version>.json   all units with their values (the version of the game is in the name and in the file)
-#   <Out>\equivalences.json                     the equivalence ids, for all versions (an existing file is given to the game first: its ids are kept, only new units are added)
+#   <Out>\counterparts.json                     the counterpart ids, for all versions (an existing file is given to the game first: its ids are kept, only new units are added)
 #   <Out>\<version>\data\units-<version>.reduced.json.gz and <Out>\<version>\images\icons\   the data of the website (reduce_units.py)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
@@ -130,7 +130,7 @@ Copy-Item $archiveCache "$d\cache\"
 Copy-Item (Join-Path $here 'unit-export.lua') "$d\LuaUI\Widgets\"
 Copy-Item (Join-Path $here 'lua\*.lua') "$d\LuaUI\Include\"
 Set-Content (Join-Path $we 'quit.txt') 'quit'   # the widget ends the game when it is through
-if (Test-Path (Join-Path $Out 'equivalences.json')) { Copy-Item (Join-Path $Out 'equivalences.json') $we }   # the ids that were corrected by hand stay
+if (Test-Path (Join-Path $Out 'counterparts.json')) { Copy-Item (Join-Path $Out 'counterparts.json') $we }   # the ids that were corrected by hand stay
 
 # one human player, one AI, the game option forceallunits=1 (without it the Scavenger and Raptor units do not exist)
 $script = @"
@@ -198,8 +198,8 @@ Get-ChildItem $we -Filter 'units-*.json' | ForEach-Object {
     $exported += (Join-Path $folder $_.Name)
     "moved $($_.Name) ($size MB) to $folder"
 }
-Move-Item (Join-Path $we 'equivalences.json') $Out -Force
-"moved equivalences.json to $Out"
+Move-Item (Join-Path $we 'counterparts.json') $Out -Force
+"moved counterparts.json to $Out"
 
 # the data of the website: the reduced file, the list of versions, the icons. A problem here is a warning: the export itself has worked
 $reduced = $false

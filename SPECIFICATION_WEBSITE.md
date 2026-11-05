@@ -13,7 +13,7 @@ The page reads everything from `website/assets/` (all of it is in Git; the full 
 
 ```
 website/assets/                                everything the tools make
-  equivalences.json                            unit name -> equivalence id, for all versions; corrected by hand here, kept by every export
+  counterparts.json                            unit name -> counterpart id, for all versions; corrected by hand here, kept by every export
   versions.json                                the game versions there are, newest last
   <version>/
     data/units-<version>.json                  all data of the exporter
@@ -91,7 +91,7 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 
 - Any number of columns; "+ Add column" adds one, the columns scroll sideways when they do not fit. The title names the factions ("Armada vs. Cortex"), the buttons below it show all columns or those of one faction.
 - Every column has the same filters: faction, search ("Showing N units"; a search looks in all categories of the faction), category. They open a list of the matching units to choose from.
-- Below that: the picture of the unit, name, description, tech level, the **equivalents** (units with the same id in `equivalences.json`; a click adds a column with that unit; Scavenger copies are only offered for a Scavenger unit) and the values: Metal, Energy, Buildtime, Buildpower, Energy Make, Hitpoints, Radar Range, Speed, Weapons, DPS, Weapon Range.
+- Below that: the picture of the unit, name, description, tech level, the **counterparts** (units with the same id in `counterparts.json`; a click adds a column with that unit; Scavenger copies are only offered for a Scavenger unit) and the values: Metal, Energy, Buildtime, Buildpower, Energy Make, Hitpoints, Radar Range, Speed, Weapons, DPS, Weapon Range.
 - The bars of a row are scaled to the largest value of that row among the shown units. A value of 0 shows no bar.
 - With exactly two columns the bars are mirrored and meet in the middle, as on the page of beyondallreason.info; with any other number they all run from left to right.
 - The address holds the chosen units, so a comparison can be kept as a link.
@@ -122,4 +122,4 @@ The site is published from the folder `website/` by the workflow `.github/workfl
 - The BAR developers still have to be asked whether the published pictures are in order (section 6).
 - Showing the differences between two game versions (`SPECIFICATION.md`, section 3.5) is not built; the data of several versions is already loaded per version (section 1).
 - A 3D view of the model is not built (`SPECIFICATION.md`, section 4.2).
-- `equivalences.json` is still the generated proposal: many units have no partner until the ids are corrected by hand.
+- `counterparts.json` is still the generated proposal: many units have no partner until the ids are corrected by hand.

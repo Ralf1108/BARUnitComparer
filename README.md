@@ -37,7 +37,7 @@ Install BAR and start it once (so that a game has been loaded), then double clic
 Unit catalog and comparison in the look of beyondallreason.info, plain HTML, CSS and JavaScript. Details: [SPECIFICATION_WEBSITE.md](SPECIFICATION_WEBSITE.md).
 
 - **Catalog:** all units by faction (Armada, Cortex, Legion, Scavengers, Raptors) and category (Bots, Vehicles, Air, Sea, Hover, Factories, Defense, Buildings), as grid or list, with names on or off, search and tech level filter.
-- **Compare:** any number of units side by side, each column with its own faction, search and category filter; picture, values as bars and the equivalent units of the other factions. The comparison can be kept as a link.
+- **Compare:** any number of units side by side, each column with its own faction, search and category filter; picture, values as bars and the counterpart units of the other factions. The comparison can be kept as a link.
 - **Online:** published with GitHub Pages from the folder `website/` (workflow `.github/workflows/pages.yml`): https://ralf1108.github.io/BARUnitComparer/
 - **Data:** the page loads a small file with the values it shows, per game version: 55 KB as gzip instead of 15.7 MB, made by the exporter.
 
@@ -47,7 +47,7 @@ Reads the data of **all units from the running game** and writes it as JSON. Det
 
 - Starts the installed game once, in a small window in the background, and ends it by itself; the installation is only read, nothing in it is changed.
 - Writes `units-<game version>.json`: every field the game has for a unit and its weapons (about 15 MB, 1663 units), plus faction, type, tech level, names, the list of what a unit can build and damage figures.
-- Writes `equivalences.json`: which units of the different factions belong together (a proposal, to be corrected by hand; later exports only add new units).
+- Writes `counterparts.json`: which units of the different factions belong together (a proposal, to be corrected by hand; later exports only add new units).
 - Works with any BAR installation and any game version that is installed; the version is part of the file name, so exports of several versions lie side by side.
 - Writes a reduced version of the unit data for the website (`reduce_units.py`).
 - Clear error messages instead of a hanging game (missing game or map, timeout, broken files).
