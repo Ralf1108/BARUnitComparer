@@ -1,0 +1,136 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>html,body{margin:0;background:transparent}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
+</head><body>
+<script type="module">
+// One picture of one unit (specification.md, section 12). Called by render.mjs with the query ?model=<s3o>&tex=<folder with albedo/emissive/orm/normal.png>&size=<px>;
+// every other value below can be overridden in the query (e.g. &sun=2.5), the defaults are the tuned look.
+import * as THREE from 'three';
+
+const q = new URLSearchParams(location.search);
+const P = (k, d) => q.has(k) ? parseFloat(q.get(k)) : d;
+const SIZE = P('size', 400), TEX = q.get('tex'), MODEL = q.get('model');
+
+// ---------------------------------------------------------------- S3O (specification.md, section 3.1): positions as they are (no mirroring)
+function parseS3O(buf) {
+  const dv = new DataView(buf);
+  const u32 = o => dv.getUint32(o, true), f32 = o => dv.getFloat32(o, true);
+  const pos = [], nor = [], uv = [];
+  function piece(off, ox, oy, oz) {
+    const nChild = u32(off + 4), childOff = u32(off + 8), nV = u32(off + 12), vOff = u32(off + 16);
+    const primType = u32(off + 24), nIdx = u32(off + 28), idxOff = u32(off + 32);
+    const px = ox + f32(off + 40), py = oy + f32(off + 44), pz = oz + f32(off + 48);
+    const base = pos.length / 3;
+    for (let i = 0; i < nV; i++) {
+      const o = vOff + i * 32;
+      pos.push(f32(o) + px, f32(o + 4) + py, f32(o + 8) + pz);
+      nor.push(f32(o + 12), f32(o + 16), f32(o + 20));
+      uv.push(f32(o + 24), f32(o + 28));
+    }
+    const idx = [];
+    const I = k => u32(idxOff + k * 4) + base;
+    if (primType === 0) for (let i = 0; i + 2 < nIdx; i += 3) idx.push(I(i), I(i + 1), I(i + 2));
+    else if (primType === 1) for (let i = 0; i + 2 < nIdx; i++) { if (i % 2) idx.push(I(i + 1), I(i), I(i + 2)); else idx.push(I(i), I(i + 1), I(i + 2)); }
+    else if (primType === 2) for (let i = 0; i + 3 < nIdx; i += 4) idx.push(I(i), I(i + 1), I(i + 2), I(i), I(i + 2), I(i + 3));
+    const all = [idx];
+    for (let c = 0; c < nChild; c++) all.push(piece(u32(childOff + c * 4), px, py, pz));
+    return all.flat();
+  }
+  const index = piece(u32(12 + 4 + 8 + 12), 0, 0, 0);   // root piece offset: after "Spring unit\0", version, radius, height, midX/Y/Z
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(index);
+  return g;
+}
+
+const loadTex = (url, srgb) => new Promise((res, rej) => new THREE.TextureLoader().load(url, t => {
+  t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  t.anisotropy = 16; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
+  res(t);
+}, undefined, () => rej(new Error('cannot load ' + url))));
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE); renderer.setClearColor(0x000000, 0);
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
+renderer.toneMapping = THREE.NoToneMapping;
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// own studio for the reflections: warm ground, light sky, two soft boxes (so that metal does not just mirror a grey room)
+function makeEnv() {
+  const s = new THREE.Scene();
+  s.add(new THREE.Mesh(new THREE.SphereGeometry(50, 48, 24), new THREE.ShaderMaterial({ side: THREE.BackSide,
+    uniforms: { top: { value: new THREE.Vector3(0.70, 0.78, 0.92) }, hor: { value: new THREE.Vector3(0.85, 0.74, 0.58) }, bot: { value: new THREE.Vector3(0.10, 0.07, 0.045) } },
+    vertexShader: 'varying vec3 p; void main(){ p = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'varying vec3 p; uniform vec3 top; uniform vec3 hor; uniform vec3 bot; void main(){ float h = p.y; vec3 c = h > 0.0 ? mix(hor, top, pow(h, 0.6)) : mix(hor, bot, pow(-h, 0.5)); gl_FragColor = vec4(c, 1.0); }' })));
+  const box = (x, y, z, w, h, k) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ color: new THREE.Color(k, k, k * 0.95), side: THREE.DoubleSide })); m.position.set(x, y, z); m.lookAt(0, 0, 0); s.add(m); };
+  box(25, 30, -20, 22, 14, 9); box(-30, 22, 10, 16, 16, 4);
+  return s;
+}
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(makeEnv(), 0.04).texture;
+scene.environmentIntensity = P('env', 0.55);
+
+const [albedo, emissive, orm, normal] = await Promise.all([
+  loadTex(`${TEX}/albedo.png`, true), loadTex(`${TEX}/emissive.png`, true), loadTex(`${TEX}/orm.png`, false), loadTex(`${TEX}/normal.png`, false)]);
+const geo = parseS3O(await (await fetch(MODEL)).arrayBuffer());
+geo.computeBoundingBox();
+const mat = new THREE.MeshStandardMaterial({
+  map: albedo, emissiveMap: emissive, emissive: 0xffffff, emissiveIntensity: P('emis', 1.3),
+  roughnessMap: orm, metalnessMap: orm, roughness: 1, metalness: P('metal', 1),
+  normalMap: normal, normalScale: new THREE.Vector2(P('nscale', 1), P('nscale', 1)),
+});
+mat.onBeforeCompile = s => {   // colour grading in linear light before the output: saturation and a gamma curve (deeper shadows, more contrast)
+  s.fragmentShader = s.fragmentShader.replace('#include <tonemapping_fragment>', `
+    float gradeLum = dot(gl_FragColor.rgb, vec3(0.2126, 0.7152, 0.0722));
+    gl_FragColor.rgb = mix(vec3(gradeLum), gl_FragColor.rgb, float(${P('sat', 1.25)}));
+    gl_FragColor.rgb = pow(max(gl_FragColor.rgb, vec3(0.0)), vec3(float(${P('gam', 1.2)})));
+    #include <tonemapping_fragment>`);
+};
+const mesh = new THREE.Mesh(geo, mat);
+mesh.castShadow = true;
+scene.add(mesh);
+
+const bb = geo.boundingBox, center = bb.getCenter(new THREE.Vector3());
+const R = bb.getSize(new THREE.Vector3()).length() / 2;
+
+// shadow on the ground (the ground itself is invisible, it only shows the shadow); it lies a little below the unit so that the unit seems to float
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(R * 12, R * 12), new THREE.ShadowMaterial({ opacity: P('shadow', 0.40) }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = bb.min.y - P('lift', 0.2) * R; ground.receiveShadow = true;
+scene.add(ground);
+
+// the model's front is at +z; light from the upper right (as seen from the camera), so that the shadow falls to the lower left
+const sun = new THREE.DirectionalLight(0xfff4e6, P('sun', 3.0));
+const la = THREE.MathUtils.degToRad(P('lightaz', 35)), le = THREE.MathUtils.degToRad(P('lightel', 40));
+sun.position.set(center.x + Math.sin(la) * Math.cos(le) * R * 6, center.y + Math.sin(le) * R * 6, center.z + Math.cos(la) * Math.cos(le) * R * 6);
+sun.target.position.copy(center); scene.add(sun, sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048); sun.shadow.radius = P('blur', 40); sun.shadow.blurSamples = 25; sun.shadow.bias = -0.0004;
+const sc = sun.shadow.camera; sc.left = sc.bottom = -R * 3; sc.right = sc.top = R * 3; sc.near = 0.1; sc.far = R * 14;
+const fillLight = new THREE.DirectionalLight(0xdfe8ff, P('fillint', 0.15)); fillLight.position.set(center.x - R * 4, center.y + R * 2, center.z + R * 3); scene.add(fillLight);
+
+// camera: azimuth 324 degrees = from the front left, a little tilted (this is the view of the pictures on beyondallreason.info)
+const az = THREE.MathUtils.degToRad(P('az', 324)), el = THREE.MathUtils.degToRad(P('el', 34));
+const cam = new THREE.PerspectiveCamera(P('fov', 28), 1, 0.1, 1000);
+const dir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el));
+const place = (T, d) => { cam.position.copy(T).addScaledVector(dir, d); cam.lookAt(T); cam.rotateZ(THREE.MathUtils.degToRad(P('roll', -12))); cam.updateMatrixWorld(true); };
+// automatic framing: the unit fills `frame` of the square, centred (a little above the middle: the shadow needs room below)
+{
+  const frame = P('frame', 0.8), biasY = P('biasy', 0.06), T = center.clone(); let d = R * 3.2;
+  const pos = geo.attributes.position, v = new THREE.Vector3(), tanH = Math.tan(THREE.MathUtils.degToRad(cam.fov / 2));
+  for (let k = 0; k < 8; k++) {
+    place(T, d);
+    let x0 = 9, x1 = -9, y0 = 9, y1 = -9;
+    for (let i = 0; i < pos.count; i += 2) { v.fromBufferAttribute(pos, i).project(cam); x0 = Math.min(x0, v.x); x1 = Math.max(x1, v.x); y0 = Math.min(y0, v.y); y1 = Math.max(y1, v.y); }
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2 - biasY;
+    d *= Math.max(x1 - x0, y1 - y0) / (2 * frame);
+    const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+    T.addScaledVector(right, cx * d * tanH).addScaledVector(up, cy * d * tanH);
+  }
+  place(T, d);
+}
+
+renderer.render(scene, cam);
+window.__done = true;
+</script></body></html>

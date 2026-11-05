@@ -42,3 +42,7 @@ luac.out
 
 # Output of extractor/extract_units.ps1 (the exported JSON files are not part of the repository for now)
 extractor/out/
+
+# render_unit: node modules and rendered pictures
+render_unit/node_modules/
+render_unit/out/

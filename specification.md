@@ -75,7 +75,7 @@ Header (52 bytes): 12 bytes `"Spring unit\0"`, `uint32` version (0), `float` rad
 
 Piece at an offset: ten `uint32`: offset of the name, number of children, offset of the list of children (`uint32` offsets of pieces), number of vertices, offset of the vertices, vertex type, primitive type (0 triangles, 1 triangle strip, 2 quads), number of entries of the index table, offset of the index table (`uint32` indices into the vertices), collision data; then three `float` x, y, z: the offset of the piece to its parent. A vertex is eight `float`s: position (3), normal (3), texture coordinate u, v (2).
 
-The model is the sum of all pieces, each moved by the sum of the offsets of its parents (the pieces are not animated in the website). The game's axes: x right, y up, z forward; a viewer with the usual convention (three.js: z towards the viewer) mirrors z (and so reverses the order of the triangle corners). The test of the first draft (two units, rendered by a script) showed the geometry right with z mirrored and the triangle corners reversed.
+The model is the sum of all pieces, each moved by the sum of the offsets of its parents (the pieces are not animated in the website). The vertex positions are used **as they are**, without mirroring: the game draws them in an OpenGL-style right-handed system, the unit looks along +z, and the model's front is at +z. (An earlier draft of this document said that z has to be mirrored and the triangle corners reversed; that was wrong and gives a mirror image of the unit. Checked with three units, `legnavyscout`, `legnavyconship` and `legnavyfrigate`: only the unmirrored model, seen from the right camera side, shows the same picture as the website: the same turret, the same side with the lamps.) In three.js the camera that looks at the front of the unit is therefore on the +z side.
 
 ### 3.2 Textures
 
@@ -83,7 +83,7 @@ All units of a faction share **one colour atlas**: the file named in the S3O (`A
 
 ## 4. The pictures
 
-`editor.buildpic` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each).
+`editor.buildpic` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each). Instead of these in-game pictures (they are small and show the unit from above on water or terrain), the website can use pictures rendered from the models like the ones on beyondallreason.info: section 12.
 
 ## 5. Where the files are in the game
 
@@ -167,3 +167,21 @@ A first step would be to try two versions side by side (the installed one and on
 ## 11. Comparing game versions (the idea behind the version in the file name)
 
 Every export carries the version of Beyond All Reason (file name and `gameVersion`, section 2.1). The website offers a choice of two versions and shows, per unit name, the values that changed (health, costs, speed, range, damage, ...), the units that are new in the newer version and the ones that are gone. `comparison.json` is the same for all versions (section 2.2). Units are matched by their unit name (`armllt`); a unit that was renamed in a game version shows up as gone and new.
+
+## 12. The pictures of the units, rendered from the models (`render_unit/`)
+
+`render_unit/render_unit.py` renders one picture per unit from the game's own files, in the look of the pictures on beyondallreason.info (checked against `legnavyscout`, `legnavyconship` and `legnavyfrigate`):
+
+```
+python render_unit/render_unit.py [--out DIR] [--format png|bmp|avif|webp|all] [--size 400] [--tex-size 2048] [--team R,G,B] <unit> [<unit> ...]    (or @file)
+```
+
+- **Source:** the model (`objects3d/units/<unit>.s3o`, a Scavenger copy uses the model of its unit) and the textures named in its header, read from the game's pool (section 5); the newest installed game, or `--game`. The game folder is only read.
+- **Texture channels** (from the game's shader `modelmaterials_gl4/templates/cus_gl4.frag.glsl`): colour texture `rgb` = albedo, `a` = mask of the team colour; second texture (`*_other.dds` for Armada and Cortex, `leg_shader.dds` for Legion) `r` = emissive, `g` = metalness, `b` = roughness; normal map `rgb` = normal. The colour atlases are scaled from 4096 to 2048 pixels once per faction (cached in `--work`); RGB and alpha are scaled separately, because Pillow scales RGBA with premultiplied alpha and would wipe out the colour where the team colour mask is 0.
+- **Model:** the vertices are used as they are, **not mirrored** (section 3.1). The pieces are not animated, so pieces that the unit's script hides (for example the crown of the commander `armcom`) are visible, and sit away from the unit.
+- **Look:** three.js in a browser without window (Microsoft Edge or Chrome, started with `playwright-core`), physical material (albedo, metalness, roughness, normal map, emissive), a light from the upper right (the shadow falls to the lower left), a studio environment with a warm ground for the reflections, saturation x1.25 and gamma 1.2 as colour grading, a soft shadow on an invisible ground a little below the unit. The camera looks from the front left (azimuth 324 degrees, 34 degrees up, tilted by 12 degrees) and frames every unit to 80 % of the square. The team colour is the green of the website (130, 218, 105). All values are in `render_unit/renderer/index.html` and can be changed per run with `--param key=value`.
+- **Check against the website** (three units): shadow offset and size, mean brightness and saturation are within a few percent; not the same: the underside of the hull is a bit lighter, lamps glow a bit less.
+- **Output formats:** the browser renders a lossless PNG with transparent background; `--format` makes PNG, BMP (no transparency: white background), AVIF and WebP from it, `all` puts them side by side with a table of the file sizes. For `legnavyscout` at 400 x 400 pixels: PNG 91 KB, BMP 480 KB, AVIF (quality 60) 8 KB, WebP (quality 80) 12 KB. Rendering is the slow part (about 1 to 2 seconds per unit with one browser start for all units), encoding is fast, so rendering and encoding are separate steps.
+- **A small web server:** `renderer/render.mjs` starts a tiny web server on `127.0.0.1` (random port) for the time of the run only: a page opened from a file cannot load the models, textures and three.js modules. It has nothing to do with the website of section 1 and is stopped when the pictures are done.
+- **Open:** hidden pieces (the scripts `scripts/units/<unit>.bos` hide them in `Create()`), units with another model path (raptors), a team colour per faction if wanted, and the final encoding settings (AVIF).
+

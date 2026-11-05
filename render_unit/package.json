@@ -1,0 +1,10 @@
+{
+  "name": "bar-render-unit",
+  "private": true,
+  "type": "module",
+  "description": "Pictures of Beyond All Reason units rendered from the game's model files (see specification.md, section 12)",
+  "dependencies": {
+    "playwright-core": "1.49.1",
+    "three": "0.170.0"
+  }
+}
