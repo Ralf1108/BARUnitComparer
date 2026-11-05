@@ -46,3 +46,4 @@ extractor/out/
 # render_unit: node modules and rendered pictures
 render_unit/node_modules/
 render_unit/out/
+__pycache__/

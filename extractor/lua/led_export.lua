@@ -4,7 +4,7 @@
 -- (both return the message and true if they succeeded, false if not).
 --   host.Shared, host.outDir ("LevelEditor/"), host.say(text); host.dir (optional): the folder of the two files, with a "/" at the end
 -- (default <outDir>Other/; unit-extraction.lua, a user widget, sets it to a folder it may write to)
--- Both files go to <outDir>Other/ in the data folder of the game (units-<game version>.json, comparison.json). Their content and use: specification.md.
+-- Both files go to <outDir>Other/ in the data folder of the game (units-<game version>.json, comparison.json). Their content and use: SPECIFICATION.md.
 return function(host)
 	local Shared = host.Shared
 	local DIR = host.dir or (host.outDir .. "Other/")
@@ -306,7 +306,7 @@ return function(host)
 
 	---------------------------------------------------------------- the comparison ids
 	-- Proposal of the comparison id of a unit: the name without the faction letters (armllt, corllt, legllt -> llt); a Scavenger copy gets the id of its unit,
-	-- a raptor and a unit of no faction its own name. The proposals are only a start: the file is corrected by hand (specification.md).
+	-- a raptor and a unit of no faction its own name. The proposals are only a start: the file is corrected by hand (SPECIFICATION.md).
 	local function proposal(name)
 		local key, base = Shared.factionOf(name)
 		if key == "rap" then

@@ -1,21 +1,24 @@
-# Unit extraction for the unit comparison website (specification.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
+# Unit extraction for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-extraction.lua write the data of all units, and copies the result to -Out:
 #   <Out>\units-<game version>.json   all units with their values (the version of the game is in the name and in the file)
 #   <Out>\comparison.json             the comparison ids (an existing file in <Out> is given to the game first: its ids are kept, only new units are added)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
-#   .\extract_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"]
-# -Map: the map to load as the engine names it; any installed map will do, the default is a small one so that the game loads fast.
+#   .\extract_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
+# -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places.
+# -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
+# -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
-# installed as a package first, see specification.md "Several game versions").
+# installed as a package first, see SPECIFICATION.md "Several game versions").
 # Exit code 1 and a message on stderr if the extraction failed; nothing is copied to -Out then.
 param(
     [string]$Out = (Join-Path $PSScriptRoot 'out'),
-    [string]$Data = 'C:\Games\Beyond-All-Reason\data',
+    [string]$Data = '',
     [string]$Work = (Join-Path $env:TEMP 'unit_extraction'),
     [int]$WaitSec = 300,
-    [string]$Map = 'Hooked 1.1.1',
-    [string]$Game = ''
+    [string]$Map = '',
+    [string]$Game = '',
+    [string]$Engine = ''
 )
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -23,6 +26,15 @@ $here = $PSScriptRoot
 function Fail($text) {
     [Console]::Error.WriteLine("ERROR: $text")
     exit 1
+}
+
+# The data folder of the installation: the given one, $env:BAR_DATA, or the first usual place that looks like one
+function Find-DataDir($given) {
+    if ($given -and -not ((Test-Path (Join-Path $given 'packages')) -and (Test-Path (Join-Path $given 'engine')))) { Fail "$given is not a BAR data folder (it needs the folders packages and engine)." }
+    $usual = @($given, $env:BAR_DATA, 'C:\Games\Beyond-All-Reason\data', (Join-Path $env:LOCALAPPDATA 'Programs\Beyond-All-Reason\data'), 'C:\Program Files\Beyond-All-Reason\data', 'D:\Games\Beyond-All-Reason\data')
+    foreach ($c in $usual) { if ($c -and (Test-Path (Join-Path $c 'packages')) -and (Test-Path (Join-Path $c 'engine'))) { return (Resolve-Path $c).Path } }
+    $tried = ($usual | Where-Object { $_ }) -join ', '
+    Fail "No BAR data folder found (needs the folders packages and engine). Give it with -Data or the environment variable BAR_DATA. Looked in: $tried"
 }
 
 # Version of the installed official game (byar:test, otherwise byar:stable; the first one whose package is installed), as the engine names it
@@ -50,7 +62,12 @@ function Get-GameVersion($data) {
 }
 
 # The newest installed engine (the folder with spring.exe whose name has the highest version number)
-function Get-Engine($data) {
+function Get-Engine($data, $wanted) {
+    if ($wanted) {
+        $dir = Get-Item (Join-Path $data "engine\$wanted") -ErrorAction SilentlyContinue
+        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName 'spring.exe'))) { Fail "Engine '$wanted' not found in $data\engine (installed: $((Get-ChildItem (Join-Path $data 'engine') -Directory | ForEach-Object Name) -join ', '))." }
+        return $dir
+    }
     $byVersion = { [regex]::Replace($_.Name, '\d+', [Text.RegularExpressions.MatchEvaluator] { param($m) $m.Value.PadLeft(10, '0') }) }
     $engineDir = Get-ChildItem (Join-Path $data 'engine') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'spring.exe') } | Sort-Object $byVersion | Select-Object -Last 1
     if (-not $engineDir) { throw 'No engine found in data\engine. Please start BAR once so the launcher installs it.' }
@@ -63,13 +80,18 @@ public class WinUx { [DllImport("user32.dll")] public static extern bool SetWind
  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); }
 '@
 
-$exe = (Get-Engine $Data).FullName + '\spring.exe'
+$Data = Find-DataDir $Data
+$exe = (Get-Engine $Data $Engine).FullName + '\spring.exe'
 if (-not $Game) { $Game = Get-GameVersion $Data }
 
 # game and map have to be known to the engine: otherwise it stops at a message box that waits for a click, until the timeout
 $archiveCache = (Get-ChildItem "$Data\cache\ArchiveCache*.lua" | Sort-Object LastWriteTime | Select-Object -Last 1).FullName
 if (-not $archiveCache) { Fail "No archive cache found in $Data\cache. Please start BAR once and let a game load." }
 $archives = Get-Content $archiveCache -Raw
+if (-not $Map) {   # any installed map will do (modtype 3 = map in the archive cache): the small default, otherwise the first one
+    $maps = @([regex]::Matches($archives, '(?s)modtype = 3,.*?\r?\n\t+name = "([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+    if ($maps -contains 'Hooked 1.1.1') { $Map = 'Hooked 1.1.1' } elseif ($maps.Count) { $Map = $maps[0] } else { Fail "No map found in $archiveCache. Please start BAR once and let a game load." }
+}
 foreach ($archive in @(@('Game', $Game), @('Map', $Map))) {
     if ($archives -notmatch ('name = "' + [regex]::Escape($archive[1]) + '"')) {
         Fail "$($archive[0]) '$($archive[1])' is not installed (not in $archiveCache). Give an installed one with -$($archive[0]); a new download is known after BAR has been started once."
