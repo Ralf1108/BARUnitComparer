@@ -222,8 +222,22 @@ function renderCompare() {
 }
 
 // the unit selection takes the height that is left in the window: the page needs no scrollbar and the footer stays at the bottom
+// the unit pictures shrink (down to 60 px) when the stats and the footer would otherwise need a scrollbar
+function fitPictures() {
+  const root = document.documentElement.style;
+  root.setProperty('--pic', '300px');
+  document.body.style.minHeight = '0';
+  for (let i = 0; i < 2; i++) {
+    const over = document.body.offsetHeight - window.innerHeight;
+    const now = parseFloat(root.getPropertyValue('--pic'));
+    root.setProperty('--pic', Math.max(60, Math.min(300, now - over)) + 'px');
+  }
+  document.body.style.minHeight = '';
+}
+
 function fitPickers() {
   const pickers = [...document.querySelectorAll('.picker')];
+  fitPictures();
   if (!pickers.length) return;
   for (const p of pickers) p.style.height = '0px';
   const cell = Math.max(...pickers.map(p => p.parentElement.offsetHeight));   // the rows that the other columns need beside it
