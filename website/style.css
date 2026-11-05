@@ -12,6 +12,8 @@
 
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--text); font: 400 16px/1.35 Poppins, "Segoe UI", system-ui, sans-serif; }
+body { min-height: 100vh; display: flex; flex-direction: column; }
+main { flex: 1; }
 a { color: inherit; text-decoration: none; }
 button, input, select { font: inherit; color: inherit; }
 button { cursor: pointer; background: none; border: 0; }
@@ -27,7 +29,7 @@ img { display: block; }
 #version { color: var(--muted); font-size: 13px; }
 #version select { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; }
 
-.legal { color: #777; font-size: 12px; text-align: center; max-width: 900px; margin: 0 auto; padding: 24px 24px 90px; }
+.legal { color: #777; font-size: 12px; text-align: center; max-width: 900px; margin: 0 auto; padding: 24px; }
 .legal a { color: #999; text-decoration: underline; }
 
 /* ------------------------------------------------ catalog */
@@ -97,23 +99,29 @@ img { display: block; }
 .cmp-kicker { color: var(--gold); text-align: center; font-size: 38px; font-weight: 300; margin: 12px 0 0; }
 .cmp-title { text-align: center; font-size: 66px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: -1.5px; }
 .cmp-title span { color: #555; font-weight: 700; }
-.cmp-filter { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 4px; padding: 14px 24px 22px; }
-.cmp-filter button { padding: 8px 22px; color: var(--accent-text, #fff); background: #0b0b0b; }
-.cmp-filter button.active { background: #fff; color: #000; }
-.cmp-filter .btn { margin-left: 18px; color: var(--text); background: var(--panel); }
-.cmp-scroll { overflow-x: auto; padding: 0 24px 40px; }
-.cmp-grid { display: grid; grid-auto-flow: column; grid-template-rows: auto auto auto; grid-template-columns: repeat(var(--n), minmax(440px, 1fr)); column-gap: 32px; }
+.cmp-options { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 24px; padding: 14px 24px 22px; }
+.cmp-options .toggle { --accent: var(--gold); --accent-line: var(--gold); }
+.cmp-options .hint { color: var(--muted); font-size: 14px; font-weight: 300; }
+.cmp-scroll { display: flex; overflow-x: auto; padding: 0 24px 40px; }
+.add-column { flex: none; width: 56px; margin-left: 24px; writing-mode: vertical-rl; background: #0b0b0b; border: 1px dashed #444; color: var(--muted); font-size: 20px; font-weight: 300; letter-spacing: 1px; }
+.add-column:hover { background: #161616; color: var(--text); border-color: #777; }
+.cmp-grid { flex: 1; display: grid; grid-auto-flow: column; grid-template-rows: auto auto auto; grid-template-columns: repeat(var(--n), minmax(440px, 1fr)); column-gap: 32px; }
 .c-head { padding-bottom: 12px; }
 .c-title { display: flex; align-items: baseline; gap: 12px; }
 .c-title b { font-size: 34px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-title small { font-size: 16px; font-weight: 300; }
 .c-title small em { font-style: normal; color: var(--accent-text); }
-.c-title .x { margin-left: auto; }
+.c-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; align-self: center; }
+.ref { padding: 6px 14px; border: 1px solid #444; background: #0b0b0b; font-size: 14px; }
+.ref:hover { background: #222; }
+.ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
 .c-factions { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 0 8px; }
 .c-factions button { padding: 2px 10px; font-size: 13px; color: var(--accent-text); background: #0e0e0e; }
 .c-factions button.active { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
-.c-search { display: flex; gap: 10px; align-items: center; }
-.c-search .search { flex: 1; min-width: 0; }
+.c-search { position: relative; }
+.c-search .search { width: 100%; padding-right: 46px; }
+.clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; color: var(--muted); }
+.clear:hover { background: #222; color: var(--text); }
 .x { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: #0b0b0b; font-size: 17px; display: grid; place-items: center; }
 .x:hover { background: #222; }
 .x.square { border-radius: 0; border: 0; background: #151515; }
@@ -122,7 +130,7 @@ img { display: block; }
 .c-cats button svg { width: 12px; height: 12px; fill: #fff; }
 .c-cats button.active { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 
-.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 2px; max-height: 380px; overflow-y: auto; margin-bottom: 14px; background: #060606; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); align-content: start; gap: 2px; height: 380px; overflow-y: auto; margin-bottom: 14px; background: #060606; }
 .pick { padding: 4px; text-align: center; font-size: 12px; line-height: 1.15; position: relative; }
 .pick:hover { background: #1a1a1a; }
 .pick.current { box-shadow: inset 0 0 0 1px var(--accent-line); }
@@ -155,16 +163,13 @@ img { display: block; }
 .fill-radar { background: #b79cf0; }
 .fill-speed { background: #3da5e8; }
 .fill-dps { background: #ef5b5b; }
+.fill.diff-good { background: #3fbf5f; }
+.fill.diff-bad { background: #e0443c; }
 .fill-range { background: repeating-linear-gradient(90deg, #d94a4a 0 2px, #6e2626 2px 4px); }
 .weapons { color: #ee3b3b; font-weight: 400; font-size: 15px; letter-spacing: -.3px; }
 
 /* exactly two columns: mirrored, the bars meet in the middle */
 .two { column-gap: 2px; }
-.two .left .c-title .x { margin-left: 0; }
-.two .right .c-title { flex-direction: row-reverse; }
-.two .right .c-title .x { margin-left: 0; margin-right: auto; }
-.two .right .c-search { flex-direction: row; }
-.two .right .c-factions, .two .right .c-cats { justify-content: flex-end; }
 .two .left.c-head { padding-right: 24px; }
 .two .right.c-head { padding-left: 24px; }
 .two .left .c-pic { margin-right: 0; }

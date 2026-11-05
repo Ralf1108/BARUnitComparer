@@ -18,9 +18,9 @@ const CATEGORIES = [
 const clock = s => `${String(Math.floor(Math.round(s) / 60)).padStart(2, '0')}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 const whole = v => String(Math.round(v));
 const STATS = [
-  { key: 'metal', label: 'Metal', fill: 'metal', show: whole },
-  { key: 'energy', label: 'Energy', fill: 'energy', show: whole },
-  { key: 'buildTime', label: 'Buildtime', fill: 'time', show: clock },
+  { key: 'metal', label: 'Metal', fill: 'metal', show: whole, lower: true },
+  { key: 'energy', label: 'Energy', fill: 'energy', show: whole, lower: true },
+  { key: 'buildTime', label: 'Buildtime', fill: 'time', show: clock, lower: true },
   { key: 'buildPower', label: 'Buildpower', fill: 'power', show: whole },
   { key: 'energyMake', label: 'Energy Make', fill: 'make', show: whole },
   { key: 'hitpoints', label: 'Hitpoints', fill: 'hp', show: whole },
@@ -36,7 +36,7 @@ const state = {
   units: {}, equivalent: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], columnFilter: 'all',
+  columns: [], diff: load('diff', 'no') === 'yes',
 };
 let nextColumn = 1;
 
@@ -207,35 +207,44 @@ function columnUnits(c) {
   }).sort(byTechAndCost);
 }
 
-const shownColumns = () => state.columnFilter === 'all' ? state.columns : state.columns.filter(c => c.faction === state.columnFilter);
-
 function renderCompare() {
   const present = [...new Set(state.columns.map(c => c.faction))];
-  if (state.columnFilter !== 'all' && !present.includes(state.columnFilter)) state.columnFilter = 'all';
   document.title = 'Compare - BAR Unit Comparer';
-  const columns = shownColumns(), two = columns.length === 2;
+  const columns = state.columns, two = columns.length === 2;
   const max = {};
+  const reference = state.diff ? columns.find(c => c.ref && c.unit) : null;
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit).map(c => state.units[c.unit][s.key]));
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <h1 class="cmp-title">${present.map(f => factionName(f)).join(' <span>vs.</span> ')}</h1>
-    <div class="cmp-filter"><button data-a="column-filter" data-v="all" class="${state.columnFilter === 'all' ? 'active' : ''}">All</button>${present.map(f => `<button data-a="column-filter" data-v="${f}" class="f-${f} ${state.columnFilter === f ? 'active' : ''}">${factionName(f)}</button>`).join('')}
-      <button class="btn" data-a="add-column">+ Add column</button></div>
-    <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, two ? (i ? 'right' : 'left') : '', max)).join('')}</div></div>`;
+    <div class="cmp-options"><label class="toggle" title="Colour the bars of all columns by comparison with the reference column"><input type="checkbox" data-change="diff" ${state.diff ? 'checked' : ''}><i></i>Diff</label>
+      ${state.diff ? `<span class="hint">${reference ? 'Green: as good or better than the reference, red: worse.' : 'Choose the reference column with its Ref button.'}</span>` : ''}</div>
+    <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
+      <button class="add-column" data-a="add-column" title="Add a column">+ Add column</button></div>`;
+  fitPickers();
 }
 
-function columnHtml(c, side, max) {
+// the unit selection takes the height that is left in the window (the footer stays at the bottom)
+function fitPickers() {
+  const footer = document.querySelector('.legal').offsetHeight;
+  for (const p of document.querySelectorAll('.picker')) {
+    const top = p.getBoundingClientRect().top + window.scrollY;
+    p.style.height = Math.max(260, window.innerHeight - top - footer - 24) + 'px';
+  }
+}
+
+function columnHtml(c, side, max, reference) {
   const u = c.unit && state.units[c.unit], list = columnUnits(c);
   return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}">
-      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small>${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</div>
+      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${state.diff && c.unit ? `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>` : ''}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
       <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
-      <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}"><button class="x" data-a="col-clear-search" title="Clear the search">&#10005;</button></div>
+      <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
       <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     </div>
     <div class="c-unit f-${c.faction} ${side}" data-col="${c.id}">
       ${c.picking ? `<div class="picker" data-picker>${pickerHtml(c, list)}</div>` : ''}
       ${u ? unitHtml(c, u) : ''}
     </div>
-    <div class="stats f-${c.faction} ${side}">${u ? STATS.map(s => statHtml(s, u, max)).join('') : ''}</div>`;
+    <div class="stats f-${c.faction} ${side}">${u ? STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('') : ''}</div>`;
 }
 
 function pickerHtml(c, list) {
@@ -261,12 +270,14 @@ function unitHtml(c, u) {
     ${eq.length ? `<div class="c-eq">Equivalent: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
 }
 
-function statHtml(s, u, max) {
+function statHtml(s, u, max, ref) {
   if (s.key === 'weapons') return `<div class="stat"><label>${s.label}</label><div class="weapons">${esc(u.weapons.join(', '))}</div></div>`;
   const v = u[s.key];
   if (!v) return `<div class="stat"><label>${s.label}</label><div></div></div>`;
   const share = max[s.key] ? 100 * v / max[s.key] : 0;
-  return `<div class="stat"><label>${s.label}</label><div class="bar"><div class="fill fill-${s.fill}" style="width:${share.toFixed(1)}%"></div><span class="val">${s.show(v)}</span></div></div>`;
+  const worse = ref && (s.lower ? v > ref[s.key] : v < ref[s.key]);
+  const verdict = ref ? (worse ? ' diff-bad' : ' diff-good') : '';
+  return `<div class="stat"><label>${s.label}</label><div class="bar"><div class="fill fill-${s.fill}${verdict}" style="width:${share.toFixed(1)}%"></div><span class="val">${s.show(v)}</span></div></div>`;
 }
 
 function toggleUnit(unit) {
@@ -289,9 +300,9 @@ const actions = {
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
   clear() { state.columns = []; render(); },
-  'column-filter'(v) { state.columnFilter = v; renderCompare(); },
-  'add-column'() { const used = state.columns.map(c => c.faction); state.columnFilter = 'all'; state.columns.push(newColumn(null, (FACTIONS.find(f => !used.includes(f.id)) || FACTIONS[0]).id)); render(); },
-  'add-unit'(v) { state.columnFilter = 'all'; state.columns.push(newColumn(v)); keepAddress(); render(); },
+  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of state.columns) o.ref = false; c.ref = !was; renderCompare(); },
+  'add-column'() { const used = state.columns.map(c => c.faction); state.columns.push(newColumn(null, (FACTIONS.find(f => !used.includes(f.id)) || FACTIONS[0]).id)); render(); },
+  'add-unit'(v) { state.columns.push(newColumn(v)); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
   'col-faction'(v, el) { const c = columnOf(el); c.faction = v; c.picking = true; renderCompare(); },
   'col-category'(v, el) { const c = columnOf(el); c.category = v; c.search = ''; c.picking = true; renderCompare(); },
@@ -322,6 +333,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const kind = e.target.dataset.change;
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
+  if (kind === 'diff') { state.diff = e.target.checked; save('diff', state.diff ? 'yes' : 'no'); renderCompare(); }
   if (kind === 'version') {
     await loadVersion(state.versions.find(v => v.dir === e.target.value));
     state.columns = state.columns.filter(c => !c.unit || state.units[c.unit]);   // a unit that this version does not have
@@ -329,4 +341,5 @@ document.addEventListener('change', async e => {
   }
 });
 
+window.addEventListener('resize', () => { if (state.page === 'compare') fitPickers(); });
 start();
