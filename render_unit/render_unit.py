@@ -7,6 +7,8 @@ For every unit it writes <out>/<unit>.<format> (--format: png, bmp, jpeg, avif, 
 semi-transparent), the wanted formats are made from it; the encoding is a separate step, so that its settings can be tried without rendering again
 (--format all puts the formats side by side).
 
+With two or more formats it then measures the quality of each against the lossless picture (PSNR and SSIM, needs scipy; --no-quality-check switches it off).
+
 What it does: reads the model (.s3o) and the textures of the unit from the game's pool (SPECIFICATION.md, section 5), converts the textures of a faction once
 (cached in --work), leaves out the pieces that the unit's script hides when the unit is created, and lets the browser (renderer/index.html, three.js) render all
 units in one session. The team colour parts get the colour of the faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black (--team: one colour for all).
@@ -272,6 +274,64 @@ def encode(src, dst_base, formats, opt):
     return sizes
 
 
+# ---------------------------------------------------------------- quality of the formats against the lossless picture
+def composite(im, bg):
+    """The picture on a background (r, g, b) as float RGB 0..255: how it looks on a page of that colour."""
+    flat = Image.new('RGBA', im.size, bg + (255,))
+    flat.alpha_composite(im)
+    return np.asarray(flat.convert('RGB')).astype(np.float64)
+
+
+def psnr(a, b):
+    """Peak signal to noise ratio in dB (higher is better; above 40 hardly visible, 99 = identical)."""
+    mse = np.mean((a - b) ** 2)
+    return 99.0 if mse == 0 else 10 * np.log10(255.0 ** 2 / mse)
+
+
+def ssim(a, b):
+    """Structural similarity of the brightness (1 = identical; Gaussian window sigma 1.5 as in the paper of Wang et al.). Needs scipy."""
+    from scipy.ndimage import gaussian_filter
+    y = lambda x: x @ np.array([0.299, 0.587, 0.114])
+    a, b = y(a), y(b)
+    c1, c2 = (0.01 * 255) ** 2, (0.03 * 255) ** 2
+    g = lambda x: gaussian_filter(x, 1.5, truncate=3.5)
+    ma, mb = g(a), g(b)
+    saa, sbb, sab = g(a * a) - ma * ma, g(b * b) - mb * mb, g(a * b) - ma * mb
+    return float(np.mean(((2 * ma * mb + c1) * (2 * sab + c2)) / ((ma * ma + mb * mb + c1) * (saa + sbb + c2))))
+
+
+def measure(ref, got, transparent):
+    """(PSNR, SSIM, alpha PSNR or None) of the decoded picture `got` against the lossless `ref` (both RGBA). Pictures with transparency are compared on a white and on a
+    dark background, the worse value counts; BMP and JPEG (written on white) on white."""
+    p, s = 99.0, 1.0
+    for bg in ((255, 255, 255), (30, 30, 30)) if transparent else ((255, 255, 255),):
+        a, b = composite(ref, bg), composite(got, bg)
+        p, s = min(p, psnr(a, b)), min(s, ssim(a, b))
+    alpha = psnr(np.asarray(ref)[..., 3].astype(float), np.asarray(got)[..., 3].astype(float)) if transparent else None
+    return p, s, alpha
+
+
+def quality_report(pairs, formats):
+    """pairs: [(lossless png, {format: file})]. Prints PSNR / SSIM / alpha PSNR and the file size per format (mean over the pictures); the lossless PNG is the reference."""
+    try:
+        import scipy  # noqa: F401
+    except ImportError:
+        print('\nnote: the quality check needs scipy (pip install scipy); skipped', flush=True)
+        return
+    rows = []
+    for f in formats:
+        res = []
+        for src, files in pairs:
+            ref = Image.open(src).convert('RGBA')
+            res.append((files[f].stat().st_size, *measure(ref, Image.open(files[f]).convert('RGBA'), f in ('png', 'webp', 'avif'))))
+        al = [r[3] for r in res if r[3] is not None]
+        rows.append((f, np.mean([r[0] for r in res]), np.mean([r[1] for r in res]), np.mean([r[2] for r in res]), np.mean(al) if al else None))
+    print(f'\nquality against the lossless picture (mean over {len(pairs)} unit(s); PSNR in dB: above 40 hardly visible; SSIM: above 0.99 looks the same):')
+    print('  ' + 'format'.ljust(10) + 'size KB'.rjust(10) + 'PSNR'.rjust(8) + 'SSIM'.rjust(9) + 'alpha dB'.rjust(10))
+    for f, size, ps, ss, al in rows:
+        print('  ' + f.ljust(10) + f'{size / 1024:>10.1f}{ps:>8.1f}{ss:>9.4f}' + (f'{al:>10.1f}' if al is not None else '-'.rjust(10)))
+
+
 # ---------------------------------------------------------------- the browser and node
 def find_browser(given):
     candidates = [given, os.environ.get('RENDER_BROWSER'),
@@ -312,6 +372,7 @@ def main():
     ap.add_argument('--avif-speed', type=int, default=6, help='AVIF encoder speed 0 (slowest, smallest) to 10 (fastest) (default 6)')
     ap.add_argument('--webp-quality', type=int, default=85, help='WebP quality 0 to 100 (default 85)')
     ap.add_argument('--webp-method', type=int, default=4, help='WebP effort 0 (fast) to 6 (slowest, smallest) (default 4)')
+    ap.add_argument('--no-quality-check', action='store_true', help='with several formats the quality of each against the lossless picture is measured (PSNR, SSIM); this switches it off')
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
     ap.add_argument('-v', '--verbose', action='store_true', help='say which pieces are left out and which team colour is used')
@@ -373,16 +434,19 @@ def main():
         if not node:
             sys.exit('ERROR: Node.js not found.')
         failed = subprocess.run([node, str(HERE / 'renderer' / 'render.mjs'), str(work / 'jobs.json'), str(work), find_browser(a.browser)], cwd=HERE).returncode
-    table = []
+    table, pairs = [], []
     for job in jobs:
         src = Path(job['out'])
         if src.exists():
             table.append((src.stem, encode(src, out / src.stem, formats, a)))
+            pairs.append((src, {f: out / f'{src.stem}.{EXTENSION.get(f, f)}' for f in formats}))
     if table:
         print('\nfile sizes (bytes):')
         print('  ' + 'unit'.ljust(40) + ''.join(f.rjust(10) for f in formats))
         for unit, sizes in table:
             print('  ' + unit.ljust(40) + ''.join(f'{sizes[f]:>10,}' for f in formats))
+    if pairs and len(formats) > 1 and not a.no_quality_check:
+        quality_report(pairs, formats)
     for p in problems:
         print('ERROR:', p, file=sys.stderr)
     if failed or problems:

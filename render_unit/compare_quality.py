@@ -15,7 +15,6 @@ from pathlib import Path
 
 import numpy as np
 from PIL import Image
-from scipy.ndimage import gaussian_filter
 
 import render_unit as ru
 
@@ -23,28 +22,6 @@ SETTINGS = ([('png', {})]
             + [('jpeg', {'q': q, 's': s}) for s in (2, 0) for q in (80, 85, 90, 95)]
             + [('webp', {'q': q}) for q in (75, 80, 85, 90, 95)]
             + [('avif', {'q': q}) for q in (50, 60, 70, 80, 90)])
-
-
-def composite(im, bg):
-    flat = Image.new('RGBA', im.size, bg + (255,))
-    flat.alpha_composite(im)
-    return np.asarray(flat.convert('RGB')).astype(np.float64)
-
-
-def psnr(a, b):
-    mse = np.mean((a - b) ** 2)
-    return 99.0 if mse == 0 else 10 * np.log10(255.0 ** 2 / mse)
-
-
-def ssim(a, b):
-    """SSIM of the brightness (Gaussian window sigma 1.5, as in the paper of Wang et al.)."""
-    y = lambda x: x @ np.array([0.299, 0.587, 0.114])
-    a, b = y(a), y(b)
-    c1, c2 = (0.01 * 255) ** 2, (0.03 * 255) ** 2
-    g = lambda x: gaussian_filter(x, 1.5, truncate=3.5)
-    ma, mb = g(a), g(b)
-    saa, sbb, sab = g(a * a) - ma * ma, g(b * b) - mb * mb, g(a * b) - ma * mb
-    return float(np.mean(((2 * ma * mb + c1) * (2 * sab + c2)) / ((ma * ma + mb * mb + c1) * (saa + sbb + c2))))
 
 
 def encode(im, fmt, p):
@@ -86,12 +63,12 @@ def main():
             res['size'].append(len(data))
             worst_psnr, worst_ssim = 99.0, 1.0
             for bg in ((255, 255, 255), (30, 30, 30)) if fmt in ('png', 'webp', 'avif') else ((255, 255, 255),):
-                ref, got = composite(im, bg), composite(dec, bg)
-                worst_psnr, worst_ssim = min(worst_psnr, psnr(ref, got)), min(worst_ssim, ssim(ref, got))
+                ref, got = ru.composite(im, bg), ru.composite(dec, bg)
+                worst_psnr, worst_ssim = min(worst_psnr, ru.psnr(ref, got)), min(worst_ssim, ru.ssim(ref, got))
             res['psnr'].append(worst_psnr)
             res['ssim'].append(worst_ssim)
             if fmt in ('webp', 'avif'):
-                res['a'].append(psnr(np.asarray(im)[..., 3].astype(float), np.asarray(dec)[..., 3].astype(float)))
+                res['a'].append(ru.psnr(np.asarray(im)[..., 3].astype(float), np.asarray(dec)[..., 3].astype(float)))
         label = fmt + ''.join(f' {k}={v}' for k, v in p.items())
         rows.append((label, np.mean(res['size']), np.mean(res['psnr']), np.mean(res['ssim']), np.mean(res['a']) if res['a'] else None))
 
