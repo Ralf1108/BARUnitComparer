@@ -168,7 +168,7 @@ At the same SSIM AVIF is the smallest (12 KB, WebP 15 KB, JPEG 28 KB). The alpha
 
 ## 6. Everything in one go: `export and render all units.bat`
 
-In the root of the repository (starts `export_and_render_all_units.ps1`). It asks which factions to render (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`, several separated by commas), shows what it will do and waits for OK. Then:
+In the root of the repository (starts `export_and_render_all_units.ps1`). It asks which factions to render (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`, several separated by commas), shows what it will do and asks for confirmation on the console. Then:
 1. runs the exporter (always complete) and shows only its four steps; the result is in `exporter/out`;
 2. renders every wanted unit of the new `units-<version>.json` with `render_unit.py --units <that file> --format avif` (default quality and size) into `out/` of the repository (`.gitignore`), 80 units per call, with a counter `done / total`, percentage, summed size, elapsed time and ETA.
 

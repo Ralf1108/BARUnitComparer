@@ -30,17 +30,17 @@ if ($wanted.Count -eq 0 -or $wanted -contains 'all') { $wanted = @() }
 foreach ($w in $wanted) { if (-not $known.Contains($w)) { Fail "Unknown faction '$w' (all, arm, cor, leg, scv, rap)." } }
 $what = if ($wanted.Count) { 'the units of ' + (($wanted | ForEach-Object { $known[$_] }) -join ', ') } else { 'every unit (about 1700)' }
 
-Add-Type -AssemblyName System.Windows.Forms
-$text = @"
-This will do two things:
-
-1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes units-<game version>.json and equivalences.json to exporter\out.
-
-2. Render a picture of $what in that file as AVIF, in the default quality and size, to the folder out\ of this repository. This takes a while (roughly 1 to 2 seconds per unit).
-
-Start?
-"@
-if (-not $Yes -and [System.Windows.Forms.MessageBox]::Show($text, 'Export and render all units', 'OKCancel', 'Information') -ne 'OK') { exit 2 }
+Write-Host ''
+Write-Host 'This will do two things:' -ForegroundColor Cyan
+Write-Host '  1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes'
+Write-Host '     units-<game version>.json and equivalences.json to exporter\out.'
+Write-Host "  2. Render a picture of $what in that file as AVIF, in the default quality and size, to the folder out\ of this repository."
+Write-Host '     This takes a while (roughly 0.6 to 1.5 seconds per unit).'
+Write-Host ''
+if (-not $Yes) {
+    $answer = Read-Host 'Start? [Enter = yes, n = cancel]'
+    if ($answer -match '^\s*(n|no|c|cancel)') { exit 2 }
+}
 
 $t0 = Get-Date
 
