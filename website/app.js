@@ -36,7 +36,7 @@ const state = {
   units: {}, equivalent: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], diff: load('diff', 'no') === 'yes',
+  columns: [],
 };
 let nextColumn = 1;
 
@@ -212,30 +212,30 @@ function renderCompare() {
   document.title = 'Compare - BAR Unit Comparer';
   const columns = state.columns, two = columns.length === 2;
   const max = {};
-  const reference = state.diff ? columns.find(c => c.ref && c.unit) : null;
+  const reference = columns.find(c => c.ref && c.unit);   // with a reference column the bars of the others are coloured
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit).map(c => state.units[c.unit][s.key]));
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <h1 class="cmp-title">${present.map(f => factionName(f)).join(' <span>vs.</span> ')}</h1>
-    <div class="cmp-options"><label class="toggle" title="Colour the bars of all columns by comparison with the reference column"><input type="checkbox" data-change="diff" ${state.diff ? 'checked' : ''}><i></i>Diff</label>
-      ${state.diff ? `<span class="hint">${reference ? 'Green: as good or better than the reference, red: worse.' : 'Choose the reference column with its Ref button.'}</span>` : ''}</div>
     <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
       <button class="add-column" data-a="add-column" title="Add a column">+ Add column</button></div>`;
   fitPickers();
 }
 
-// the unit selection takes the height that is left in the window (the footer stays at the bottom)
+// the unit selection takes the height that is left in the window: the page needs no scrollbar and the footer stays at the bottom
 function fitPickers() {
-  const footer = document.querySelector('.legal').offsetHeight;
-  for (const p of document.querySelectorAll('.picker')) {
-    const top = p.getBoundingClientRect().top + window.scrollY;
-    p.style.height = Math.max(260, window.innerHeight - top - footer - 24) + 'px';
-  }
+  const pickers = document.querySelectorAll('.picker');
+  if (!pickers.length) return;
+  for (const p of pickers) p.style.height = '0px';
+  document.body.style.minHeight = '0';
+  const free = window.innerHeight - document.body.offsetHeight;   // what is left with empty pickers
+  document.body.style.minHeight = '';
+  for (const p of pickers) p.style.height = Math.max(80, free) + 'px';
 }
 
 function columnHtml(c, side, max, reference) {
   const u = c.unit && state.units[c.unit], list = columnUnits(c);
   return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}">
-      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${state.diff && c.unit ? `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>` : ''}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
+      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${c.unit ? `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>` : ''}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
       <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
       <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
       <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
@@ -333,7 +333,6 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const kind = e.target.dataset.change;
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
-  if (kind === 'diff') { state.diff = e.target.checked; save('diff', state.diff ? 'yes' : 'no'); renderCompare(); }
   if (kind === 'version') {
     await loadVersion(state.versions.find(v => v.dir === e.target.value));
     state.columns = state.columns.filter(c => !c.unit || state.units[c.unit]);   // a unit that this version does not have

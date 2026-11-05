@@ -97,12 +97,9 @@ img { display: block; }
 
 /* ------------------------------------------------ compare */
 .cmp-kicker { color: var(--gold); text-align: center; font-size: 38px; font-weight: 300; margin: 12px 0 0; }
-.cmp-title { text-align: center; font-size: 66px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: -1.5px; }
+.cmp-title { padding-bottom: 18px; text-align: center; font-size: 66px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: -1.5px; }
 .cmp-title span { color: #555; font-weight: 700; }
-.cmp-options { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 24px; padding: 14px 24px 22px; }
-.cmp-options .toggle { --accent: var(--gold); --accent-line: var(--gold); }
-.cmp-options .hint { color: var(--muted); font-size: 14px; font-weight: 300; }
-.cmp-scroll { display: flex; overflow-x: auto; padding: 0 24px 40px; }
+.cmp-scroll { display: flex; overflow-x: auto; padding: 0 24px 16px; }
 .add-column { flex: none; width: 56px; margin-left: 24px; writing-mode: vertical-rl; background: #0b0b0b; border: 1px dashed #444; color: var(--muted); font-size: 20px; font-weight: 300; letter-spacing: 1px; }
 .add-column:hover { background: #161616; color: var(--text); border-color: #777; }
 .cmp-grid { flex: 1; display: grid; grid-auto-flow: column; grid-template-rows: auto auto auto; grid-template-columns: repeat(var(--n), minmax(440px, 1fr)); column-gap: 32px; }
