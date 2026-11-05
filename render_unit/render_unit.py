@@ -101,7 +101,7 @@ class Pool:
 
 
 def load_units(given, game):
-    """The units-<game version>.json of the extractor for exactly this game: { unit name: {game, editor} }; {} if there is none. Without --units the file
+    """The units-<game version>.json of the extractor for exactly this game: { unit name: {the unit definition fields, faction, model, ...} }; {} if there is none. Without --units the file
     ../extractor/out/units-<version>.json is taken (the name of the game without "Beyond All Reason "): data of another version would give wrong models and scripts."""
     version = game.replace('Beyond All Reason ', '', 1)
     path = Path(given) if given else HERE.parent / 'extractor' / 'out' / f'units-{re.sub(r"[^A-Za-z0-9._-]", "_", version)}.json'
@@ -327,7 +327,7 @@ def main():
     jobs, problems = [], []
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
         u = info.get(unit)
-        model = (u['editor']['model'].lower() if u else None)
+        model = (u['model'].lower() if u else None)
         if not model or not pool.has(model):
             model = pool.find_model(unit)
         if not model:
@@ -342,9 +342,9 @@ def main():
         if not pool.has(f'unittextures/{tex1}'):
             problems.append(f'{unit}: texture unittextures/{tex1} not found in the game')
             continue
-        faction = u['editor']['faction'] if u else faction_of(unit)
+        faction = u['faction'] if u else faction_of(unit)
         team = one_team or TEAM_COLORS.get(faction, TEAM_COLORS['leg'])
-        script = u['game'].get('scriptPath') if u else f'scripts/units/{re.sub(chr(95) + "scav$", "", unit)}.bos'
+        script = u.get('scriptPath') if u else f'scripts/units/{re.sub(chr(95) + "scav$", "", unit)}.bos'
         hidden, script_used = hidden_pieces(pool, script)
         if a.verbose:
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')

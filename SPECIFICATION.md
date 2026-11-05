@@ -21,15 +21,15 @@ The **name of the file carries the version of the game** it was exported from, e
 
 ```
 { "format": 1, "gameName": "<game name>", "gameVersion": "<game version as the game reports it>", "count": <number of units>, "units": {
-"armllt": { "game": { ... }, "editor": { ... } },
+"armllt": { <fields of the unit definition>, <added fields> },
 ...
 }}
 ```
 
 One unit per line, sorted by unit name; keys inside are sorted, so two exports of the same game give the same file. Size and number of units: section 10.
 
-- `game`: **the fields of the unit definition as they are** (everything that is a number, a text, a truth value or a table, e.g. `health`, `metalCost`, `energyCost`, `buildTime`, `speed`, `sightDistance`, `radarDistance`, `xsize`, `zsize`, `canFly`, `buildSpeed`, `customParams`, `modCategories`, `moveDef`, ...). Numbers that are not finite are `null`. Left out (large, no use on a page): `sounds`, `weapons`, `buildOptions`, `visuals`, `cmdDescs`, `decoyFor`, `model`. Tables are written to a depth of 3.
-- `editor`: what the export adds (the key is called `editor` because the code comes from the Level Editor, section 10; the file format stays as it is):
+- **The fields of the unit definition as they are** (everything that is a number, a text, a truth value or a table, e.g. `health`, `metalCost`, `energyCost`, `buildTime`, `speed`, `sightDistance`, `radarDistance`, `xsize`, `zsize`, `canFly`, `buildSpeed`, `customParams`, `modCategories`, `moveDef`, ...). Numbers that are not finite are `null`. Left out (large, no use on a page): `sounds`, `weapons`, `buildOptions`, `visuals`, `cmdDescs`, `decoyFor`, `model`. Tables are written to a depth of 3.
+- **Added fields** (what the unit definition does not hold; they follow the fields above in the same object, there is no second level). `humanName` and `description` of the unit definition are only keys, they are replaced by the text the game shows (English):
 
 | Field | Meaning |
 |---|---|
@@ -38,10 +38,7 @@ One unit per line, sorted by unit name; keys inside are sorted, so two exports o
 | `tech` | 1, 2 or 3 (`customParams.techlevel`, "Epic" units count as 3) |
 | `water` | true for water buildings and sea planes |
 | `filler` | true for dragon teeth, walls and similar |
-| `humanName`, `description` | the name and the description as the game shows them (English) |
-| `author` | `customParams.model_author`: who made the model (needed for the credits, see section 7) |
 | `model` | the model of the unit as the game names it, e.g. `objects3d/Units/ARMLLT.s3o` (the file in the game is in lower case, see section 5) |
-| `buildpic` | the file name of the picture (see section 4) |
 | `shotDamage`, `shotsPerSecond`, `antiAir` | the main weapon (`Shared.shotInfo`): damage per shot, shots per second, true if it is an anti-air weapon |
 | `weapons` | one entry per weapon: **all fields of the weapon definition** (`range`, `reload`, `projectiles`, `salvoSize`, `areaOfEffect`, `weaponType`, `customParams`, ...) and `damages`: the damage per armor class name (`default`, `vtol`, ...) |
 | `builds` | the unit names this unit can build (empty if none) |
@@ -83,7 +80,7 @@ All units of a faction share **one colour atlas**: the file named in the S3O (`A
 
 ## 4. The pictures
 
-`editor.buildpic` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each). Instead of these in-game pictures (they are small and show the unit from above on water or terrain), the website can use pictures rendered from the models like the ones on beyondallreason.info: section 12.
+`buildpicname` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each). Instead of these in-game pictures (they are small and show the unit from above on water or terrain), the website can use pictures rendered from the models like the ones on beyondallreason.info: section 12.
 
 ## 5. Where the files are in the game
 

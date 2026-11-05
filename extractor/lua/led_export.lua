@@ -219,11 +219,14 @@ return function(host)
 		return text:sub(1, -2) .. ',"damages":{' .. table.concat(dmg, ",") .. "}}"
 	end
 
-	-- one unit: "game" = the fields of the unit definition as they are, plus what the editor adds ("editor"): faction, type, tech level, the weapons with all
-	-- their values, the names of what it builds, the best damage per second figure (the one of the info under the preview)
+	-- one unit: one flat object: the fields of the unit definition as they are (humanName and description replaced by the English text the game shows), followed by
+	-- what the unit definition does not hold: faction, type, tech level, the model with its path, the weapons with all their values, the names of what it builds,
+	-- the best damage per second figure (the one of the info under the preview)
 	local function unitText(e)
 		local ud = UnitDefs[e.id]
 		local game = fields(ud, UNIT_FIELDS)
+		game.humanName = ud.translatedHumanName or ud.humanName or e.name
+		game.description = ud.translatedTooltip or ud.tooltip or ""
 		local raw = enc(game, 0, SKIP) or "{}"
 		local weapons, builds = {}, {}
 		for _, w in ipairs(ud.weapons or {}) do
@@ -240,14 +243,10 @@ return function(host)
 			end
 		end
 		local dmg, sps, aa = Shared.shotInfo(e.id)
-		local cp = ud.customParams or {}
-		local human = ud.translatedHumanName or ud.humanName or e.name
-		local descr = ud.translatedTooltip or ud.tooltip or ""
-		local editor = string.format('{"faction":%s,"group":%s,"tech":%d,"water":%s,"filler":%s,"humanName":%s,"description":%s,"author":%s,"model":%s,"buildpic":%s,"shotDamage":%s,"shotsPerSecond":%s,"antiAir":%s,"weapons":[%s],"builds":[%s]}',
-			quote(e.faction), quote(e.group), e.tech, tostring(e.water), tostring(e.filler), quote(human), quote(descr), quote(tostring(cp.model_author or "")),
-			quote(tostring(ud.modelpath or "")), quote(tostring(ud.buildpicname or "")),
+		local extra = string.format('"faction":%s,"group":%s,"tech":%d,"water":%s,"filler":%s,"model":%s,"shotDamage":%s,"shotsPerSecond":%s,"antiAir":%s,"weapons":[%s],"builds":[%s]',
+			quote(e.faction), quote(e.group), e.tech, tostring(e.water), tostring(e.filler), quote(tostring(ud.modelpath or "")),
 			number(dmg), number(sps), tostring(aa and true or false), table.concat(weapons, ","), table.concat(builds, ","))
-		return '{"game":' .. raw .. ',"editor":' .. editor .. "}"
+		return raw:sub(1, -2) .. (raw == "{}" and "" or ",") .. extra .. "}"
 	end
 
 	-- the version of the game (e.g. "Beyond All Reason test-30001-abc1234") and the file name that carries it: units-<version>.json (characters other than
