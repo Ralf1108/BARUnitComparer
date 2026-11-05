@@ -1,5 +1,11 @@
 # BARUnitComparer
 
+## 👉 [**Open the website: https://ralf1108.github.io/BARUnitComparer/**](https://ralf1108.github.io/BARUnitComparer/) 👈
+
+Click the link above to open the running unit catalog and comparison.
+
+---
+
 Visual and data comparison of the units of [Beyond All Reason](https://www.beyondallreason.info/) (BAR) of all factions: Armada, Cortex, Legion, Scavengers and Raptors.
 
 It consists of the **website** (unit catalog and comparison) and the tools that get its content out of the game: an **exporter** for the unit data and a **renderer** for the unit pictures.
