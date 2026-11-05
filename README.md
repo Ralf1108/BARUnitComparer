@@ -32,6 +32,7 @@ Unit catalog and comparison in the look of beyondallreason.info, plain HTML, CSS
 
 - **Catalog:** all units by faction (Armada, Cortex, Legion, Scavengers, Raptors) and category (Bots, Vehicles, Air, Sea, Hover, Factories, Defense, Buildings), as grid or list, with names on or off, search and tech level filter.
 - **Compare:** any number of units side by side, each column with its own faction, search and category filter; picture, values as bars and the equivalent units of the other factions. The comparison can be kept as a link.
+- **Online:** published with GitHub Pages from the folder `website/` (workflow `.github/workflows/pages.yml`): https://ralf1108.github.io/BARUnitComparer/
 - **Data:** the page loads a small file with the values it shows, per game version: 55 KB as gzip instead of 15.7 MB, made by the exporter.
 
 ## Exporter
@@ -76,4 +77,4 @@ Renders a picture of a unit from the game's own 3D model and textures, in the lo
 
 ## Licence
 
-The code of this repository is under the [MIT licence](LICENSE). The game data, models and textures of Beyond All Reason have their own licences (mostly CC BY-NC-ND 4.0, see section 7 of the specification): the exported data and the pictures are for home use and are not part of this repository.
+The code of this repository is under the [MIT licence](LICENSE). The game data, models and textures of Beyond All Reason have their own licences (mostly CC BY-NC-ND 4.0, see section 7 of the specification). The unit data, the rendered pictures and the icons in `website/assets/` are derived from them: this is an unofficial fan project, the pictures are published with the site, and they are taken down on request of the BAR developers.

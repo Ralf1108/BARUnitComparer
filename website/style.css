@@ -27,6 +27,9 @@ img { display: block; }
 #version { color: var(--muted); font-size: 13px; }
 #version select { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; }
 
+.legal { color: #777; font-size: 12px; text-align: center; max-width: 900px; margin: 0 auto; padding: 24px 24px 90px; }
+.legal a { color: #999; text-decoration: underline; }
+
 /* ------------------------------------------------ catalog */
 .title { display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline; gap: 8px 22px; padding: 18px 24px 6px; }
 .title b { font-size: 44px; font-weight: 700; color: var(--accent-text); }

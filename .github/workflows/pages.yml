@@ -1,0 +1,48 @@
+# Publishes the folder website/ with GitHub Pages (SPECIFICATION_WEBSITE.md, section 7).
+# One time in the repository: Settings > Pages > Build and deployment > Source: GitHub Actions.
+# After that every push to main that changes website/ publishes the site again; "Run workflow" in the Actions tab does it by hand.
+name: Publish the website
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'website/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # what the page does not read stays out of the published site: the full unit data (15.7 MB per game version, the page reads the reduced file) and the local server
+      - name: Leave out what the page does not need
+        run: |
+          rm -f website/assets/*/data/units-*.json
+          rm -f website/serve.py website/serve.bat
+          du -sh website
+          find website -type f | wc -l
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: website
+
+      - name: Publish
+        id: deployment
+        uses: actions/deploy-pages@v5

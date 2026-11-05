@@ -9,7 +9,7 @@ The website of the project: a unit catalog and a comparison of any number of uni
 
 ## 1. Data
 
-The page reads everything from `website/assets/` (what of it goes into Git is still open: section 6):
+The page reads everything from `website/assets/` (all of it is in Git; the full `units-<version>.json` is not published, section 6):
 
 ```
 website/assets/                                everything the tools make
@@ -105,9 +105,21 @@ website\serve.bat                    (or python website/serve.py [--port 8000]; 
 
 The server listens only on `127.0.0.1` and serves the folder `website/` (the page takes its data from `assets/` next to it). It keeps its connections open (HTTP/1.1): one connection per picture used up the buffers of Windows on pages with hundreds of pictures. The font Poppins comes from Google Fonts; without internet the page uses a system font.
 
-## 6. Open
+## 6. Publishing with GitHub Pages
 
-- What of `website/assets/` is checked in: the repository is public and most models and textures are under CC BY-NC-ND (`SPECIFICATION.md`, sections 7 and 8).
+The site is published from the folder `website/` by the workflow `.github/workflows/pages.yml`: every push to `main` that changes `website/` (or the workflow) publishes it again, "Run workflow" in the Actions tab does it by hand. The address is `https://ralf1108.github.io/BARUnitComparer/`.
+
+- **One time:** in the repository **Settings > Pages > Build and deployment > Source: GitHub Actions**. Until that is done the workflow stops at the step `configure-pages`; after switching it on, "Run workflow" starts it.
+- The workflow publishes `website/` without what the page does not read: the full `units-<version>.json` (15.7 MB per game version) and the local server (`serve.py`, `serve.bat`). The published site has 27 MB and about 2000 files (the limit of Pages is 1 GB).
+- It needs no build: the page is static, its paths are relative (`assets/...`) and its addresses use `#`, so it works in a sub folder as well. This was tested with a plain static server under `/BARUnitComparer/`, with the full JSON removed as the workflow does, and with the exact upper and lower case of all 1663 picture and 329 icon names (Pages is case sensitive, Windows is not; all names are lower case). The deployment itself can only be tested on GitHub.
+- A new game version: export and render locally, check in `website/assets/`, push: the site is published again.
+- The page ends with a notice: unofficial fan project, not affiliated with the BAR team, content is removed on request, a link to the licence of the game and to the source.
+- **Licence:** the pictures and icons are derived from content under CC BY-NC-ND (`SPECIFICATION.md`, section 7). The site is published first and the BAR developers are asked afterwards whether it is in order; if they object, the pictures are taken down.
+- With a plain one-connection-per-file server (such as `python -m http.server`) a page with hundreds of pictures can show single `ERR_NO_BUFFER_SPACE` errors on Windows; the page tries a failed picture once more, and `serve.py` keeps its connections open. Pages itself is not affected (HTTP/2).
+
+## 7. Open
+
+- The BAR developers still have to be asked whether the published pictures are in order (section 6).
 - Showing the differences between two game versions (`SPECIFICATION.md`, section 3.5) is not built; the data of several versions is already loaded per version (section 1).
 - A 3D view of the model is not built (`SPECIFICATION.md`, section 4.2).
 - `equivalences.json` is still the generated proposal: many units have no partner until the ids are corrected by hand.

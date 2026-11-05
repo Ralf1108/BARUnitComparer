@@ -17,7 +17,7 @@ Unit catalog and comparison of any number of units: [SPECIFICATION_WEBSITE.md](S
 
 The data folder of the BAR installation (e.g. `C:\Games\Beyond-All-Reason\data`) holds the files in a pool: `packages/<hash>.sdp` is a gzip stream of entries `[1 byte length of the name][name][16 bytes md5][4 bytes crc][4 bytes size]` (the biggest `.sdp` is the game), the file of an entry is `pool/<first two hex digits of the md5>/<the other 30 digits>.gz` (gzip). Names are in lower case: `objects3d/units/armllt.s3o`, `unittextures/arm_color.dds`, `unitpics/armllt.dds`, `scripts/units/armllt.bos`. `cache/ArchiveCache*.lua` lists the installed archives (games, maps) as the engine knows them. All tools only **read** this folder.
 
-All tools write into `website/assets/`, per game version (what of it goes into Git: section 8):
+All tools write into `website/assets/`, per game version (checked in, so a deleted or overwritten result can be restored):
 
 ```
 website/assets/                                everything the tools make
@@ -190,13 +190,15 @@ So a run can be stopped at any time and started again: it goes on where it stopp
 
 Summary at the end: pictures done, made now, there already and failed (failed ones in `website/assets/<version>/images/render_errors.txt`), total size, size per picture, times; then it waits for a key. PowerShell parameters (the `.bat` passes them on): `-Faction <list>` and `-Format <list>` instead of the questions, `-Game "Beyond All Reason <version>"` (another installed version), `-Force` (all three steps again), `-Out <folder>` (instead of `website/assets/`, for tests), `-Limit <n>` (first n units, for tests), `-Yes` (no questions). Rendering all 1663 units takes about 2.5 minutes on an RTX 3070, the export 30 seconds.
 
-## 7. Licence (home use first)
+## 7. Licence
 
-The licence file of the game (`LICENSE.md` of the Beyond-All-Reason repository): the **code** is GPL v2; **models by Cremuss** are CC BY-SA 4.0; **all other models and textures** are CC BY-NC-ND 4.0 (Beherith): no derivative work, no repackaging, no use outside BAR; **animations** CC BY-NC-ND 4.0; pictures and icons have their own licence files (without them: all rights reserved). So the website is for **home use**: the files stay in the own game and project folders and are **not published**. Putting it on the internet needs the permission of the BAR developers, or has to be limited to what the licences allow (models by Cremuss with credit, `editor.author`); the numbers (code of the unit definitions) are GPL v2. Rendered pictures and converted textures are probably derivative work as well: ask before publishing them. The repository is public: everything checked in is published, so what of `website/assets/` goes into Git is an open decision (section 8).
+The licence file of the game (`LICENSE.md` of the Beyond-All-Reason repository): the **code** is GPL v2; **models by Cremuss** are CC BY-SA 4.0; **all other models and textures** are CC BY-NC-ND 4.0 (Beherith): no derivative work, no repackaging, no use outside BAR; **animations** CC BY-NC-ND 4.0; pictures and icons have their own licence files (without them: all rights reserved). The numbers (code of the unit definitions) are GPL v2.
+
+The rendered pictures, the role icons and the converted textures are probably derivative work of the CC BY-NC-ND content. **Decision of the project owner (2026-11-05):** the repository stays public, `website/assets/` (data, pictures, icons) is checked in and the site is published with GitHub Pages (`SPECIFICATION_WEBSITE.md`, section 6) first; the BAR developers are asked afterwards whether that is in order, so that they can look at the site, and the pictures are taken down if they object. The site says on every page that it is an unofficial fan project and that content is removed on request. The risk of this order is that the pictures stay in the history of the repository even after they are taken down (removing them from it means rewriting the history).
 
 ## 8. Next steps and open points
 
-- Decide what of `website/assets/` is checked in (the repository is public, section 7): the data, the pictures and icons, or nothing. Git protects only what is checked in; the pictures can be rendered again in about 3 minutes.
+- Ask the BAR developers whether the published pictures and the site are in order (section 7).
 - Correct `website/assets/equivalences.json` by hand.
 - Choose the final picture format and quality for the website (AVIF 70 is the default so far).
 - Try the exporter with an older game version (section 3.5).
