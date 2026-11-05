@@ -1,7 +1,7 @@
 function widget:GetInfo()
 	return {
 		name = "Website Unit Extraction",
-		desc = "Writes the data of all units (units-<game version>.json) and the comparison ids (comparison.json) of the running game into LuaUI/Config/WebsiteExport/",
+		desc = "Writes the data of all units (units-<game version>.json) and the equivalence ids (equivalences.json) of the running game into LuaUI/Config/WebsiteExport/",
 		author = "BARLevelEditor",
 		date = "2026",
 		license = "GNU GPL v2",
@@ -13,7 +13,7 @@ end
 -- Unit extraction for the unit comparison website (SPECIFICATION.md, sections 2 and 10): a widget for a plain Beyond All Reason game (no Level Editor).
 -- It runs once, a moment after the game has started, and writes
 --   LuaUI/Config/WebsiteExport/units-<game version>.json   all units with their values, the version of Beyond All Reason in the file name and in the file
---   LuaUI/Config/WebsiteExport/comparison.json              the comparison id of every unit (kept if it is there already, only new units are added)
+--   LuaUI/Config/WebsiteExport/equivalences.json              the equivalence id of every unit (kept if it is there already, only new units are added)
 --   LuaUI/Config/WebsiteExport/status.txt                   "ok ..." or the error (for a script that starts the game and waits for the end)
 -- (a user widget may write only into LuaUI/Config and LuaUI/Widgets). If the file LuaUI/Config/WebsiteExport/quit.txt exists, the game ends itself afterwards
 -- (quitforce), so that a script can run the game once per game version; without that file the game goes on.
@@ -54,7 +54,7 @@ local function run()
 		say = function(s) Spring.Echo("[Website Unit Extraction] " .. s) end,
 	})
 	local a, aOk = ex.exportUnits()
-	local b, bOk = ex.exportComparison()
+	local b, bOk = ex.exportEquivalence()
 	local text = a:gsub("\n", " ") .. " | " .. b:gsub("\n", " ")
 	if not (aOk and bOk) then
 		Spring.Echo("[Website Unit Extraction] error: " .. text)

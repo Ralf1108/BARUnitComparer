@@ -6,7 +6,7 @@ A website that shows the units of Beyond All Reason next to each other, to compa
 
 - Lists **all units** of the game: Armada, Cortex, Legion, Scavengers (the `_scav` copies) and Raptors.
 - **Filters**: faction, type (`buildings`, `turrets`, `bot`, `vehicle`, `hover`, `air`, `ships`) and tech level (T1, T2, T3). Water buildings / sea planes are marked (`water`), fillers (dragon teeth, walls) are marked (`filler`).
-- **Comparison:** every unit has a **comparison id**. All units with the same id are shown next to each other (two, three or more: one per faction, and so on). A unit without partner has an id of its own and is shown alone.
+- **Equivalence:** every unit has an **equivalence id**. All units with the same id are shown next to each other (two, three or more: one per faction, and so on). A unit without partner has an id of its own and is shown alone.
 - **Per unit:** the picture, the 3D model that turns by itself or with the mouse, and the values (health, costs, speed, weapons, ...).
 - **3D view:** left mouse button held and dragged turns the model, the mouse wheel zooms in and out, and the model may also turn by itself (switchable). Only the colour texture is used (no shine, no glow, no normal map for now).
 - Runs locally first (a small local web server, `http://localhost`); putting it on the internet may come later (see section 7).
@@ -21,15 +21,15 @@ The **name of the file carries the version of the game** it was exported from, e
 
 ```
 { "format": 1, "gameName": "<game name>", "gameVersion": "<game version as the game reports it>", "count": <number of units>, "units": {
-"armllt": { <fields of the unit definition>, <added fields> },
+"armllt": { "game": { ... }, "editor": { ... } },
 ...
 }}
 ```
 
 One unit per line, sorted by unit name; keys inside are sorted, so two exports of the same game give the same file. Size and number of units: section 10.
 
-- **The fields of the unit definition as they are** (everything that is a number, a text, a truth value or a table, e.g. `health`, `metalCost`, `energyCost`, `buildTime`, `speed`, `sightDistance`, `radarDistance`, `xsize`, `zsize`, `canFly`, `buildSpeed`, `customParams`, `modCategories`, `moveDef`, ...). Numbers that are not finite are `null`. Left out (large, no use on a page): `sounds`, `weapons`, `buildOptions`, `visuals`, `cmdDescs`, `decoyFor`, `model`. Tables are written to a depth of 3.
-- **Added fields** (what the unit definition does not hold; they follow the fields above in the same object, there is no second level). `humanName` and `description` of the unit definition are only keys, they are replaced by the text the game shows (English):
+- `game`: **the fields of the unit definition as they are** (everything that is a number, a text, a truth value or a table, e.g. `health`, `metalCost`, `energyCost`, `buildTime`, `speed`, `sightDistance`, `radarDistance`, `xsize`, `zsize`, `canFly`, `buildSpeed`, `customParams`, `modCategories`, `moveDef`, ...). Numbers that are not finite are `null`. Left out (large, no use on a page): `sounds`, `weapons`, `buildOptions`, `visuals`, `cmdDescs`, `decoyFor`, `model`. Tables are written to a depth of 3.
+- `editor`: what the export adds (the key is called `editor` because the code comes from the Level Editor, section 10; the file format stays as it is):
 
 | Field | Meaning |
 |---|---|
@@ -38,14 +38,17 @@ One unit per line, sorted by unit name; keys inside are sorted, so two exports o
 | `tech` | 1, 2 or 3 (`customParams.techlevel`, "Epic" units count as 3) |
 | `water` | true for water buildings and sea planes |
 | `filler` | true for dragon teeth, walls and similar |
+| `humanName`, `description` | the name and the description as the game shows them (English) |
+| `author` | `customParams.model_author`: who made the model (needed for the credits, see section 7) |
 | `model` | the model of the unit as the game names it, e.g. `objects3d/Units/ARMLLT.s3o` (the file in the game is in lower case, see section 5) |
+| `buildpic` | the file name of the picture (see section 4) |
 | `shotDamage`, `shotsPerSecond`, `antiAir` | the main weapon (`Shared.shotInfo`): damage per shot, shots per second, true if it is an anti-air weapon |
 | `weapons` | one entry per weapon: **all fields of the weapon definition** (`range`, `reload`, `projectiles`, `salvoSize`, `areaOfEffect`, `weaponType`, `customParams`, ...) and `damages`: the damage per armor class name (`default`, `vtol`, ...) |
 | `builds` | the unit names this unit can build (empty if none) |
 
 The damage per second of a weapon is `damages.default * projectiles * salvoSize / reload` (anti-air weapons carry their damage in the class `vtol`).
 
-### 2.2 `comparison.json`
+### 2.2 `equivalences.json`
 
 ```
 {
@@ -58,7 +61,7 @@ The damage per second of a weapon is `damages.default * projectiles * salvoSize 
 }
 ```
 
-Unit name -> comparison id. **The id is a free text**, units with the same id belong together. **There is only one `comparison.json`, for all game versions: it is not versioned.** It only maps unit names to ids; a name that has no unit in the chosen game version is simply not used. This file is **meant to be corrected by hand** (and kept in the website project): the first extraction writes a proposal, and afterwards an extraction only **adds** the units that are not in the file yet (new units of a game update); it never changes an id that is already there and never removes a line. The proposal: the unit name without the three faction letters (`armsolar`, `corsolar`, `legsolar` give `solar`); a Scavenger copy gets the id of its unit (`armllt_scav` gives `llt`), a raptor its own name. Many pairs will be right, but not all: factions name some units differently (there is no `legllt`: the Legion light laser tower has another name, so it gets an id of its own until it is corrected), and some units have no partner. The file is read with a small JSON reader (ids may contain any character, also quotes, backslashes and escapes like `é`). A file that cannot be read completely (no `"units"` object, a broken line) is left as it is and the extraction reports an error with the line (section 10), so no id is lost. The file is written again with the unit/id pairs alone; other top-level keys are not kept.
+Unit name -> equivalence id. **The id is a free text**, units with the same id belong together. **There is only one `equivalences.json`, for all game versions: it is not versioned.** It only maps unit names to ids; a name that has no unit in the chosen game version is simply not used. This file is **meant to be corrected by hand** (and kept in the website project): the first extraction writes a proposal, and afterwards an extraction only **adds** the units that are not in the file yet (new units of a game update); it never changes an id that is already there and never removes a line. The proposal: the unit name without the three faction letters (`armsolar`, `corsolar`, `legsolar` give `solar`); a Scavenger copy gets the id of its unit (`armllt_scav` gives `llt`), a raptor its own name. Many pairs will be right, but not all: factions name some units differently (there is no `legllt`: the Legion light laser tower has another name, so it gets an id of its own until it is corrected), and some units have no partner. The file is read with a small JSON reader (ids may contain any character, also quotes, backslashes and escapes like `é`). A file that cannot be read completely (no `"units"` object, a broken line) is left as it is and the extraction reports an error with the line (section 10), so no id is lost. The file is written again with the unit/id pairs alone; other top-level keys are not kept.
 
 How to correct: give the units that belong together the same id (any text), give a unit alone an id that nobody else has. Several units of one faction may share an id as well (for example an `llt` and an upgraded version of it, if they should be shown together).
 
@@ -80,7 +83,7 @@ All units of a faction share **one colour atlas**: the file named in the S3O (`A
 
 ## 4. The pictures
 
-`buildpicname` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each). Instead of these in-game pictures (they are small and show the unit from above on water or terrain), the website can use pictures rendered from the models like the ones on beyondallreason.info: section 12.
+`editor.buildpic` is the file name of the unit's picture (e.g. `ARMLLT.DDS`); the file is `unitpics/<name in lower case>` in the game, 256 x 256 pixels, DDS, RGBA, about 430 KB. The website project converts them once to JPEG or WebP (about 15 to 30 KB each). Instead of these in-game pictures (they are small and show the unit from above on water or terrain), the website can use pictures rendered from the models like the ones on beyondallreason.info: section 12.
 
 ## 5. Where the files are in the game
 
@@ -88,7 +91,7 @@ The game's files are in the data folder of the BAR installation (`C:\Games\Beyon
 
 ## 6. Order of work for the website project
 
-1. Run `extractor/extract_units.ps1` once per game version to get the `units-<game version>.json` files and the one `comparison.json` (section 10); correct the ids and keep `comparison.json` in the website project.
+1. Run `extractor/extract_units.ps1` once per game version to get the `units-<game version>.json` files and the one `equivalences.json` (section 10); correct the ids and keep `equivalences.json` in the website project.
 2. Script: copy the S3O files of all units, convert the three colour atlases and the pictures (sections 3.2, 4).
 3. Page: the filter bar (faction, type, tech level, search), the list of the units, the comparison view (all units of an id next to each other, with picture, 3D view and the values), the 3D view with the mouse control.
 4. A small local web server for development (a page opened from a file cannot load the model files).
@@ -122,12 +125,12 @@ The folder `extractor/` holds everything that is needed to get the data out of t
 
 | File | What it is |
 |---|---|
-| `extractor/unit-extraction.lua` | the widget for a **plain Beyond All Reason game**: once, a moment after the game has started (game frame 5), it writes `units-<game version>.json`, `comparison.json` and a short `status.txt` ("ok ..." or "error ...") into `LuaUI/Config/WebsiteExport/` in the data folder of the game (a user widget may write only into `LuaUI/Config` and `LuaUI/Widgets`). If the file `LuaUI/Config/WebsiteExport/quit.txt` exists, the game ends itself afterwards (`quitforce`), otherwise it goes on |
+| `extractor/unit-extraction.lua` | the widget for a **plain Beyond All Reason game**: once, a moment after the game has started (game frame 5), it writes `units-<game version>.json`, `equivalences.json` and a short `status.txt` ("ok ..." or "error ...") into `LuaUI/Config/WebsiteExport/` in the data folder of the game (a user widget may write only into `LuaUI/Config` and `LuaUI/Widgets`). If the file `LuaUI/Config/WebsiteExport/quit.txt` exists, the game ends itself afterwards (`quitforce`), otherwise it goes on |
 | `extractor/extract_units.ps1` | the start script (PowerShell, Windows): starts the installed game once in a sandbox folder with the widget, waits for the end, moves the result to `-Out` and deletes the sandbox |
-| `extractor/lua/led_export.lua` | the export code the widget calls: `exportUnits()`, `exportComparison()` |
+| `extractor/lua/led_export.lua` | the export code the widget calls: `exportUnits()`, `exportEquivalence()` |
 | `extractor/lua/editor_common.lua`, `extractor/lua/bar_rules.lua` | what `led_export.lua` uses: the unit catalog (`buildUnitCache`: faction, type, tech level, water, filler), the main weapon figures (`shotInfo`) and the rules behind them |
 
-The three files in `extractor/lua/` are **copies** of `LevelEditor/scripts/led_export.lua`, `shared/editor_common.lua` and `shared/bar_rules.lua` of the BARLevelEditor repository (state of 2026-11-05, commit `86df38f`). One change was made here: `exportUnits()` and `exportComparison()` of `led_export.lua` also return whether they succeeded, and a failed write is an error (a new copy has to keep this). `editor_common.lua` is large because the Level Editor's menus live in it; the extraction uses only the unit catalog. When the rules for faction, type or tech level change in the Level Editor, the files are copied again; they can also be cut down or replaced by an own implementation of the catalog (section 2.1 says what every field means).
+The three files in `extractor/lua/` are **copies** of `LevelEditor/scripts/led_export.lua`, `shared/editor_common.lua` and `shared/bar_rules.lua` of the BARLevelEditor repository (state of 2026-11-05, commit `86df38f`). One change was made here: `exportUnits()` and `exportEquivalence()` of `led_export.lua` also return whether they succeeded, and a failed write is an error (a new copy has to keep this). `editor_common.lua` is large because the Level Editor's menus live in it; the extraction uses only the unit catalog. When the rules for faction, type or tech level change in the Level Editor, the files are copied again; they can also be cut down or replaced by an own implementation of the catalog (section 2.1 says what every field means).
 
 ### Using the start script
 
@@ -135,14 +138,14 @@ The three files in `extractor/lua/` are **copies** of `LevelEditor/scripts/led_e
 .\extract_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder>"]
 ```
 
-- `-Out` (default `out` next to the script): receives `units-<game version>.json` and `comparison.json`. An existing `comparison.json` there is **given to the game first**: its ids stay, only new units are added (section 2.2).
+- `-Out` (default `out` next to the script): receives `units-<game version>.json` and `equivalences.json`. An existing `equivalences.json` there is **given to the game first**: its ids stay, only new units are added (section 2.2).
 - `-Data` (default: the environment variable `BAR_DATA`, otherwise the first of the usual places, e.g. `C:\Games\Beyond-All-Reason\data`): the data folder of the BAR installation, i.e. the one with `packages`, `pool`, `engine` and `cache`; a given folder that is none is an error, not replaced by another one (the engine is started from there; the packages, pool, rapid and maps are read from there through the environment variable `SPRING_DATADIR`; nothing in it is changed, nothing is written into it, and no junctions are needed).
 - `-Work` (default `%TEMP%\unit_extraction`): the sandbox: an own write folder `<Work>\data` with the widget, the three files, the game script and the config. The game writes only there. After a successful run the result is moved to `-Out` and the sandbox is deleted; after an error it stays, with the log of the game `<Work>\data\infolog.txt`. (Sandboxes of older versions of the script contain junctions to the game folders; the script removes such links first, before it deletes anything.)
 - `-Map` (default `Hooked 1.1.1`, and if that is not installed the first installed map): the map to load, as the engine names it. Any map will do, only the units are read; the default is a small 1v1 map (19 MB), so that the game loads fast. The script checks game and map in the engine's archive cache (`cache/ArchiveCache*.lua`) before it starts the game, because otherwise the engine stops at a message box that waits for a click; something that was just downloaded is known after BAR has been started once.
 - `-Game`: the game as the engine names it, default the installed one (`byar:test`, otherwise `byar:stable`, whose package is installed).
 - `-Engine`: the engine, the name of its folder in `<Data>\engine`; default the newest. An old game version may need the engine of its time (see "Several game versions").
 - The game opens in a small framed window and is put to the back; it ends itself. Only the process the script started is ever stopped (after `-WaitSec`).
-- Exit code 1 and a message on stderr (`ERROR: ...`) if the extraction failed: game or map are not installed, the game ended or timed out without a result of the widget, or the widget reports `error ...` in `status.txt` (no units found, a file that cannot be written, a `comparison.json` without `"units"`, an error in the export). Nothing is copied to `-Out` then, so an existing `comparison.json` stays as it is. The log is named in the message.
+- Exit code 1 and a message on stderr (`ERROR: ...`) if the extraction failed: game or map are not installed, the game ended or timed out without a result of the widget, or the widget reports `error ...` in `status.txt` (no units found, a file that cannot be written, a `equivalences.json` without `"units"`, an error in the export). Nothing is copied to `-Out` then, so an existing `equivalences.json` stays as it is. The log is named in the message.
 
 What the script sets, and why (this matters if the start is done another way):
 - the three Lua files are put into `LuaUI/Include/`, the widget into `LuaUI/Widgets/`;
@@ -164,17 +167,17 @@ A first step would be to try two versions side by side (the installed one and on
 
 ## 11. Comparing game versions (the idea behind the version in the file name)
 
-Every export carries the version of Beyond All Reason (file name and `gameVersion`, section 2.1). The website offers a choice of two versions and shows, per unit name, the values that changed (health, costs, speed, range, damage, ...), the units that are new in the newer version and the ones that are gone. `comparison.json` is the same for all versions (section 2.2). Units are matched by their unit name (`armllt`); a unit that was renamed in a game version shows up as gone and new.
+Every export carries the version of Beyond All Reason (file name and `gameVersion`, section 2.1). The website offers a choice of two versions and shows, per unit name, the values that changed (health, costs, speed, range, damage, ...), the units that are new in the newer version and the ones that are gone. `equivalences.json` is the same for all versions (section 2.2). Units are matched by their unit name (`armllt`); a unit that was renamed in a game version shows up as gone and new.
 
 ## 12. The pictures of the units, rendered from the models (`render_unit/`)
 
 `render_unit/render_unit.py` renders one picture per unit from the game's own files, in the look of the pictures on beyondallreason.info (checked against `legnavyscout`, `legnavyconship` and `legnavyfrigate`):
 
 ```
-python render_unit/render_unit.py [--out DIR] [--units FILE] [--format png|bmp|avif|webp|all] [--size 400] [--tex-size 2048] [--team R,G,B] [-v] <unit> [<unit> ...]    (or @file)
+python render_unit/render_unit.py [--out DIR] [--units FILE] [--no-units] [--format png|bmp|avif|webp|all] [--size 400] [--tex-size 2048] [--team R,G,B] [-v] <unit> [<unit> ...]    (or @file)
 ```
 
-- **Source:** the model and the textures named in its header, read from the game's pool (section 5); the newest installed game, or `--game "Beyond All Reason <version>"` for an older one that is installed. The data folder is `--data`, otherwise `BAR_DATA`, otherwise the usual places (as with the extractor); it is only read. The model and the script of every unit come from the `units-<game version>.json` of the extractor (`--units`, default: `extractor/out/units-<version of the game>.json`; data of another version of the game are never taken by themselves, without the file the model is looked for by the name and the Raptors are not found): `editor.model` and `game.scriptPath`; the model of 1019 of the 1663 units is not named like the unit (Scavenger copies, Raptors). Without that file the model is looked for as `objects3d/units/<unit>.s3o`.
+- **Source:** the model and the textures named in its header, read from the game's pool (section 5); the newest installed game, or `--game "Beyond All Reason <version>"` for an older one that is installed. The data folder is `--data`, otherwise `BAR_DATA`, otherwise the usual places (as with the extractor); it is only read. The model and the script of every unit come from the `units-<game version>.json` of the extractor (`--units`, default: `extractor/out/units-<version of the game>.json`; data of another version of the game are never taken by themselves; if the file is missing the script stops with an error): `editor.model` and `game.scriptPath`; the model of 1019 of the 1663 units is not named like the unit (Scavenger copies, Raptors). With `--no-units` (the way without the file) the model is looked for as `objects3d/units/<unit>.s3o`.
 - **Texture channels** (from the game's shader `modelmaterials_gl4/templates/cus_gl4.frag.glsl`): colour texture `rgb` = albedo, `a` = mask of the team colour; second texture (`*_other.dds` for Armada and Cortex, `leg_shader.dds` for Legion) `r` = emissive, `g` = metalness, `b` = roughness; normal map `rgb` = normal. The colour atlases are scaled from 4096 to 2048 pixels once per faction (cached in `--work`); RGB and alpha are scaled separately, because Pillow scales RGBA with premultiplied alpha and would wipe out the colour where the team colour mask is 0.
 - **Model:** the vertices are used as they are, **not mirrored** (section 3.1). The pieces are not animated, but the pieces that the unit's script hides when the unit is created are left out (the crown and the medals of the commanders, muzzle flares `flare`, `nano`, `teleport` and so on): the script of the game is compiled (`.cob`), its source (`.bos`, or `.lua` for 49 units) lies next to it in the pool, and the `hide <piece>;` / `Hide(<piece>)` statements of `Create()` are read (for 1612 of the 1663 units a BOS source exists, for 49 a Lua source, for 2 none). Children of a hidden piece stay.
 - **Look:** three.js in a browser without window (Microsoft Edge or Chrome, started with `playwright-core`), physical material (albedo, metalness, roughness, normal map, emissive), a light from the upper right (the shadow falls to the lower left), a studio environment with a warm ground for the reflections, saturation x1.25 and gamma 1.2 as colour grading, a soft shadow on an invisible ground a little below the unit. The camera looks from the front left (azimuth 324 degrees, 34 degrees up, tilted by 12 degrees) and frames every unit to 80 % of the square. The team colour parts (mask in the alpha channel of the colour texture) get the colour of the faction: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion green (130, 218, 105, the green of the website), Scavengers purple (175, 105, 225), Raptors black (20, 20, 20); `--team R,G,B` sets one colour for all units. On the textures of the raptors (`chicken_*_color.dds`) the mask covers only a small part (about 6 % of the pixels, against 4 to 11 % on the faction atlases), so black changes little: the raptors keep the purple, green and brown of their textures, only the parts of the mask become black. All values are in `render_unit/renderer/index.html` and can be changed per run with `--param key=value`.

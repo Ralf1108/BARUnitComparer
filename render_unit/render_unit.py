@@ -10,7 +10,7 @@ semi-transparent), the wanted formats are made from it; the encoding is a separa
 What it does: reads the model (.s3o) and the textures of the unit from the game's pool (SPECIFICATION.md, section 5), converts the textures of a faction once
 (cached in --work), leaves out the pieces that the unit's script hides when the unit is created, and lets the browser (renderer/index.html, three.js) render all
 units in one session. The team colour parts get the colour of the faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black (--team: one colour for all).
---units: the units-<game version>.json of the extractor (default: the one of the game version in ../extractor/out): it gives the model and the script of every unit, which are
+--units: the units-<game version>.json of the extractor (default: the one of the game version in ../extractor/out; if it is missing the script stops with an error, unless --no-units is given): it gives the model and the script of every unit, which are
 needed for Scavenger copies and Raptors (their model is not named like the unit). Without it the model is looked for by the name of the unit.
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
@@ -100,14 +100,18 @@ class Pool:
         return hits[0] if hits else None
 
 
-def load_units(given, game):
-    """The units-<game version>.json of the extractor for exactly this game: { unit name: {the unit definition fields, faction, model, ...} }; {} if there is none. Without --units the file
-    ../extractor/out/units-<version>.json is taken (the name of the game without "Beyond All Reason "): data of another version would give wrong models and scripts."""
+def load_units(given, game, none_ok):
+    """The units-<game version>.json of the extractor for exactly this game: { unit name: {game, editor} }. Without --units the file
+    ../extractor/out/units-<version>.json is taken (the name of the game without "Beyond All Reason "): data of another version would give wrong models and scripts.
+    A missing file is an error; only with --no-units ({} is returned) the models are looked for by the name of the unit."""
+    if none_ok:
+        print('no unit data (--no-units): the models are looked for by the name of the unit, Raptors will not be found', flush=True)
+        return {}
     version = game.replace('Beyond All Reason ', '', 1)
     path = Path(given) if given else HERE.parent / 'extractor' / 'out' / f'units-{re.sub(r"[^A-Za-z0-9._-]", "_", version)}.json'
     if not path.exists():
-        print(f'note: no unit data {path.name} for this game (extractor, or --units): the models are looked for by the name of the unit, Raptors will not be found', flush=True)
-        return {}
+        sys.exit(f'ERROR: unit data {path} not found. Run extractor/extract_units.ps1 first (it writes units-<game version>.json), give the file with --units, '
+                 'or work without it with --no-units (models by the name of the unit).')
     units = json.loads(path.read_text(encoding='utf-8'))
     if given and units.get('gameVersion', version) != version:
         print(f'WARNING: {path.name} is of game version {units.get("gameVersion")}, not {version}', flush=True)
@@ -292,6 +296,7 @@ def main():
     ap.add_argument('units', nargs='+', help='unit names (armllt, legnavyscout, ...); @file: a file with one name per line')
     ap.add_argument('--out', default=str(HERE / 'out'), help='folder for the pictures (default: out next to this script)')
     ap.add_argument('--units-file', '--units', dest='units_file', default='', help='units-<game version>.json of the extractor (default: ../extractor/out/units-<version of the game>.json)')
+    ap.add_argument('--no-units', action='store_true', help='work without the unit data: the model is looked for by the name of the unit (Raptors are not found, Scavenger copies are)')
     ap.add_argument('--data', default='', help='data folder of the BAR installation (only read); default: $BAR_DATA, otherwise the usual places')
     ap.add_argument('--game', default='', help='"Beyond All Reason <version>"; default: the newest installed game')
     ap.add_argument('--work', default=str(Path(tempfile.gettempdir()) / 'render_unit'), help='folder for the converted textures (kept between runs) and the models')
@@ -320,14 +325,14 @@ def main():
     sdp, game = find_game(data_dir, a.game)
     print(f'game: {game}', flush=True)
     pool = Pool(data_dir, sdp)
-    info = load_units(a.units_file, game)
+    info = load_units(a.units_file, game, a.no_units)
     (work / 'models').mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
 
     jobs, problems = [], []
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
         u = info.get(unit)
-        model = (u['model'].lower() if u else None)
+        model = (u['editor']['model'].lower() if u else None)
         if not model or not pool.has(model):
             model = pool.find_model(unit)
         if not model:
@@ -342,9 +347,9 @@ def main():
         if not pool.has(f'unittextures/{tex1}'):
             problems.append(f'{unit}: texture unittextures/{tex1} not found in the game')
             continue
-        faction = u['faction'] if u else faction_of(unit)
+        faction = u['editor']['faction'] if u else faction_of(unit)
         team = one_team or TEAM_COLORS.get(faction, TEAM_COLORS['leg'])
-        script = u.get('scriptPath') if u else f'scripts/units/{re.sub(chr(95) + "scav$", "", unit)}.bos'
+        script = u['game'].get('scriptPath') if u else f'scripts/units/{re.sub(chr(95) + "scav$", "", unit)}.bos'
         hidden, script_used = hidden_pieces(pool, script)
         if a.verbose:
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')

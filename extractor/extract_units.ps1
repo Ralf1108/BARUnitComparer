@@ -1,7 +1,7 @@
 # Unit extraction for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-extraction.lua write the data of all units, and copies the result to -Out:
 #   <Out>\units-<game version>.json   all units with their values (the version of the game is in the name and in the file)
-#   <Out>\comparison.json             the comparison ids (an existing file in <Out> is given to the game first: its ids are kept, only new units are added)
+#   <Out>\equivalences.json             the equivalence ids (an existing file in <Out> is given to the game first: its ids are kept, only new units are added)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
 #   .\extract_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
@@ -113,7 +113,7 @@ Copy-Item $archiveCache "$d\cache\"
 Copy-Item (Join-Path $here 'unit-extraction.lua') "$d\LuaUI\Widgets\"
 Copy-Item (Join-Path $here 'lua\*.lua') "$d\LuaUI\Include\"
 Set-Content (Join-Path $we 'quit.txt') 'quit'   # the widget ends the game when it is through
-if (Test-Path (Join-Path $Out 'comparison.json')) { Copy-Item (Join-Path $Out 'comparison.json') $we }   # the ids that were corrected by hand stay
+if (Test-Path (Join-Path $Out 'equivalences.json')) { Copy-Item (Join-Path $Out 'equivalences.json') $we }   # the ids that were corrected by hand stay
 
 # one human player, one AI, the game option forceallunits=1 (without it the Scavenger and Raptor units do not exist)
 $script = @"
@@ -168,6 +168,6 @@ if (-not $line.StartsWith('ok')) { Fail "The export failed: $line. Log: $log" }
 $line
 New-Item -ItemType Directory $Out -Force | Out-Null
 Get-ChildItem $we -Filter 'units-*.json' | ForEach-Object { $size = [math]::Round($_.Length / 1e6, 1); Move-Item $_.FullName $Out -Force; "moved $($_.Name) ($size MB) to $Out" }
-Move-Item (Join-Path $we 'comparison.json') $Out -Force
-"moved comparison.json to $Out"
+Move-Item (Join-Path $we 'equivalences.json') $Out -Force
+"moved equivalences.json to $Out"
 Remove-Item $Work -Recurse -Force   # the sandbox is not needed any more (after an error it stays, for the log)
