@@ -212,39 +212,38 @@ function renderCompare() {
   document.title = 'Compare - BAR Unit Comparer';
   const columns = state.columns, two = columns.length === 2;
   const max = {};
-  const reference = columns.find(c => c.ref && c.unit);   // with a reference column the bars of the others are coloured
-  for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit).map(c => state.units[c.unit][s.key]));
+  const reference = columns.find(c => c.ref && c.unit && !c.picking);   // with a reference column the bars of the others are coloured
+  for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit && !c.picking).map(c => state.units[c.unit][s.key]));
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <h1 class="cmp-title">${present.map(f => factionName(f)).join(' <span>vs.</span> ')}</h1>
-    <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
+    <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
       <button class="add-column" data-a="add-column" title="Add a column">+ Add column</button></div>`;
   fitPickers();
 }
 
 // the unit selection takes the height that is left in the window: the page needs no scrollbar and the footer stays at the bottom
 function fitPickers() {
-  const pickers = document.querySelectorAll('.picker');
+  const pickers = [...document.querySelectorAll('.picker')];
   if (!pickers.length) return;
   for (const p of pickers) p.style.height = '0px';
+  const cell = Math.max(...pickers.map(p => p.parentElement.offsetHeight));   // the rows that the other columns need beside it
   document.body.style.minHeight = '0';
-  const free = window.innerHeight - document.body.offsetHeight;   // what is left with empty pickers
+  const free = window.innerHeight - document.body.offsetHeight;   // what is left in the window
   document.body.style.minHeight = '';
-  for (const p of pickers) p.style.height = Math.max(80, free) + 'px';
+  for (const p of pickers) p.style.height = Math.max(80, free + cell) + 'px';
 }
 
-function columnHtml(c, side, max, reference) {
-  const u = c.unit && state.units[c.unit], list = columnUnits(c);
-  return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}">
-      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${c.unit ? `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>` : ''}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
+function columnHtml(c, col, side, max, reference) {
+  const u = !c.picking && c.unit && state.units[c.unit], list = columnUnits(c);
+  const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
+  return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
+      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
       <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
       <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
       <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     </div>
-    <div class="c-unit f-${c.faction} ${side}" data-col="${c.id}">
-      ${c.picking ? `<div class="picker" data-picker>${pickerHtml(c, list)}</div>` : ''}
-      ${u ? unitHtml(c, u) : ''}
-    </div>
-    <div class="stats f-${c.faction} ${side}">${u ? STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('') : ''}</div>`;
+    ${c.picking ? `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" style="grid-column:${col + 1};grid-row:2 / span 2"><div class="picker" data-picker>${pickerHtml(c, list)}</div></div>` : `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${u ? unitHtml(c, u) : ''}</div>
+    <div class="stats f-${c.faction} ${side}" ${at(3)}>${u ? STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('') : ''}</div>`}`;
 }
 
 function pickerHtml(c, list) {
