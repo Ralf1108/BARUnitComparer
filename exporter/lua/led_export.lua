@@ -29,7 +29,7 @@ return function(host)
 	local SKIP = { sounds = true, weapons = true, buildOptions = true, visuals = true, cmdDescs = true, decoyFor = true, model = true }
 
 	-- The names of the fields of a unit definition and of a weapon definition (the engine file LuaUnitDefs.cpp / LuaWeaponDefs.cpp of the Recoil engine, the names of its
-	-- parameter maps): UnitDefs[id] gives most of them only when asked by name (pairs() lists a few), so the fields are asked one by one
+	-- parameter maps): only a supplement and the fallback of fields() below, which walks over all fields of the definition
 	local UNIT_FIELDS = {
 	"activateWhenBuilt", "airLosRadius", "airSightDistance", "airStrafe", "armorType", "armoredMultiple", "autoHeal", "bankingAllowed", "buildDistance",
 	"buildOptions", "buildOptionsCount", "buildPic", "buildRange3D", "buildSpeed", "buildTime", "buildeeBuildRadius", "buildingDecalDecaySpeed",
@@ -80,12 +80,29 @@ return function(host)
 	}
 
 	-- a copy of the listed fields of a definition that have a value
+	-- All fields of a unit or weapon definition. The engine gives every definition a function `pairs` (stored in the definition itself; the global pairs() only shows
+	-- a handful of fields): called with the definition it walks over ALL the fields the engine knows, so nothing depends on a list of names, and what a game version
+	-- or engine adds is exported without a change here. If a game or engine has no such function, the list of names `list` is asked one by one, as before.
+	-- Names of the list are asked in any case (cheap, and a field that the walk does not give is not lost).
 	local function fields(def, list)
 		local t = {}
+		pcall(function()
+			local walk = rawget(def, "pairs")
+			if type(walk) == "function" then
+				local iter, state, first = walk(def)
+				for k, v in iter, state, first do
+					if type(k) == "string" and type(v) ~= "function" then
+						t[k] = v
+					end
+				end
+			end
+		end)
 		for _, k in ipairs(list) do
-			local ok, v = pcall(function() return def[k] end)
-			if ok and v ~= nil then
-				t[k] = v
+			if t[k] == nil then
+				local ok, v = pcall(function() return def[k] end)
+				if ok and v ~= nil then
+					t[k] = v
+				end
 			end
 		end
 		return t
