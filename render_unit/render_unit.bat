@@ -8,8 +8,8 @@ set "QC="
 set "QUAL="
 set "ARGS="
 echo Unit names, separated by blanks (e.g. armllt legnavyscout), or @file with one name per line.
-set /p NAMES=Units: 
-if "%NAMES%"=="" (echo No unit given. & pause & exit /b 1)
+set /p NAMES=Units [armllt]: 
+if "%NAMES%"=="" set "NAMES=armllt"
 echo.
 echo Format: png, jpeg, bmp, avif, webp, several separated by commas, or all (= all five).
 set /p FMT=Format [all]: 
