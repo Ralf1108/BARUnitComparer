@@ -93,6 +93,7 @@ foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"(
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
 New-Item -ItemType Directory $out -Force | Out-Null
+Remove-Item (Join-Path $out 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
 
 # pictures that are there already are left alone: a picture counts as up to date if its files are all there and are not older than `$since` = the start of the first run for this
 # game version (kept in out\.render_state.json); a new game version, or -Force, starts again from now. The files are written complete or not at all (render_unit.py).

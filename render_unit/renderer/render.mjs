@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url';
 const [jobsFile, workDir, browserExe, mode0] = process.argv.slice(2);
 const rendererDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.dirname(rendererDir);
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.s3o': 'application/octet-stream' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.s3o': 'application/octet-stream', '.dae': 'text/xml' };
 
 const server = http.createServer((req, res) => {
   const url = decodeURIComponent(req.url.split('?')[0]);

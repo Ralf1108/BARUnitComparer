@@ -78,9 +78,11 @@ Python 3 with `numpy`, `Pillow` (a recent one with AVIF support; tested with 12.
 
 | File | |
 |---|---|
-| `render_unit.py` | the script: game files, textures, hidden pieces, formats, quality check |
+| `render_unit.py` | the main script and the shared part: game files, textures, hidden pieces, output formats, quality check |
+| `s3o_model.py`, `dae_model.py` | the model formats, game side: S3O (texture names in the header) and Collada (texture names from the `.dae.lua` next to the model) |
 | `render_unit.bat` | double-click starter with questions |
 | `compare_quality.py` | grid of quality settings |
-| `renderer/index.html` | the 3D page (three.js): material, light, shadow, camera |
+| `renderer/index.html` | the 3D page (three.js), shared part: material, light, shadow, camera; picks the model loader by the file extension |
+| `renderer/s3o_loader.js`, `renderer/dae_loader.js` | the model formats, browser side: each turns a model file into one geometry |
 | `renderer/render.mjs` | starts the browser and a small local web server (only during the run, `127.0.0.1`) and takes the pictures |
 | `package.json` | three.js and playwright-core |

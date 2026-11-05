@@ -23,7 +23,10 @@ from pathlib import Path
 import numpy as np
 from PIL import Image
 
+import dae_model, s3o_model
+
 HERE = Path(__file__).resolve().parent
+MODEL_FORMATS = (s3o_model, dae_model)   # a model format is a module with EXTENSION, recognizes() and textures(): the game side; the browser side is renderer/<ext>_loader.js
 
 DEFAULT_JOBS = max(1, min(4, (os.cpu_count() or 2) // 2))   # software rendering needs the processor and some 400 MB of memory per browser
 DEFAULT_SIZE = 400   # edge of the square picture in pixels: the pictures on beyondallreason.info are 400 x 400 (checked on legnavyscout.webp, 2026-11-05)
@@ -122,15 +125,6 @@ def load_units(given, game):
     return units['units']
 
 
-def s3o_textures(data):
-    """The names of the two textures in the header of an .s3o: the colour texture and the second one (glow, metal, roughness)."""
-    if data[:12] != b'Spring unit\0':
-        raise ValueError('not an S3O file')
-    h = struct.unpack('<I2f3f4I', data[12:52])
-    text = lambda o: data[o:data.index(b'\0', o)].decode('latin-1').lower()
-    return text(h[8]), text(h[9])
-
-
 # ---------------------------------------------------------------- pieces that the script of the unit hides
 def _strip_comments(text, lua):
     if lua:
@@ -204,11 +198,11 @@ def save_png(arr, path):
     Image.fromarray((np.clip(arr, 0, 1) * 255 + 0.5).astype(np.uint8)).save(path, compress_level=1)
 
 
-def prepare_base(pool, tex1, tex2, base, tex_size, game):
+def prepare_base(pool, tex1, tex2, base, tex_size, game, normal_name=None):
     """The maps that do not depend on the team colour, once per texture set (skipped if they are there already for the same game and size): color.png and shader.png
     (the scaled atlases), orm.png and normal.png. Channels as in the game's shader (modelmaterials_gl4/templates/cus_gl4.frag.glsl): colour.rgb = albedo,
     colour.a = mask of the team colour; shader texture r = emissive, g = metalness, b = roughness; normal map rgb = tangent space normal."""
-    stamp = {'game': game, 'size': tex_size, 'tex1': tex1, 'tex2': tex2}
+    stamp = {'game': game, 'size': tex_size, 'tex1': tex1, 'tex2': tex2, 'normal': normal_name}
     if (base / 'stamp.json').exists() and json.loads((base / 'stamp.json').read_text()) == stamp:
         return
     base.mkdir(parents=True, exist_ok=True)
@@ -224,7 +218,7 @@ def prepare_base(pool, tex1, tex2, base, tex_size, game):
     save_png(shader, base / 'shader.png')
     one = np.ones((size, size), np.float32)
     save_png(np.dstack([one, shader[..., 2], shader[..., 1], one]), base / 'orm.png')   # three.js: green = roughness, blue = metalness
-    normal_name = f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'
+    normal_name = normal_name or f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'   # the model format can name it (Collada); else `_color` -> `_normal`
     if normal_name != name1 and pool.has(normal_name):
         normal = load_dds(pool, normal_name, size)
         save_png(np.dstack([normal[..., :3], one]), base / 'normal.png')
@@ -420,12 +414,13 @@ def main():
             problems.append(f'{unit}: no model found in the game' + ('' if u else f' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)'))
             continue
         data = pool.read(model)
-        if not data.startswith(b'Spring unit\0'):   # e.g. objects3d/raptors/raptorartillery.dae (COLLADA, the only one of 1663 units): no loader for it
-            print(f'SKIP {unit}: the model {model} is not an S3O file (only S3O models are supported); no picture', flush=True)
+        fmt = next((f for f in MODEL_FORMATS if f.recognizes(model, data)), None)
+        if not fmt:   # a format without a module here (none of the 1663 units of game test-31820)
+            print(f'SKIP {unit}: the model {model} has a format that is not supported (S3O, Collada); no picture', flush=True)
             unsupported.append(unit)
             continue
         try:
-            tex1, tex2 = s3o_textures(data)
+            tex1, tex2, normal_name = fmt.textures(pool, model, data, ((u or {}).get('game', {}).get('customParams') or {}).get('normaltex'))
         except ValueError as e:
             problems.append(f'{unit}: {model}: {e}')
             continue
@@ -440,10 +435,10 @@ def main():
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')
         base = work / 'tex' / f'{Path(tex1).stem}__{Path(tex2).stem}'
         team_dir = base / ('team_%d_%d_%d' % team)
-        bases[base] = (tex1, tex2)
+        bases[base] = (tex1, tex2, normal_name)
         teams[(base, team_dir)] = team
-        (work / 'models' / f'{unit}.s3o').write_bytes(data)
-        query = (f'model=/work/models/{unit}.s3o&base=/work/tex/{base.name}&tex=/work/tex/{base.name}/{team_dir.name}&size={a.size}'
+        (work / 'models' / f'{unit}.{fmt.EXTENSION}').write_bytes(data)
+        query = (f'model=/work/models/{unit}.{fmt.EXTENSION}&base=/work/tex/{base.name}&tex=/work/tex/{base.name}/{team_dir.name}&size={a.size}'
                  + (f'&hide={",".join(sorted(hidden))}' if hidden else '') + ''.join('&' + p for p in a.param))
         jobs.append({'out': str(work / 'render' / f'{unit}.png'), 'query': query})   # the lossless picture of the browser; the wanted formats are made from it
 
@@ -453,7 +448,7 @@ def main():
     # the textures: every texture set once (the work of the sets is independent, so several at the same time), then the team colours
     n = max(1, a.jobs)
     with concurrent.futures.ThreadPoolExecutor(n) as ex:
-        for f in [ex.submit(prepare_base, pool, t1, t2, b, a.tex_size, game) for b, (t1, t2) in bases.items()]:
+        for f in [ex.submit(prepare_base, pool, t1, t2, b, a.tex_size, game, nm) for b, (t1, t2, nm) in bases.items()]:
             f.result()
         for f in [ex.submit(prepare_team, b, d, tm) for (b, d), tm in teams.items()]:
             f.result()

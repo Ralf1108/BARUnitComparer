@@ -39,7 +39,7 @@ Reads the data of **all units from the running game** and writes it as JSON. Det
 Renders a picture of a unit from the game's own 3D model and textures, in the look of the pictures on beyondallreason.info. Details and all parameters: [render_unit/README.md](render_unit/README.md).
 
 - Input is just the unit name: `python render_unit/render_unit.py armllt legnavyscout`.
-- Reads model, textures and unit script straight from the game files; pieces that the unit script hides (crowns, muzzle flares, ...) are left out.
+- Reads model (S3O and Collada), textures and unit script straight from the game files; pieces that the unit script hides (crowns, muzzle flares, ...) are left out.
 - Team colours by faction (Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black).
 - Formats: PNG, JPEG, BMP, AVIF, WebP (or all); the size is 400 x 400 pixels like on the website.
 - Measures the quality of each format against the lossless picture (PSNR, SSIM) when several formats are made.
