@@ -47,7 +47,7 @@ Renders a picture of a unit from the game's own 3D model and textures, in the lo
 
 ## Export and render everything
 
-`export and render all units.bat` does both steps in one go: it asks for the factions (all, or one or more of Armada, Cortex, Legion, Scavengers, Raptors), exports the data, then renders every unit as AVIF into `out/`. It shows the progress with a counter, the size so far and the remaining time, and ends with a summary.
+`export and render all units.bat` does both steps in one go: it asks for the factions (all, or one or more of Armada, Cortex, Legion, Scavengers, Raptors) and the picture format (AVIF, WebP, JPEG, PNG, BMP or all), exports the data, then renders every unit into `out/`. It shows the progress live (counter, last unit, size so far, elapsed time, remaining time with the seconds per picture) and ends with a summary.
 
 ## Requirements
 

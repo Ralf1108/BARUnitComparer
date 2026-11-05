@@ -168,11 +168,11 @@ At the same SSIM AVIF is the smallest (12 KB, WebP 15 KB, JPEG 28 KB). The alpha
 
 ## 6. Everything in one go: `export and render all units.bat`
 
-In the root of the repository (starts `export_and_render_all_units.ps1`). It asks which factions to render (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`, several separated by commas), shows what it will do and asks for confirmation on the console. Then:
+In the root of the repository (starts `export_and_render_all_units.ps1`). It asks which factions to render (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`, several separated by commas) and in which format (`avif` = default, `webp`, `jpeg`, `png`, `bmp`, several separated by commas, or `all` = all five; nothing more is asked: quality and size are the defaults), shows what it will do and asks for confirmation on the console. Then:
 1. runs the exporter (always complete) and shows only its four steps; the result is in `exporter/out`;
-2. renders every wanted unit of the new `units-<version>.json` with `render_unit.py --units <that file> --format avif` (default quality and size) into `out/` of the repository (`.gitignore`), 80 units per call, with a counter `done / total`, percentage, summed size, elapsed time and ETA.
+2. renders every wanted unit of the new `units-<version>.json` with `render_unit.py --units <that file>` in the chosen format (default quality and size, no quality check) into `out/` of the repository (`.gitignore`), 80 units per call. One line shows the progress while it works (the pictures of a call are counted as they appear): `done / total`, percentage, the unit that was rendered last, the size of the finished pictures, elapsed time, and the ETA together with the seconds per picture it is calculated from.
 
-Summary at the end: pictures made and failed (failed ones in `out/render_errors.txt`), total size, size per picture, times; then it waits for a key. PowerShell parameters (the `.bat` passes them on): `-Faction <list>` instead of the question, `-Limit <n>` (first n units, for tests), `-Yes` (no questions). A test run (`-Faction rap,leg -Limit 25`) took 71 s with the first, slower version (export 29 s); the full set of about 1700 units is estimated at 20 minutes.
+Summary at the end: pictures made and failed (failed ones in `out/render_errors.txt`), total size, size per picture, times; then it waits for a key. PowerShell parameters (the `.bat` passes them on): `-Faction <list>` and `-Format <list>` instead of the questions, `-Limit <n>` (first n units, for tests), `-Yes` (no questions). A test run (`-Faction rap,leg -Limit 25`) took 71 s with the first, slower version (export 29 s); the full set of about 1700 units is estimated at 20 minutes.
 
 ## 7. Licence (home use first)
 

@@ -1,9 +1,9 @@
 # Exports the unit data of the installed Beyond All Reason (exporter\export_units.ps1) and renders a picture of every unit in it (render_unit\render_unit.py),
-# as AVIF with the default quality and size, into the folder out\ next to this file. Started by "export and render all units.bat".
+# in the chosen format (default AVIF) with the default quality and size, into the folder out\ next to this file. Started by "export and render all units.bat".
 # The output of the two scripts is not shown, only the progress: the steps of the export, then a counter with the size so far and the time still needed.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
-# without it the script asks. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
-param([string]$Faction = '', [int]$Limit = 0, [switch]$Yes)
+# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
+param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $out = Join-Path $root 'out'
@@ -30,11 +30,23 @@ if ($wanted.Count -eq 0 -or $wanted -contains 'all') { $wanted = @() }
 foreach ($w in $wanted) { if (-not $known.Contains($w)) { Fail "Unknown faction '$w' (all, arm, cor, leg, scv, rap)." } }
 $what = if ($wanted.Count) { 'the units of ' + (($wanted | ForEach-Object { $known[$_] }) -join ', ') } else { 'every unit (about 1700)' }
 
+$knownFormats = @('avif', 'webp', 'jpeg', 'png', 'bmp')
+if (-not $Format -and -not $Yes) {
+    Write-Host ''
+    Write-Host 'Which picture format?  avif, webp, jpeg, png, bmp, or all (= all five); several separated by commas.'
+    $Format = Read-Host 'Format [avif]'
+}
+$formats = @($Format -split '[,; ]+' | Where-Object { $_ } | ForEach-Object { $_.ToLower().Replace('jpg', 'jpeg') })
+if ($formats.Count -eq 0) { $formats = @('avif') }
+if ($formats -contains 'all') { $formats = $knownFormats }
+foreach ($f in $formats) { if ($knownFormats -notcontains $f) { Fail "Unknown format '$f' (avif, webp, jpeg, png, bmp, all)." } }
+$formatText = ($formats -join ', ').ToUpper()
+
 Write-Host ''
 Write-Host 'This will do two things:' -ForegroundColor Cyan
 Write-Host '  1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes'
 Write-Host '     units-<game version>.json and equivalences.json to exporter\out.'
-Write-Host "  2. Render a picture of $what in that file as AVIF, in the default quality and size, to the folder out\ of this repository."
+Write-Host "  2. Render a picture of $what in that file as $formatText in the default quality and size, to the folder out\ of this repository."
 Write-Host '     This takes a while (roughly 0.6 to 1.5 seconds per unit).'
 Write-Host ''
 if (-not $Yes) {
@@ -78,21 +90,36 @@ if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $nam
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
 New-Item -ItemType Directory $out -Force | Out-Null
 Write-Host ''
-Write-Host "== 2/2  Rendering $($names.Count) units ($what) as AVIF (default quality and size) into $out ==" -ForegroundColor Cyan
+Write-Host "== 2/2  Rendering $($names.Count) units ($what) as $formatText (default quality and size) into $out ==" -ForegroundColor Cyan
 $renderLog = Join-Path $env:TEMP 'render_unit_log.txt'
+$work = Join-Path $env:TEMP 'render_unit'          # the work folder of render_unit.py: every picture appears there as a lossless PNG as soon as it is rendered
 $t1 = Get-Date; $done = 0; $ok = 0; $bytes = 0
+function Show($now, $last) {   # one line: counter, percentage, last unit, size of the finished pictures, elapsed, ETA with the seconds per picture it is calculated from
+    $el = (Get-Date) - $t1
+    $perPicture = if ($now -gt 0) { $el.TotalSeconds / $now } else { 0 }
+    $eta = [TimeSpan]::FromSeconds($perPicture * ($names.Count - $now))
+    Write-Host ("`r   {0} / {1} ({2:P0})   last: {3,-30} {4:N1} MB finished   elapsed {5}   ETA {6} (at {7:N2} s per picture)   " -f $now, $names.Count, ($now / $names.Count), $last, ($bytes / 1MB), (Clock $el), (Clock $eta), $perPicture) -NoNewline
+}
 for ($i = 0; $i -lt $names.Count; $i += $chunk) {
     $batch = $names.GetRange($i, [math]::Min($chunk, $names.Count - $i))
-    & python (Join-Path $root 'render_unit\render_unit.py') --out $out --units $units.FullName --format avif @batch *> $renderLog
+    $chunkStart = Get-Date
+    $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$out`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $batch
+    $p = Start-Process python -ArgumentList $renderArgs -RedirectStandardOutput $renderLog -RedirectStandardError "$renderLog.err" -WindowStyle Hidden -PassThru
+    $null = $p.Handle
+    $mine = New-Object System.Collections.Generic.HashSet[string]; foreach ($u in $batch) { [void]$mine.Add("$u.png") }
+    while (-not $p.HasExited) {   # while the browsers work: count the pictures of this call that are there already (the rendering of a call comes before its encoding)
+        Start-Sleep -Milliseconds 700
+        $new = @(Get-ChildItem (Join-Path $work 'render') -Filter '*.png' -ErrorAction SilentlyContinue | Where-Object { $mine.Contains($_.Name) -and $_.LastWriteTime -ge $chunkStart } | Sort-Object LastWriteTime)
+        if ($new.Count) { Show ($done + $new.Count) $new[-1].BaseName }
+    }
+    $p.WaitForExit()
     foreach ($u in $batch) {
-        $f = Join-Path $out "$u.avif"
-        if ((Test-Path $f) -and (Get-Item $f).LastWriteTime -ge $t1) { $ok++; $bytes += (Get-Item $f).Length } else { $errors.Add($u) }
+        $files = @($formats | ForEach-Object { Join-Path $out ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) })
+        if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $t1 }).Count -eq $files.Count) { $ok++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $errors.Add($u) }
     }
     $done += $batch.Count
-    foreach ($line in @(Get-Content $renderLog -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(ERROR|FAILED)' })) { $errors.Add("   $line") }
-    $el = (Get-Date) - $t1
-    $eta = if ($done -gt 0) { [TimeSpan]::FromSeconds($el.TotalSeconds / $done * ($names.Count - $done)) } else { [TimeSpan]::Zero }
-    Write-Host ("`r   {0} / {1} pictures ({2:P0})   {3:N1} MB so far   elapsed {4}   ETA {5}   " -f $done, $names.Count, ($done / $names.Count), ($bytes / 1MB), (Clock $el), (Clock $eta)) -NoNewline
+    foreach ($line in @(Get-Content $renderLog, "$renderLog.err" -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(ERROR|FAILED)' })) { $errors.Add("   $line") }
+    Show $done $batch[-1]
 }
 Write-Host ''
 
