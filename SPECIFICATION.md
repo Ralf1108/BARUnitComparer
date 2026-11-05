@@ -205,3 +205,11 @@ python render_unit/render_unit.py [--out DIR] [--units FILE] [--format png|bmp|j
 - **A small web server:** `renderer/render.mjs` starts a tiny web server on `127.0.0.1` (random port) for the time of the run only: a page opened from a file cannot load the models, textures and three.js modules. It has nothing to do with the website of section 1 and is stopped when the pictures are done.
 - **Open:** pieces that a script hides later (not in `Create()`) are still drawn; a `.cob` without source (2 units) shows all pieces.
 
+## 13. Everything in one go: `export and render all units.bat`
+
+The batch file in the root of the repository (it starts `export_and_render_all_units.ps1`) exports the unit data of the installed game and renders the pictures of the units, for a first full run or after a new game version:
+- It asks which factions to render (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`, several separated by commas; the faction is found as in `render_unit.py`: `_scav` = Scavengers, `raptor_` = Raptors, otherwise the first three letters), then shows what it is going to do and waits for OK (or Cancel).
+- Step 1: runs `exporter/export_units.ps1` (the export is always complete) and shows only its four steps, not its whole output. The result is in `exporter/out`.
+- Step 2: renders every wanted unit of the new `units-<game version>.json` with `render_unit.py --units <that file> --format avif` (default quality 70 and default size 400 x 400, section 12) into `out/` of the repository (not in the Git repository, see `.gitignore`). `render_unit.py` is called for 20 units at a time (one browser start each); after every call the script shows `done / total`, the percentage, the sum of the sizes so far, the time that has passed and the ETA.
+- At the end a summary: pictures made and failed (the failed ones are listed in `out/render_errors.txt`), total size and size per picture, times; then it waits for a key.
+- Parameters of the PowerShell script (the batch file passes them on): `-Faction <list>` instead of the question, `-Limit <n>` (only the first n units, for a test), `-Yes` (no questions). Test run: `-Faction rap,leg -Limit 25` took 71 seconds (export 29 s, 25 pictures 41 s, about 1.6 s per picture; the whole set of about 1700 units therefore needs roughly three quarters of an hour).

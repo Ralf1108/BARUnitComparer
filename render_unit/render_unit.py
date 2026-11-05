@@ -25,6 +25,8 @@ from PIL import Image
 
 HERE = Path(__file__).resolve().parent
 
+DEFAULT_SIZE = 400   # edge of the square picture in pixels: the pictures on beyondallreason.info are 400 x 400 (checked on legnavyscout.webp, 2026-11-05)
+
 # colour of the team colour parts of the pictures, by faction (the colours are put through the same colour grading as the rest, so they look a bit different on the picture)
 TEAM_COLORS = {'arm': (90, 140, 235), 'cor': (235, 85, 75), 'leg': (130, 218, 105), 'scv': (175, 105, 225), 'rap': (20, 20, 20)}
 
@@ -361,7 +363,7 @@ def main():
     ap.add_argument('--data', default='', help='data folder of the BAR installation (only read); default: $BAR_DATA, otherwise the usual places')
     ap.add_argument('--game', default='', help='"Beyond All Reason <version>"; default: the newest installed game')
     ap.add_argument('--work', default=str(Path(tempfile.gettempdir()) / 'render_unit'), help='folder for the converted textures (kept between runs) and the models')
-    ap.add_argument('--size', type=int, default=400, help='edge of the square picture in pixels (default 400, as on the website)')
+    ap.add_argument('--size', type=int, default=DEFAULT_SIZE, help=f'edge of the square picture in pixels (default {DEFAULT_SIZE}, the size of the pictures on beyondallreason.info)')
     ap.add_argument('--tex-size', type=int, default=2048, help='the 4096 pixel atlases are scaled down to this size (default 2048)')
     ap.add_argument('--team', default='', help='colour of the team colour parts for all units, R,G,B (default: by faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black)')
     ap.add_argument('--format', default='png', help='png, bmp, jpeg (or jpg), avif, webp, several separated by commas, or all = all five (default png). With several formats a table shows the file sizes. '

@@ -47,3 +47,6 @@ exporter/out/
 render_unit/node_modules/
 render_unit/out/
 __pycache__/
+
+# export and render all units.bat: the pictures
+/out/
