@@ -3,12 +3,13 @@
 # The output of the two scripts is not shown, only the progress: the steps of the export, then a counter with the size so far and the time still needed.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
 # -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. Pictures that are there already (made for the same game version) are skipped, so an aborted run can be started again and goes on; -Force renders everything again. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
-param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force)
+param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
-$out = Join-Path $root 'out'
+$out = if ($Out) { $Out } else { Join-Path $root 'out' }   # -Out: another folder for the pictures (for tests: never the real out\)
 $chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
+$unsupported = New-Object System.Collections.Generic.List[string]   # units whose model is not an S3O file: no picture, not an error
 
 function Fail($text) {
     Write-Host ''
@@ -45,7 +46,7 @@ $formatText = ($formats -join ', ').ToUpper()
 Write-Host ''
 Write-Host 'This will do two things:' -ForegroundColor Cyan
 Write-Host '  1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes'
-Write-Host '     units-<game version>.json and equivalences.json to exporter\out.'
+Write-Host '     units-<game version>.json and equivalences.json to exporter\out (it and equivalences.json are copied to out\ as well).'
 Write-Host "  2. Render a picture of $what in that file as $formatText in the default quality and size, to the folder out\ of this repository."
 Write-Host '     This takes a while (roughly 0.1 to 0.5 seconds per unit).'
 Write-Host ''
@@ -81,7 +82,10 @@ if ($p.ExitCode -ne 0) {
 }
 $units = Get-ChildItem (Join-Path $root 'exporter\out') -Filter 'units-*.json' | Where-Object { $_.LastWriteTime -ge $exportStart.AddSeconds(-5) } | Sort-Object LastWriteTime | Select-Object -Last 1
 if (-not $units) { Fail "The export ran, but no units-<game version>.json was written (log: $log)." }
-Write-Host ("   Unit data collected: {0} ({1:N1} MB), after {2}" -f $units.Name, ($units.Length / 1MB), (Clock ((Get-Date) - $t0))) -ForegroundColor Green
+New-Item -ItemType Directory $out -Force | Out-Null
+Copy-Item $units.FullName $out -Force   # the unit data and the equivalences are also in out\ next to the pictures (the originals stay in exporter\out)
+if (Test-Path (Join-Path $root 'exporter\out\equivalences.json')) { Copy-Item (Join-Path $root 'exporter\out\equivalences.json') $out -Force }
+Write-Host ("   Unit data collected: {0} ({1:N1} MB), after {2}; a copy of it and of equivalences.json is in {3}" -f $units.Name, ($units.Length / 1MB), (Clock ((Get-Date) - $t0)), $out) -ForegroundColor Green
 
 # ---------------------------------------------------------------- 2. the pictures
 $names = New-Object System.Collections.Generic.List[string]
@@ -114,12 +118,17 @@ $renderLog = Join-Path $env:TEMP 'render_unit_log.txt'
 $work = Join-Path $env:TEMP 'render_unit'          # the work folder of render_unit.py: every picture appears there as a lossless PNG as soon as it is rendered
 if ($skipped) { Write-Host "   $skipped of $($names.Count) pictures are there already (from an earlier run with this game version) and are skipped; -Force renders everything again." -ForegroundColor Green }
 $t1 = Get-Date; $done = $skipped; $ok = $skipped
-function Show($now, $last) {   # one line: counter, percentage, last unit, size of the finished pictures, elapsed, ETA with the seconds per picture it is calculated from
+function Show($now, $last) {   # ONE line that is rewritten: counter, percentage, size of the finished pictures, elapsed, ETA with the seconds per picture it is calculated from, last unit
     $el = (Get-Date) - $t1
     $perPicture = if ($now -gt $skipped) { $el.TotalSeconds / ($now - $skipped) } else { 0 }   # only the pictures made in this run count
     $eta = [TimeSpan]::FromSeconds($perPicture * ($names.Count - $now))
-    Write-Host ("`r   {0} / {1} ({2:P0})   last: {3,-30} {4:N1} MB finished   elapsed {5}   ETA {6} (at {7:N2} s per picture)   " -f $now, $names.Count, ($now / $names.Count), $last, ($bytes / 1MB), (Clock $el), (Clock $eta), $perPicture) -NoNewline
+    $text = "   {0} / {1} ({2:P0})  {3:N1} MB  elapsed {4}  ETA {5} (at {6:N2} s per picture)  {7}" -f $now, $names.Count, ($now / $names.Count), ($bytes / 1MB), (Clock $el), (Clock $eta), $perPicture, $last
+    $width = try { $Host.UI.RawUI.WindowSize.Width } catch { 100 }
+    if ($width -lt 20) { $width = 100 }
+    if ($text.Length -gt $width - 1) { $text = $text.Substring(0, $width - 1) }   # never longer than the window: a longer line wraps and `r then only goes back to the last row
+    Write-Host ("`r" + $text.PadRight($width - 1)) -NoNewline
 }
+$shown = [math]::Floor($skipped / 20)   # the line is rewritten every 20 pictures
 for ($i = 0; $i -lt $todo.Count; $i += $chunk) {
     $batch = $todo.GetRange($i, [math]::Min($chunk, $todo.Count - $i))
     $chunkStart = Get-Date
@@ -130,16 +139,17 @@ for ($i = 0; $i -lt $todo.Count; $i += $chunk) {
     while (-not $p.HasExited) {   # while the browsers work: count the pictures of this call that are there already (the rendering of a call comes before its encoding)
         Start-Sleep -Milliseconds 700
         $new = @(Get-ChildItem (Join-Path $work 'render') -Filter '*.png' -ErrorAction SilentlyContinue | Where-Object { $mine.Contains($_.Name) -and $_.LastWriteTime -ge $chunkStart } | Sort-Object LastWriteTime)
-        if ($new.Count) { Show ($done + $new.Count) $new[-1].BaseName }
+        if ($new.Count -and [math]::Floor(($done + $new.Count) / 20) -gt $shown) { $shown = [math]::Floor(($done + $new.Count) / 20); Show ($done + $new.Count) $new[-1].BaseName }
     }
     $p.WaitForExit()
+    foreach ($line in @(Get-Content $renderLog -ErrorAction SilentlyContinue | Where-Object { $_ -match '^SKIP ' })) { $unsupported.Add(($line -split '[ :]')[1]) }
     foreach ($u in $batch) {
         $files = Files-Of $u
-        if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $t1 }).Count -eq $files.Count) { $ok++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $errors.Add($u) }
+        if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $t1 }).Count -eq $files.Count) { $ok++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } elseif ($unsupported -notcontains $u) { $errors.Add($u) }
     }
     $done += $batch.Count
     foreach ($line in @(Get-Content $renderLog, "$renderLog.err" -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(ERROR|FAILED)' })) { $errors.Add("   $line") }
-    Show $done $batch[-1]
+    if ([math]::Floor($done / 20) -gt $shown -or $done -ge $names.Count) { $shown = [math]::Floor($done / 20); Show $done $batch[-1] }
 }
 if ($todo.Count -eq 0) { Write-Host '   Nothing to do: all pictures are there already.' } else { Write-Host '' }
 
@@ -148,7 +158,8 @@ $total = (Get-Date) - $t0
 Write-Host ''
 Write-Host '== Summary ==' -ForegroundColor Cyan
 Write-Host "   Unit data:  $($units.FullName)"
-Write-Host ("   Pictures:   {0} of {1} units done ({2} made now, {3} were there already), {4} failed" -f $ok, $names.Count, ($ok - $skipped), $skipped, ($names.Count - $ok))
+Write-Host ("   Pictures:   {0} of {1} units done ({2} made now, {3} were there already), {4} failed" -f $ok, $names.Count, ($ok - $skipped), $skipped, ($names.Count - $ok - $unsupported.Count))
+if ($unsupported.Count) { Write-Host "   No picture:  $($unsupported -join ', ') (the model is not an S3O file, such models are not supported)" -ForegroundColor Yellow }
 Write-Host ("   Size:       {0:N1} MB in total, {1:N1} KB per picture" -f ($bytes / 1MB), $(if ($ok) { $bytes / $ok / 1KB } else { 0 }))
 Write-Host "   Folder:     $out"
 Write-Host ("   Time:       {0} (export {1}, rendering {2})" -f (Clock $total), (Clock ($t1 - $t0)), (Clock ((Get-Date) - $t1)))

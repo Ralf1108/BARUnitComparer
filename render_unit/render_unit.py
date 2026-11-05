@@ -406,7 +406,7 @@ def main():
     (work / 'models').mkdir(parents=True, exist_ok=True)
     out.mkdir(parents=True, exist_ok=True)
 
-    jobs, problems, bases, teams = [], [], {}, {}
+    jobs, problems, bases, teams, unsupported = [], [], {}, {}, []
     skipped = 0
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
         if a.skip_existing and all((out / f'{unit}.{EXTENSION.get(f, f)}').exists() for f in formats):
@@ -420,6 +420,10 @@ def main():
             problems.append(f'{unit}: no model found in the game' + ('' if u else f' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)'))
             continue
         data = pool.read(model)
+        if not data.startswith(b'Spring unit\0'):   # e.g. objects3d/raptors/raptorartillery.dae (COLLADA, the only one of 1663 units): no loader for it
+            print(f'SKIP {unit}: the model {model} is not an S3O file (only S3O models are supported); no picture', flush=True)
+            unsupported.append(unit)
+            continue
         try:
             tex1, tex2 = s3o_textures(data)
         except ValueError as e:
@@ -493,6 +497,8 @@ def main():
             print('  ' + unit.ljust(40) + ''.join(f'{sizes[f]:>10,}' for f in formats))
     if pairs and len(formats) > 1 and not a.no_quality_check:
         quality_report(pairs, formats)
+    if unsupported:
+        print(f'\n{len(unsupported)} unit(s) without picture because their model is not an S3O file: {", ".join(unsupported)}')
     for p in problems:
         print('ERROR:', p, file=sys.stderr)
     if failed or problems:
