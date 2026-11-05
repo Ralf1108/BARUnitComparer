@@ -1,9 +1,9 @@
 """render_unit.py: pictures of Beyond All Reason units, rendered from the game's own model files (SPECIFICATION.md, section 12).
 
-    python render_unit.py [--out DIR] [--units FILE] [--format png|bmp|avif|webp|all] [--data DIR] [--game NAME] [--work DIR] [--size 400]
+    python render_unit.py [--out DIR] [--units FILE] [--format png|bmp|jpeg|avif|webp|all] [--data DIR] [--game NAME] [--work DIR] [--size 400]
                           [--tex-size 2048] [--team R,G,B] [--browser EXE] [--param key=value ...] [-v] <unit> [<unit> ...]    (or @file with one unit name per line)
 
-For every unit it writes <out>/<unit>.<format> (--format: png, bmp, avif, webp or all). The browser renders a lossless PNG with transparent background (the shadow is
+For every unit it writes <out>/<unit>.<format> (--format: png, bmp, jpeg, avif, webp or all). The browser renders a lossless PNG with transparent background (the shadow is
 semi-transparent), the wanted formats are made from it; the encoding is a separate step, so that its settings can be tried without rendering again
 (--format all puts the formats side by side).
 
@@ -245,7 +245,8 @@ def prepare_team(base, team_dir, team):
 
 
 # ---------------------------------------------------------------- the output formats
-FORMATS = ('png', 'bmp', 'avif', 'webp')
+FORMATS = ('png', 'bmp', 'jpeg', 'avif', 'webp')   # 'all' = these five; jpg = jpeg
+EXTENSION = {'jpeg': 'jpg'}
 
 
 def encode(src, dst_base, formats, opt):
@@ -253,13 +254,16 @@ def encode(src, dst_base, formats, opt):
     im = Image.open(src).convert('RGBA')
     sizes = {}
     for f in formats:
-        dst = Path(f'{dst_base}.{f}')
+        dst = Path(f'{dst_base}.{EXTENSION.get(f, f)}')
         if f == 'png':
             im.save(dst, optimize=True)
-        elif f == 'bmp':   # a BMP has no usable transparency: the picture is put on a white background
+        elif f in ('bmp', 'jpeg'):   # no usable transparency: the picture is put on a white background
             flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
             flat.alpha_composite(im)
-            flat.convert('RGB').save(dst)
+            if f == 'bmp':
+                flat.convert('RGB').save(dst)
+            else:
+                flat.convert('RGB').save(dst, quality=opt.jpeg_quality, subsampling=opt.jpeg_subsampling, optimize=True)
         elif f == 'avif':
             im.save(dst, quality=opt.avif_quality, speed=opt.avif_speed)
         elif f == 'webp':
@@ -300,11 +304,13 @@ def main():
     ap.add_argument('--size', type=int, default=400, help='edge of the square picture in pixels (default 400, as on the website)')
     ap.add_argument('--tex-size', type=int, default=2048, help='the 4096 pixel atlases are scaled down to this size (default 2048)')
     ap.add_argument('--team', default='', help='colour of the team colour parts for all units, R,G,B (default: by faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black)')
-    ap.add_argument('--format', default='png', help='png, bmp, avif, webp, several separated by commas, or all (default png). With all, the formats of one unit lie side by side '
-                    'and a table shows the file sizes. A BMP has no transparency (white background); PNG, AVIF and WebP keep it')
-    ap.add_argument('--avif-quality', type=int, default=60, help='AVIF quality 0 to 100 (default 60)')
+    ap.add_argument('--format', default='png', help='png, bmp, jpeg (or jpg), avif, webp, several separated by commas, or all = all five (default png). With several formats a table shows the file sizes. '
+                    'BMP and JPEG have no transparency (white background); PNG, AVIF and WebP keep it')
+    ap.add_argument('--jpeg-quality', type=int, default=90, help='JPEG quality 0 to 100 (default 90)')
+    ap.add_argument('--jpeg-subsampling', type=int, default=0, help='JPEG colour subsampling: 0 = none (4:4:4, default), 1 = 4:2:2, 2 = 4:2:0 (smallest)')
+    ap.add_argument('--avif-quality', type=int, default=70, help='AVIF quality 0 to 100 (default 70)')
     ap.add_argument('--avif-speed', type=int, default=6, help='AVIF encoder speed 0 (slowest, smallest) to 10 (fastest) (default 6)')
-    ap.add_argument('--webp-quality', type=int, default=80, help='WebP quality 0 to 100 (default 80)')
+    ap.add_argument('--webp-quality', type=int, default=85, help='WebP quality 0 to 100 (default 85)')
     ap.add_argument('--webp-method', type=int, default=4, help='WebP effort 0 (fast) to 6 (slowest, smallest) (default 4)')
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
@@ -312,10 +318,10 @@ def main():
     a = ap.parse_args()
     work, out = Path(a.work), Path(a.out)
     one_team = tuple(int(x) for x in a.team.split(',')) if a.team else None
-    formats = list(FORMATS) if a.format.strip().lower() == 'all' else [f.strip().lower() for f in a.format.split(',') if f.strip()]
+    formats = list(FORMATS) if a.format.strip().lower() == 'all' else list(dict.fromkeys('jpeg' if f.strip().lower() == 'jpg' else f.strip().lower() for f in a.format.split(',') if f.strip()))
     for f in formats:
         if f not in FORMATS:
-            sys.exit(f'ERROR: unknown format "{f}" (png, bmp, avif, webp or all)')
+            sys.exit(f'ERROR: unknown format "{f}" (png, bmp, jpeg, avif, webp or all)')
     (work / 'render').mkdir(parents=True, exist_ok=True)
 
     data_dir = find_data_dir(a.data)

@@ -9,10 +9,9 @@ echo Unit names, separated by blanks (e.g. armllt legnavyscout), or @file with o
 set /p NAMES=Units: 
 if "%NAMES%"=="" (echo No unit given. & pause & exit /b 1)
 echo.
-echo Format: png, avif, webp, several separated by commas, or all (= png,avif,webp).
+echo Format: png, jpeg, bmp, avif, webp, several separated by commas, or all (= all five).
 set /p FMT=Format [all]: 
 if "%FMT%"=="" set "FMT=all"
-if /i "%FMT%"=="all" set "FMT=png,avif,webp"
 echo.
 echo The Raptors need the unit data of the exporter (units-...json), e.g. exporter\out\units-test-31820-45ea098.json
 set /p UNITSFILE=Unit data file [Enter = none]: 
