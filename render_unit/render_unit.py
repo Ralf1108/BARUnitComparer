@@ -259,21 +259,23 @@ def encode(src, dst_base, formats, opt):
     im = Image.open(src).convert('RGBA')
     sizes = {}
     for f in formats:
-        dst = Path(f'{dst_base}.{EXTENSION.get(f, f)}')
+        final = Path(f'{dst_base}.{EXTENSION.get(f, f)}')
+        dst = final.with_name(final.name + '.part')   # written under another name and renamed when complete: an aborted run leaves no half picture
         if f == 'png':
-            im.save(dst, optimize=True)
+            im.save(dst, format='PNG', optimize=True)
         elif f in ('bmp', 'jpeg'):   # no usable transparency: the picture is put on a white background
             flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
             flat.alpha_composite(im)
             if f == 'bmp':
-                flat.convert('RGB').save(dst)
+                flat.convert('RGB').save(dst, format='BMP')
             else:
-                flat.convert('RGB').save(dst, quality=opt.jpeg_quality, subsampling=opt.jpeg_subsampling, optimize=True)
+                flat.convert('RGB').save(dst, format='JPEG', quality=opt.jpeg_quality, subsampling=opt.jpeg_subsampling, optimize=True)
         elif f == 'avif':
-            im.save(dst, quality=opt.avif_quality, speed=opt.avif_speed)
+            im.save(dst, format='AVIF', quality=opt.avif_quality, speed=opt.avif_speed)
         elif f == 'webp':
-            im.save(dst, quality=opt.webp_quality, method=opt.webp_method)
-        sizes[f] = dst.stat().st_size
+            im.save(dst, format='WEBP', quality=opt.webp_quality, method=opt.webp_method)
+        os.replace(dst, final)
+        sizes[f] = final.stat().st_size
     return sizes
 
 
@@ -376,6 +378,7 @@ def main():
     ap.add_argument('--webp-quality', type=int, default=85, help='WebP quality 0 to 100 (default 85)')
     ap.add_argument('--webp-method', type=int, default=4, help='WebP effort 0 (fast) to 6 (slowest, smallest) (default 4)')
     ap.add_argument('--jobs', type=int, default=DEFAULT_JOBS, help=f'how many browsers render at the same time, and how many processes convert the textures and encode (default {DEFAULT_JOBS}: half of the processor cores, at most 4); 1 = one after the other')
+    ap.add_argument('--skip-existing', action='store_true', help='leave out the units whose pictures (in all wanted formats) are in --out already (to go on after an abort)')
     ap.add_argument('--no-quality-check', action='store_true', help='with several formats the quality of each against the lossless picture is measured (PSNR, SSIM); this switches it off')
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
@@ -403,7 +406,11 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     jobs, problems, bases, teams = [], [], {}, {}
+    skipped = 0
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
+        if a.skip_existing and all((out / f'{unit}.{EXTENSION.get(f, f)}').exists() for f in formats):
+            skipped += 1
+            continue
         u = info.get(unit)
         model = (u['editor']['model'].lower() if u else None)
         if not model or not pool.has(model):
@@ -435,6 +442,8 @@ def main():
                  + (f'&hide={",".join(sorted(hidden))}' if hidden else '') + ''.join('&' + p for p in a.param))
         jobs.append({'out': str(work / 'render' / f'{unit}.png'), 'query': query})   # the lossless picture of the browser; the wanted formats are made from it
 
+    if skipped:
+        print(f'{skipped} unit(s) skipped: their pictures are there already', flush=True)
     lap('units, models, scripts read')
     # the textures: every texture set once (the work of the sets is independent, so several at the same time), then the team colours
     n = max(1, a.jobs)

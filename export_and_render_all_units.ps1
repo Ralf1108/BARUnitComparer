@@ -2,8 +2,8 @@
 # in the chosen format (default AVIF) with the default quality and size, into the folder out\ next to this file. Started by "export and render all units.bat".
 # The output of the two scripts is not shown, only the progress: the steps of the export, then a counter with the size so far and the time still needed.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
-# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
-param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes)
+# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. Pictures that are there already (made for the same game version) are skipped, so an aborted run can be started again and goes on; -Force renders everything again. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
+param([string]$Faction = '', [string]$Format = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force)
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 $out = Join-Path $root 'out'
@@ -89,19 +89,39 @@ foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"(
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
 New-Item -ItemType Directory $out -Force | Out-Null
+
+# pictures that are there already are left alone: a picture counts as up to date if its files are all there and are not older than `$since` = the start of the first run for this
+# game version (kept in out\.render_state.json); a new game version, or -Force, starts again from now. The files are written complete or not at all (render_unit.py).
+$gameVersion = $units.BaseName -replace '^units-', ''
+$stampFile = Join-Path $out '.render_state.json'
+$since = Get-Date
+if (-not $Force -and (Test-Path $stampFile)) {
+    try {
+        $st = Get-Content $stampFile -Raw | ConvertFrom-Json
+        if ($st.gameVersion -eq $gameVersion) { $since = (New-Object DateTime ([int64]$st.sinceTicks), ([DateTimeKind]::Utc)).ToLocalTime() }
+    } catch { }
+}
+(@{ gameVersion = $gameVersion; sinceTicks = $since.ToUniversalTime().Ticks } | ConvertTo-Json) | Set-Content $stampFile
+function Files-Of($u) { @($formats | ForEach-Object { Join-Path $out ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) }) }
+$todo = New-Object System.Collections.Generic.List[string]; $skipped = 0; $bytes = 0
+foreach ($u in $names) {
+    $files = Files-Of $u
+    if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $since }).Count -eq $files.Count) { $skipped++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $todo.Add($u) }
+}
 Write-Host ''
 Write-Host "== 2/2  Rendering $($names.Count) units ($what) as $formatText (default quality and size) into $out ==" -ForegroundColor Cyan
 $renderLog = Join-Path $env:TEMP 'render_unit_log.txt'
 $work = Join-Path $env:TEMP 'render_unit'          # the work folder of render_unit.py: every picture appears there as a lossless PNG as soon as it is rendered
-$t1 = Get-Date; $done = 0; $ok = 0; $bytes = 0
+if ($skipped) { Write-Host "   $skipped of $($names.Count) pictures are there already (from an earlier run with this game version) and are skipped; -Force renders everything again." -ForegroundColor Green }
+$t1 = Get-Date; $done = $skipped; $ok = $skipped
 function Show($now, $last) {   # one line: counter, percentage, last unit, size of the finished pictures, elapsed, ETA with the seconds per picture it is calculated from
     $el = (Get-Date) - $t1
-    $perPicture = if ($now -gt 0) { $el.TotalSeconds / $now } else { 0 }
+    $perPicture = if ($now -gt $skipped) { $el.TotalSeconds / ($now - $skipped) } else { 0 }   # only the pictures made in this run count
     $eta = [TimeSpan]::FromSeconds($perPicture * ($names.Count - $now))
     Write-Host ("`r   {0} / {1} ({2:P0})   last: {3,-30} {4:N1} MB finished   elapsed {5}   ETA {6} (at {7:N2} s per picture)   " -f $now, $names.Count, ($now / $names.Count), $last, ($bytes / 1MB), (Clock $el), (Clock $eta), $perPicture) -NoNewline
 }
-for ($i = 0; $i -lt $names.Count; $i += $chunk) {
-    $batch = $names.GetRange($i, [math]::Min($chunk, $names.Count - $i))
+for ($i = 0; $i -lt $todo.Count; $i += $chunk) {
+    $batch = $todo.GetRange($i, [math]::Min($chunk, $todo.Count - $i))
     $chunkStart = Get-Date
     $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$out`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $batch
     $p = Start-Process python -ArgumentList $renderArgs -RedirectStandardOutput $renderLog -RedirectStandardError "$renderLog.err" -WindowStyle Hidden -PassThru
@@ -114,21 +134,21 @@ for ($i = 0; $i -lt $names.Count; $i += $chunk) {
     }
     $p.WaitForExit()
     foreach ($u in $batch) {
-        $files = @($formats | ForEach-Object { Join-Path $out ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) })
+        $files = Files-Of $u
         if (@($files | Where-Object { (Test-Path $_) -and (Get-Item $_).LastWriteTime -ge $t1 }).Count -eq $files.Count) { $ok++; $bytes += ($files | ForEach-Object { (Get-Item $_).Length } | Measure-Object -Sum).Sum } else { $errors.Add($u) }
     }
     $done += $batch.Count
     foreach ($line in @(Get-Content $renderLog, "$renderLog.err" -ErrorAction SilentlyContinue | Where-Object { $_ -match '^(ERROR|FAILED)' })) { $errors.Add("   $line") }
     Show $done $batch[-1]
 }
-Write-Host ''
+if ($todo.Count -eq 0) { Write-Host '   Nothing to do: all pictures are there already.' } else { Write-Host '' }
 
 # ---------------------------------------------------------------- summary
 $total = (Get-Date) - $t0
 Write-Host ''
 Write-Host '== Summary ==' -ForegroundColor Cyan
 Write-Host "   Unit data:  $($units.FullName)"
-Write-Host ("   Pictures:   {0} of {1} units rendered, {2} failed" -f $ok, $names.Count, ($names.Count - $ok))
+Write-Host ("   Pictures:   {0} of {1} units done ({2} made now, {3} were there already), {4} failed" -f $ok, $names.Count, ($ok - $skipped), $skipped, ($names.Count - $ok))
 Write-Host ("   Size:       {0:N1} MB in total, {1:N1} KB per picture" -f ($bytes / 1MB), $(if ($ok) { $bytes / $ok / 1KB } else { 0 }))
 Write-Host "   Folder:     $out"
 Write-Host ("   Time:       {0} (export {1}, rendering {2})" -f (Clock $total), (Clock ($t1 - $t0)), (Clock ((Get-Date) - $t1)))

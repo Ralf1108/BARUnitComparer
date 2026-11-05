@@ -41,6 +41,8 @@ python render_unit.py --units ../exporter/out/units-<version>.json raptor_land_s
 | `--param key=value` | | A value of the renderer (`renderer/index.html`), e.g. `sun=2.5`, `az=300`, `frame=0.7`; can be repeated |
 | `-v`, `--verbose` | off | Says which pieces are left out, which team colour is used and how long each phase took |
 
+`--skip-existing` (off): leave out the units whose pictures in all wanted formats are in `--out` already, to go on after an abort. Pictures are written as `<file>.part` and renamed when complete, so an abort leaves no half picture.
+
 ### Quality of the formats
 
 | Option | Default | Meaning |
