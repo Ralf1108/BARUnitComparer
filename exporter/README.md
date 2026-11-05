@@ -48,6 +48,7 @@ The export does not depend on a list of fields: everything the engine knows abou
 |---|---|
 | `export_units.ps1`, `export_units.bat` | start script and double-click starter |
 | `reduce_units.py` | the reduced data for the website |
+| `export_counters.py`, `export_counters.bat` | separate from the game export: fetches the counter charts of Armada and Cortex from beyondallreason.info and writes `website/assets/counters.json` (`python exporter/export_counters.py [--out FILE]`). The file maps a unit codename to the codenames of the units that counter it: `{"counters": {"corak": ["armwar", "armllt", "armbeamer"], ...}}`. The website's **Counters** button uses it. Codenames that the newest unit data does not know are reported |
 | `unit-export.lua` | the widget that runs in the game |
 | `lua/led_export.lua` | the export code (JSON writing, field walk, equivalences) |
 | `lua/editor_common.lua`, `lua/bar_rules.lua` | the unit catalog (faction, type, tech level) and the rules behind it; copies from the BARLevelEditor project |

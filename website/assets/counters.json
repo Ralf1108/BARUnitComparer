@@ -1,0 +1,122 @@
+{
+ "version": 1,
+ "sources": [
+  "https://www.beyondallreason.info/armada-unit-chart-2",
+  "https://www.beyondallreason.info/cortex-unit-chart"
+ ],
+ "counters": {
+  "armanac": [
+   "cormaw",
+   "corbw",
+   "cormlv"
+  ],
+  "armanni": [
+   "corvroc"
+  ],
+  "armfido": [
+   "corban"
+  ],
+  "armflash": [
+   "corhllt",
+   "corlevlr"
+  ],
+  "armflea": [
+   "corllt",
+   "corak",
+   "corgator"
+  ],
+  "armgremlin": [
+   "cormlv"
+  ],
+  "armham": [
+   "cormaw",
+   "corbw",
+   "cormlv"
+  ],
+  "armjanus": [
+   "corstorm"
+  ],
+  "armpw": [
+   "corhllt",
+   "corlevlr"
+  ],
+  "armrock": [
+   "corhlt"
+  ],
+  "armsam": [
+   "corhlt"
+  ],
+  "armsptk": [
+   "corban"
+  ],
+  "armspy": [
+   "cormlv"
+  ],
+  "armstump": [
+   "cormaw",
+   "corbw",
+   "cormlv"
+  ],
+  "armwar": [
+   "corstorm"
+  ],
+  "corak": [
+   "armwar",
+   "armllt",
+   "armbeamer"
+  ],
+  "corfav": [
+   "armwar",
+   "armllt",
+   "armbeamer"
+  ],
+  "corgator": [
+   "armwar",
+   "armllt",
+   "armbeamer"
+  ],
+  "corhlt": [
+   "armart",
+   "armstump"
+  ],
+  "corlevlr": [
+   "armstump",
+   "armwar",
+   "armjanus",
+   "armmlv"
+  ],
+  "corllt": [
+   "armrock",
+   "armham",
+   "armstump",
+   "armsam"
+  ],
+  "cormist": [
+   "armpw",
+   "armflash",
+   "armstump",
+   "armhlt"
+  ],
+  "corraid": [
+   "armstump",
+   "armwar",
+   "armjanus",
+   "armmlv"
+  ],
+  "corstorm": [
+   "armpw",
+   "armflash",
+   "armstump",
+   "armhlt"
+  ],
+  "corthud": [
+   "armpw",
+   "armflash",
+   "armstump",
+   "armhlt",
+   "armwar",
+   "armjanus",
+   "armmlv"
+  ]
+ }
+}
