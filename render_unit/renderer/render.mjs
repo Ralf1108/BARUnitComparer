@@ -1,4 +1,4 @@
-// node render.mjs <jobs.json> <work dir> <browser exe>
+// node render.mjs <jobs.json> <work dir> <browser exe> [gpu|software]
 // Renders all jobs with ONE browser (a start of the browser costs more than a picture). jobs.json: [{ "out": "<png>", "query": "model=...&tex=...&size=400" }, ...]
 // A small web server gives the page (renderer/), the node_modules (three.js) and the work dir (models and textures, under /work/): a page opened from a file cannot load them.
 import { chromium } from 'playwright-core';
@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const [jobsFile, workDir, browserExe] = process.argv.slice(2);
+const [jobsFile, workDir, browserExe, mode0] = process.argv.slice(2);
 const rendererDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.dirname(rendererDir);
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.png': 'image/png', '.s3o': 'application/octet-stream' };
@@ -26,11 +26,11 @@ await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));   // wait 
 const port = server.address().port;
 
 const jobs = JSON.parse(fs.readFileSync(jobsFile, 'utf8'));
-const browser = await chromium.launch({ executablePath: browserExe, headless: true,
-  args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
-let failed = 0;
-// one page per picture size, kept open for all pictures of that size: renderer, environment and shaders are made once (index.html: window.renderUnit)
-const pages = new Map();
+// gpu: the browser uses the graphics card (fast); software: SwiftShader, rendering on the processor (works without a graphics driver). With `gpu` the browser falls back
+// to software by itself when no usable GPU is there (the page cannot make its WebGL context).
+const ARGS = { gpu: ['--ignore-gpu-blocklist', '--enable-gpu-rasterization'], software: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] };
+let mode = mode0 === 'software' ? 'software' : 'gpu', browser = null, failed = 0;
+const pages = new Map();   // one page per picture size, kept open for all pictures of that size: renderer, environment and shaders are made once (index.html: window.renderUnit)
 async function pageFor(size) {
   if (!pages.has(size)) {
     const page = await browser.newPage({ viewport: { width: size, height: size } });
@@ -42,6 +42,19 @@ async function pageFor(size) {
     pages.set(size, page);
   }
   return pages.get(size);
+}
+async function start() {
+  browser = await chromium.launch({ executablePath: browserExe, headless: true, args: ARGS[mode] });
+  if (jobs.length) {
+    const size = parseInt(new URLSearchParams(jobs[0].query).get('size') || '400', 10);
+    await pageFor(size);   // makes the WebGL context: fails here if there is no usable GPU
+    console.log(`renderer (${mode}): ${await pages.get(size).evaluate('window.__glRenderer')}`);
+  }
+}
+try { await start(); } catch (e) {
+  if (mode !== 'gpu') throw e;
+  console.log(`no usable GPU (${e.message.split('\n')[0]}): rendering on the processor`);
+  await browser?.close().catch(() => {}); pages.clear(); mode = 'software'; await start();
 }
 for (const job of jobs) {
   const size = parseInt(new URLSearchParams(job.query).get('size') || '400', 10);

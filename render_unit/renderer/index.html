@@ -54,12 +54,21 @@ const loadTex = (url, srgb) => new Promise((res, rej) => new THREE.TextureLoader
   t.anisotropy = 16; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
   res(t);
 }, undefined, () => rej(new Error('cannot load ' + url))));
+// The textures of the units that come one after the other are mostly the same (units of one texture set): the textures of the last unit stay loaded, and only the ones
+// that the next unit does not need are freed (a texture set is 4 x 2048 x 2048 pixels, all of them together would be gigabytes).
+const texCache = new Map();   // url -> promise of the texture
+function textures(wanted) {   // wanted: [[url, srgb], ...]
+  const urls = new Set(wanted.map(w => w[0]));
+  for (const [url, p] of texCache) if (!urls.has(url)) { p.then(t => t.dispose()); texCache.delete(url); }
+  return Promise.all(wanted.map(([url, srgb]) => { if (!texCache.has(url)) texCache.set(url, loadTex(url, srgb)); return texCache.get(url); }));
+}
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(1); renderer.setSize(SIZE, SIZE); renderer.setClearColor(0x000000, 0);
 renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.VSMShadowMap;
 renderer.toneMapping = THREE.NoToneMapping;
 document.body.appendChild(renderer.domElement);
+{ const gl = renderer.getContext(), info = gl.getExtension('WEBGL_debug_renderer_info'); window.__glRenderer = info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : 'unknown'; }
 
 const scene = new THREE.Scene();
 
@@ -92,12 +101,10 @@ async function renderUnit(query) {
   q = new URLSearchParams(query);
   HIDDEN = new Set((q.get('hide') || '').toLowerCase().split(',').filter(Boolean));
   const TEX = q.get('tex'), BASE = q.get('base') || TEX;
-  if (current) { scene.remove(current.mesh); current.geo.dispose(); current.textures.forEach(t => t.dispose()); current = null; }
+  if (current) { scene.remove(current.mesh); current.geo.dispose(); current = null; }
 
   scene.environmentIntensity = P('env', 0.55);
-  const textures = await Promise.all([
-    loadTex(`${TEX}/albedo.png`, true), loadTex(`${TEX}/emissive.png`, true), loadTex(`${BASE}/orm.png`, false), loadTex(`${BASE}/normal.png`, false)]);
-  const [albedo, emissive, orm, normal] = textures;
+  const [albedo, emissive, orm, normal] = await textures([[`${TEX}/albedo.png`, true], [`${TEX}/emissive.png`, true], [`${BASE}/orm.png`, false], [`${BASE}/normal.png`, false]]);
   const geo = parseS3O(await (await fetch(q.get('model'))).arrayBuffer());
   geo.computeBoundingBox();
   if (!mat) {
@@ -115,7 +122,7 @@ async function renderUnit(query) {
   const mesh = new THREE.Mesh(geo, mat);
   mesh.castShadow = true;
   scene.add(mesh);
-  current = { mesh, geo, textures };
+  current = { mesh, geo };
 
   const bb = geo.boundingBox, center = bb.getCenter(new THREE.Vector3());
   const R = bb.getSize(new THREE.Vector3()).length() / 2;

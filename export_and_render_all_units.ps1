@@ -47,7 +47,7 @@ Write-Host 'This will do two things:' -ForegroundColor Cyan
 Write-Host '  1. Export the unit data from the installed Beyond All Reason: the game is started once in a small window (about 30 seconds) and writes'
 Write-Host '     units-<game version>.json and equivalences.json to exporter\out.'
 Write-Host "  2. Render a picture of $what in that file as $formatText in the default quality and size, to the folder out\ of this repository."
-Write-Host '     This takes a while (roughly 0.6 to 1.5 seconds per unit).'
+Write-Host '     This takes a while (roughly 0.1 to 0.5 seconds per unit).'
 Write-Host ''
 if (-not $Yes) {
     $answer = Read-Host 'Start? [Enter = yes, n = cancel]'

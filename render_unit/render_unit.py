@@ -379,6 +379,7 @@ def main():
     ap.add_argument('--webp-method', type=int, default=4, help='WebP effort 0 (fast) to 6 (slowest, smallest) (default 4)')
     ap.add_argument('--jobs', type=int, default=DEFAULT_JOBS, help=f'how many browsers render at the same time, and how many processes convert the textures and encode (default {DEFAULT_JOBS}: half of the processor cores, at most 4); 1 = one after the other')
     ap.add_argument('--skip-existing', action='store_true', help='leave out the units whose pictures (in all wanted formats) are in --out already (to go on after an abort)')
+    ap.add_argument('--software', action='store_true', help='render on the processor (SwiftShader) instead of the graphics card; the default uses the graphics card and falls back to the processor if there is none')
     ap.add_argument('--no-quality-check', action='store_true', help='with several formats the quality of each against the lossless picture is measured (PSNR, SSIM); this switches it off')
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
@@ -462,13 +463,16 @@ def main():
             sys.exit('ERROR: Node.js not found.')
         browser = find_browser(a.browser)
         # the rendering: `--jobs` browsers at the same time, each takes every n-th picture (software rendering uses the processor, not the graphics card)
-        slices = [jobs[i::n] for i in range(min(n, len(jobs)))]
+        # the units of one texture set next to each other (the page keeps their textures), in n contiguous parts of about the same size
+        jobs.sort(key=lambda j: re.search(r'base=([^&]*)&tex=([^&]*)', j['query']).groups())
+        k = min(n, len(jobs))
+        slices = [jobs[len(jobs) * i // k: len(jobs) * (i + 1) // k] for i in range(k)]
         for j in jobs:
             Path(j['out']).unlink(missing_ok=True)   # no picture of an earlier run is taken for this one
         procs = []
         for i, part in enumerate(slices):
             (work / f'jobs_{i}.json').write_text(json.dumps(part))
-            procs.append(subprocess.Popen([node, str(HERE / 'renderer' / 'render.mjs'), str(work / f'jobs_{i}.json'), str(work), browser], cwd=HERE))
+            procs.append(subprocess.Popen([node, str(HERE / 'renderer' / 'render.mjs'), str(work / f'jobs_{i}.json'), str(work), browser, 'software' if a.software else 'gpu'], cwd=HERE))
         failed = sum(1 for pr in procs if pr.wait() != 0)
     lap('rendered in the browsers')
     table, pairs = [], []

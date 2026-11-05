@@ -32,7 +32,8 @@ python render_unit.py --units ../exporter/out/units-<version>.json raptor_land_s
 | `--format` | `png` | `png`, `jpeg` (or `jpg`), `bmp`, `avif`, `webp`, several separated by commas, or `all`. BMP and JPEG have no transparency (white background) |
 | `--size` | 400 | Edge of the square picture in pixels (the size of the pictures on beyondallreason.info) |
 | `--team R,G,B` | by faction | One colour for the team colour parts of all units. By default: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black |
-| `--jobs N` | half of the processor cores, at most 4 | How many browsers render at the same time (also the number of processes for texture conversion and encoding). 1 = one after the other |
+| `--jobs N` | half of the processor cores, at most 4 | How many browsers render at the same time (also the number of processes for texture conversion and encoding). 1 = one after the other. More than 4 does not make it faster |
+| `--software` | off | Render on the processor (SwiftShader) instead of the graphics card. By default the graphics card is used (about 3 times faster end to end) and the processor only if there is no usable GPU. The pictures are very close, not pixel-identical (SSIM 0.998) |
 | `--data DIR` | `BAR_DATA`, else the usual places | Data folder of the BAR installation |
 | `--game NAME` | the newest installed | `"Beyond All Reason <version>"`, to render with an older installed version (use the units file of that version) |
 | `--work DIR` | `%TEMP%\render_unit` | Cache for converted textures and models (kept between runs, so that the next run is faster) |

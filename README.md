@@ -43,7 +43,7 @@ Renders a picture of a unit from the game's own 3D model and textures, in the lo
 - Team colours by faction (Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black).
 - Formats: PNG, JPEG, BMP, AVIF, WebP (or all); the size is 400 x 400 pixels like on the website.
 - Measures the quality of each format against the lossless picture (PSNR, SSIM) when several formats are made.
-- Fast: several browsers render at the same time (about 0.6 seconds per picture on 8 cores).
+- Fast: renders on the graphics card (about 0.15 seconds per picture with four browsers at the same time; without a graphics card it falls back to the processor, about 0.5 seconds).
 
 ## Export and render everything
 
