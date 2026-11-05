@@ -40,8 +40,8 @@ luac.out
 *.hex
 
 
-# Output of extractor/extract_units.ps1 (the exported JSON files are not part of the repository for now)
-extractor/out/
+# Output of exporter/export_units.ps1 (the exported JSON files are not part of the repository for now)
+exporter/out/
 
 # render_unit: node modules and rendered pictures
 render_unit/node_modules/

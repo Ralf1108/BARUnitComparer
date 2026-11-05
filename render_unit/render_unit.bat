@@ -14,7 +14,7 @@ set /p FMT=Format [all]:
 if "%FMT%"=="" set "FMT=all"
 if /i "%FMT%"=="all" set "FMT=png,avif,webp"
 echo.
-echo The Raptors need the unit data of the extractor (units-...json), e.g. extractor\out\units-test-31820-45ea098.json
+echo The Raptors need the unit data of the exporter (units-...json), e.g. exporter\out\units-test-31820-45ea098.json
 set /p UNITSFILE=Unit data file [Enter = none]: 
 if defined UNITSFILE set ARGS=--units "%UNITSFILE:"=%"
 echo.

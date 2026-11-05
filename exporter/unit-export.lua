@@ -1,6 +1,6 @@
 function widget:GetInfo()
 	return {
-		name = "Website Unit Extraction",
+		name = "Website Unit Export",
 		desc = "Writes the data of all units (units-<game version>.json) and the equivalence ids (equivalences.json) of the running game into LuaUI/Config/WebsiteExport/",
 		author = "BARLevelEditor",
 		date = "2026",
@@ -10,7 +10,7 @@ function widget:GetInfo()
 	}
 end
 
--- Unit extraction for the unit comparison website (SPECIFICATION.md, sections 2 and 10): a widget for a plain Beyond All Reason game (no Level Editor).
+-- Unit export for the unit comparison website (SPECIFICATION.md, sections 2 and 10): a widget for a plain Beyond All Reason game (no Level Editor).
 -- It runs once, a moment after the game has started, and writes
 --   LuaUI/Config/WebsiteExport/units-<game version>.json   all units with their values, the version of Beyond All Reason in the file name and in the file
 --   LuaUI/Config/WebsiteExport/equivalences.json              the equivalence id of every unit (kept if it is there already, only new units are added)
@@ -18,7 +18,7 @@ end
 -- (a user widget may write only into LuaUI/Config and LuaUI/Widgets). If the file LuaUI/Config/WebsiteExport/quit.txt exists, the game ends itself afterwards
 -- (quitforce), so that a script can run the game once per game version; without that file the game goes on.
 --
--- Needs three files that the script which starts the game (extract_units.ps1) puts into LuaUI/Include/ (they are in the folder lua/ next to this file):
+-- Needs three files that the script which starts the game (export_units.ps1) puts into LuaUI/Include/ (they are in the folder lua/ next to this file):
 --   editor_common.lua   (the unit catalog, the faction / type / tech level rules)
 --   bar_rules.lua
 --   led_export.lua      (the export itself, the same code as the buttons of the settings page of the Level Editor)
@@ -51,13 +51,13 @@ local function run()
 	local Shared = VFS.Include("LuaUI/Include/editor_common.lua", nil, VFS.RAW_FIRST)
 	local ex = VFS.Include("LuaUI/Include/led_export.lua", nil, VFS.RAW_FIRST)({
 		Shared = Shared, dir = DIR,
-		say = function(s) Spring.Echo("[Website Unit Extraction] " .. s) end,
+		say = function(s) Spring.Echo("[Website Unit Export] " .. s) end,
 	})
 	local a, aOk = ex.exportUnits()
 	local b, bOk = ex.exportEquivalence()
 	local text = a:gsub("\n", " ") .. " | " .. b:gsub("\n", " ")
 	if not (aOk and bOk) then
-		Spring.Echo("[Website Unit Extraction] error: " .. text)
+		Spring.Echo("[Website Unit Export] error: " .. text)
 	end
 	status(((aOk and bOk) and "ok " or "error ") .. text)
 end
@@ -69,7 +69,7 @@ function widget:Update()
 	done = true
 	local ok, err = pcall(run)
 	if not ok then
-		Spring.Echo("[Website Unit Extraction] error: " .. tostring(err))
+		Spring.Echo("[Website Unit Export] error: " .. tostring(err))
 		pcall(status, "error " .. tostring(err))
 	end
 	if exists("quit.txt") then

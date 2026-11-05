@@ -3,7 +3,7 @@
 -- ex.actions (the buttons for Shared.newOptions: { label, tip, fn }; fn returns the message shown under the buttons), ex.exportUnits(), ex.exportEquivalence()
 -- (both return the message and true if they succeeded, false if not).
 --   host.Shared, host.outDir ("LevelEditor/"), host.say(text); host.dir (optional): the folder of the two files, with a "/" at the end
--- (default <outDir>Other/; unit-extraction.lua, a user widget, sets it to a folder it may write to)
+-- (default <outDir>Other/; unit-export.lua, a user widget, sets it to a folder it may write to)
 -- Both files go to <outDir>Other/ in the data folder of the game (units-<game version>.json, equivalences.json). Their content and use: SPECIFICATION.md.
 return function(host)
 	local Shared = host.Shared
@@ -320,7 +320,7 @@ return function(host)
 	end
 
 	-- The unit names and ids of an equivalences.json: { name = id }; nil if the text has no "units" object. The file has a simple shape (written by this module, corrected
-	-- by hand), so no JSON library is needed (the unit extraction widget of a plain game cannot load the game's json.lua): the pairs "name": "id" inside "units".
+	-- by hand), so no JSON library is needed (the unit export widget of a plain game cannot load the game's json.lua): the pairs "name": "id" inside "units".
 	local UNESC = { b = "\b", f = "\f", n = "\n", r = "\r", t = "\t", ['"'] = '"', ["\\"] = "\\", ["/"] = "/" }
 
 	local function utf8char(cp)

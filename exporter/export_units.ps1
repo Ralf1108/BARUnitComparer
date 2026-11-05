@@ -1,20 +1,20 @@
-# Unit extraction for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
-# unit-extraction.lua write the data of all units, and copies the result to -Out:
+# Unit export for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
+# unit-export.lua write the data of all units, and copies the result to -Out:
 #   <Out>\units-<game version>.json   all units with their values (the version of the game is in the name and in the file)
 #   <Out>\equivalences.json             the equivalence ids (an existing file in <Out> is given to the game first: its ids are kept, only new units are added)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
-#   .\extract_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
+#   .\export_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
 # -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places.
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
 # -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
 # installed as a package first, see SPECIFICATION.md "Several game versions").
-# Exit code 1 and a message on stderr if the extraction failed; nothing is copied to -Out then.
+# Exit code 1 and a message on stderr if the export failed; nothing is copied to -Out then.
 param(
     [string]$Out = (Join-Path $PSScriptRoot 'out'),
     [string]$Data = '',
-    [string]$Work = (Join-Path $env:TEMP 'unit_extraction'),
+    [string]$Work = (Join-Path $env:TEMP 'unit_export'),
     [int]$WaitSec = 300,
     [string]$Map = '',
     [string]$Game = '',
@@ -98,6 +98,18 @@ foreach ($archive in @(@('Game', $Game), @('Map', $Map))) {
     }
 }
 
+Write-Host @"
+Unit export for Beyond All Reason
+  Why the game is started: the unit values are not read from the files of the game but from the RUNNING game (its unit and weapon definitions, after the game has
+  processed all unit files and game options), because only these are the numbers that count in a match. So the script starts the game once, in a small window that
+  is put to the back, loads a map (only to get into a game), lets a widget write the data of all units and then ends the game itself.
+  Game:   $Game
+  Engine: $exe
+  Map:    $Map (any map will do, it is not used for anything)
+  Data:   $Data (only read, nothing in it is changed)
+  Result: $Out (the game itself writes into the sandbox $Work, the result is moved from there)
+"@
+Write-Host '[1/4] Preparing the sandbox: write folder, widget, config, game script ...'
 $d = Join-Path $Work 'data'
 $we = Join-Path $d 'LuaUI\Config\WebsiteExport'
 
@@ -110,7 +122,7 @@ New-Item -ItemType Directory "$d\cache", "$d\games", "$d\LuaUI\Widgets", "$d\Lua
 Copy-Item $archiveCache "$d\cache\"
 
 # the widget and the three files it includes (they all lie next to this script)
-Copy-Item (Join-Path $here 'unit-extraction.lua') "$d\LuaUI\Widgets\"
+Copy-Item (Join-Path $here 'unit-export.lua') "$d\LuaUI\Widgets\"
 Copy-Item (Join-Path $here 'lua\*.lua') "$d\LuaUI\Include\"
 Set-Content (Join-Path $we 'quit.txt') 'quit'   # the widget ends the game when it is through
 if (Test-Path (Join-Path $Out 'equivalences.json')) { Copy-Item (Join-Path $Out 'equivalences.json') $we }   # the ids that were corrected by hand stay
@@ -143,20 +155,25 @@ $script = @"
 [IO.File]::WriteAllLines("$Work\springsettings.cfg", @('Fullscreen = 0', 'WindowBorderless = 0', 'XResolution = 1000', 'YResolution = 600', 'XResolutionWindowed = 1000', 'YResolutionWindowed = 600',
     'WindowPosX = 40', 'WindowPosY = 40', 'Sound = 0', 'MaxSounds = 0', 'UserWidgetMemoryLimits = 0'))
 
+Write-Host '[2/4] Starting the game (the first start of a game version may take a while: the game files are read)'
 $prev = [WinUx]::GetForegroundWindow()
 $env:SPRING_DATADIR = $Data   # more data folder for reading (packages, pool, rapid, maps): the engine reads the installed game from there
 $p = Start-Process $exe -ArgumentList @('--config', "`"$Work\springsettings.cfg`"", '--write-dir', "`"$d`"", "`"$d\script.txt`"") -PassThru
-"started pid $($p.Id), game '$Game'"
-$start = Get-Date
+Write-Host "      game started (process $($p.Id)); the widget exports a moment after the game has loaded and ends the game, waiting at most $WaitSec s"
+Write-Host '[3/4] Waiting for the export ...'
+$start = Get-Date; $nextNote = 15
 while (((Get-Date) - $start).TotalSeconds -lt $WaitSec -and -not $p.HasExited) {
     $p.Refresh()
     if ($p.MainWindowHandle -ne [IntPtr]::Zero) { [void][WinUx]::SetWindowPos($p.MainWindowHandle, [IntPtr]1, 0, 0, 0, 0, 0x0013); [void][WinUx]::SetForegroundWindow($prev) }   # window to the back
     Start-Sleep 3
+    $sec = [int]((Get-Date) - $start).TotalSeconds
+    if ($sec -ge $nextNote) { Write-Host "      still running, $sec s"; $nextNote += 15 }
 }
 $timedOut = -not $p.HasExited
-if ($timedOut) { 'timeout: ending the game'; try { $p.CloseMainWindow() | Out-Null; Start-Sleep 5; if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force } } catch {} }
+if ($timedOut) { Write-Host '      timeout: ending the game'; try { $p.CloseMainWindow() | Out-Null; Start-Sleep 5; if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force } } catch {} }
 
 # the result
+Write-Host "[4/4] The game has ended after $([int]((Get-Date) - $start).TotalSeconds) s, checking the result ..."
 $log = "$d\infolog.txt"
 $status = Join-Path $we 'status.txt'
 if (-not (Test-Path $status)) {
@@ -165,7 +182,7 @@ if (-not (Test-Path $status)) {
 }
 $line = "$(Get-Content $status -Raw)".Trim()
 if (-not $line.StartsWith('ok')) { Fail "The export failed: $line. Log: $log" }
-$line
+Write-Host "      widget: $line"
 New-Item -ItemType Directory $Out -Force | Out-Null
 Get-ChildItem $we -Filter 'units-*.json' | ForEach-Object { $size = [math]::Round($_.Length / 1e6, 1); Move-Item $_.FullName $Out -Force; "moved $($_.Name) ($size MB) to $Out" }
 Move-Item (Join-Path $we 'equivalences.json') $Out -Force

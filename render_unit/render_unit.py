@@ -11,7 +11,7 @@ What it does: reads the model (.s3o) and the textures of the unit from the game'
 (cached in --work), leaves out the pieces that the unit's script hides when the unit is created, and lets the browser (renderer/index.html, three.js) render all
 units in one session. The team colour parts get the colour of the faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black (--team: one colour for all).
 Default: only the unit names; the model is looked for by the name of the unit (objects3d/units/<unit>.s3o, Scavenger copies use the model of their unit).
---units FILE: the units-<game version>.json of the extractor (an error if it is not there): it gives the model, the script and the faction of every unit, which is needed for
+--units FILE: the units-<game version>.json of the exporter (an error if it is not there): it gives the model, the script and the faction of every unit, which is needed for
 the Raptors (their model is not named like the unit).
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
@@ -103,12 +103,12 @@ class Pool:
 
 def load_units(given, game):
     """Without --units: {} (the model is looked for by the name of the unit, the script by its name too). With --units FILE (the units-<game version>.json of the
-    extractor): { unit name: {game, editor} }, which gives the model, the script and the faction of every unit; a missing file is an error."""
+    exporter): { unit name: {game, editor} }, which gives the model, the script and the faction of every unit; a missing file is an error."""
     if not given:
         return {}
     path = Path(given)
     if not path.exists():
-        sys.exit(f'ERROR: unit data {path} not found (--units). Run extractor/extract_units.ps1 first, it writes units-<game version>.json.')
+        sys.exit(f'ERROR: unit data {path} not found (--units). Run exporter/export_units.ps1 first, it writes units-<game version>.json.')
     units = json.loads(path.read_text(encoding='utf-8'))
     version = game.replace('Beyond All Reason ', '', 1)
     if units.get('gameVersion', version) != version:
@@ -293,7 +293,7 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0], fromfile_prefix_chars='@')
     ap.add_argument('units', nargs='+', help='unit names (armllt, legnavyscout, ...); @file: a file with one name per line')
     ap.add_argument('--out', default=str(HERE / 'out'), help='folder for the pictures (default: out next to this script)')
-    ap.add_argument('--units', dest='units_file', default='', metavar='FILE', help='units-<game version>.json of the extractor: the model, script and faction of every unit come from it (needed for Raptors); without it the model is looked for by the unit name')
+    ap.add_argument('--units', dest='units_file', default='', metavar='FILE', help='units-<game version>.json of the exporter: the model, script and faction of every unit come from it (needed for Raptors); without it the model is looked for by the unit name')
     ap.add_argument('--data', default='', help='data folder of the BAR installation (only read); default: $BAR_DATA, otherwise the usual places')
     ap.add_argument('--game', default='', help='"Beyond All Reason <version>"; default: the newest installed game')
     ap.add_argument('--work', default=str(Path(tempfile.gettempdir()) / 'render_unit'), help='folder for the converted textures (kept between runs) and the models')
