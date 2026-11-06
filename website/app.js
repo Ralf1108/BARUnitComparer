@@ -215,10 +215,12 @@ function renderCompare() {
   const max = {};
   const reference = columns.find(c => c.ref && c.unit && !c.picking);   // with a reference column the bars of the others are coloured
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit && !c.picking).map(c => state.units[c.unit][s.key]));
+  const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <h1 class="cmp-title">${present.map(f => factionName(f)).join(' <span>vs.</span> ')}</h1>
     <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
       <button class="add-column" data-a="add-column" title="Add a column">+ Add column</button></div>`;
+  app.querySelector('.cmp-scroll').scrollLeft = left;
   fitPickers();
 }
 
