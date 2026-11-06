@@ -294,7 +294,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = state.units[c.unit], tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '<span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>'}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '')}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '<span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>'}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = state.units[c.unit];
