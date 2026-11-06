@@ -216,7 +216,7 @@ function renderCompare() {
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <div class="cmp-clear"><button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
+    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -366,6 +366,16 @@ function toggleUnit(unit) {
 
 // a unit is in the comparison once (also a Scavenger copy that "+ Scav" shows)
 const isShown = unit => state.columns.some(c => c.unit === unit || (state.scav && c.unit + '_scav' === unit));
+// undo / redo of the columns: every change of the set or the order of the columns first puts the old list on the stack
+const undoStack = [], redoStack = [];
+function remember() { undoStack.push(state.columns.slice()); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
+function step(from, to) {
+  if (!from.length) return;
+  to.push(state.columns.slice());
+  state.columns = from.pop();
+  keepAddress(); render();
+}
+
 function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
 
 // ------------------------------------------------------------------ what the user does
@@ -389,23 +399,26 @@ const actions = {
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
   'scroll-columns'(v) { const sc = app.querySelector('.cmp-scroll'); sc.scrollBy({ left: Number(v) * 420, behavior: 'smooth' }); },
   'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
-  'clear-all'() { state.columns = []; keepAddress(); render(); },
+  'clear-all'() { remember(); state.columns = []; keepAddress(); render(); },
   clear() { state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
-  'pick-add'(v) { if (isShown(v)) return; addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
+  'pick-add'(v) { if (isShown(v)) return; remember(); addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); renderCompare(); },
+  undo() { step(undoStack, redoStack); },
+  redo() { step(redoStack, undoStack); },
   scav() { state.scav = !state.scav; renderCompare(); },
-  'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
+  'col-counters'(v, el) { remember(); const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
   'add-counterparts'(v, el) {
+    remember();
     for (const n of counterpartsOf(columnOf(el).unit)) addUnit(n);
     keepAddress(); renderCompare(); renderNav();
     const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth;
   },
-  'add-unit'(v) { addUnit(v); keepAddress(); render(); },
-  'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
+  'add-unit'(v) { remember(); addUnit(v); keepAddress(); render(); },
+  'remove-column'(v, el) { remember(); const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
 };
 
 // moving a column: drag the grip of its header, drop on another column (left half: before it, right half: after it)
@@ -441,12 +454,20 @@ document.addEventListener('drop', e => {
   const t = dropTarget(e);
   if (t) {
     e.preventDefault();
+    remember();
     state.columns = state.columns.filter(o => o !== dragged);
     state.columns.splice(state.columns.indexOf(t.real) + (t.after ? 1 : 0), 0, dragged);
     keepAddress(); renderCompare();
   }
 });
 document.addEventListener('dragend', () => { dragged = null; clearDrop(); });
+
+document.addEventListener('keydown', e => {
+  if (state.page !== 'compare' || !(e.ctrlKey || e.metaKey) || /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z' && !e.shiftKey) { e.preventDefault(); actions.undo(); }
+  else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); actions.redo(); }
+});
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]');
