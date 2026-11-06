@@ -22,7 +22,7 @@ All tools write into `website/assets/`, per game version (checked in, so a delet
 
 ```
 website/assets/                                everything the tools make
-  counterparts.json                            unit name -> counterpart id, for all versions; corrected by hand here, kept by every export
+  counterparts.json                            unit name -> counterpart id, for all versions; groups of beyondallreason.info win, the rest can be corrected by hand (section 3.2)
   counters.json                                unit name -> the units that counter it (exporter/export_counters.py, SPECIFICATION_WEBSITE.md)
   versions.json                                the game versions there are, newest last
   <version>/
@@ -88,6 +88,8 @@ Damage per second of a weapon: `damages.default * projectiles * salvoSize / relo
 ```
 
 Unit name -> counterpart id. The id is a free text; units with the same id belong together. **One file for all game versions** (not versioned): a name without a unit in the chosen version is simply unused. The file is **meant to be corrected by hand** and kept in `website/assets/`: the first export writes a proposal, later exports only **add** units that are not in it yet; an id that is there is never changed, no line is removed. The proposal: the unit name without the three faction letters (`armsolar` -> `solar`), a Scavenger copy gets the id of its unit, a raptor its own name. Not all will be right (there is no `legllt`, the Legion light laser tower has another name and gets an id of its own until corrected). To correct: same id for units that belong together, a unique id for a unit alone; units of one faction may share an id too.
+
+**beyondallreason.info wins over the file:** `exporter/export_counterparts.py` (without the game) reads the "counterpart" part of the unit pages of the official site and gives every group found there one id, **also over an id corrected by hand**. A correction by hand stays only for the units that the site names in no group (and for their Scavenger copies, which always get the id of their unit). The game export itself never changes an id (above).
 
 An existing `website/assets/counterparts.json` is given to the game first. It is read with a small JSON reader (ids may contain any character, also quotes, backslashes, escapes). A file that cannot be read completely (no `"units"` object, a broken line) is left as it is and the export fails with the line number, so no id is lost. Other top-level keys are not kept.
 

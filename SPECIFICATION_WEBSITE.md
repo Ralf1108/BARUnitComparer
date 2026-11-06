@@ -13,7 +13,7 @@ The page reads everything from `website/assets/` (all of it is in Git; the full 
 
 ```
 website/assets/                                everything the tools make
-  counterparts.json                            unit name -> counterpart id, for all versions; corrected by hand here, kept by every export (exporter/export_counterparts.py)
+  counterparts.json                            unit name -> counterpart id, for all versions; groups of beyondallreason.info win, the rest can be corrected by hand (exporter/export_counterparts.py)
   counters.json                                unit name -> the units that counter it, from the counter charts of beyondallreason.info (exporter/export_counters.py)
   versions.json                                the game versions there are, newest last
   <version>/
@@ -142,4 +142,4 @@ The site is published from the folder `website/` by the workflow `.github/workfl
 - `counters.json` has only 25 units, as many as the counter charts name; the charts show only Armada and Cortex.
 - Showing the differences between two game versions (`SPECIFICATION.md`, section 3.5) is not built; the data of several versions is already loaded per version (section 1).
 - A 3D view of the model is not built (`SPECIFICATION.md`, section 4.2).
-- `counterparts.json` comes from the names and the unit pages; groups can be larger than wanted (several units of one faction in one group, the exporter lists them) and are corrected by hand.
+- `counterparts.json` comes from the names and the unit pages; groups can be larger than wanted (several units of one faction in one group, the exporter lists them). The groups of beyondallreason.info win over corrections by hand (`SPECIFICATION.md`, section 3.2).

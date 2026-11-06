@@ -31,7 +31,7 @@ Two separate scripts get this from beyondallreason.info, they do not need the ga
 
 | File | What happens |
 |---|---|
-| `exporter/export_counterparts.bat` | updates `website/assets/counterparts.json`: starts from the file that is there, gives new units an id from their name and then reads the counterpart part of the unit pages (about 640 pages, a minute). Units that name each other get one id |
+| `exporter/export_counterparts.bat` | updates `website/assets/counterparts.json`: starts from the file that is there, gives new units an id from their name and then reads the counterpart part of the unit pages (about 640 pages, a minute). Units that name each other get one id; the official site wins over an id corrected by hand |
 | `exporter/export_counters.bat` | writes `website/assets/counters.json` from the counter charts of Armada and Cortex: for a unit the units that counter it |
 
 Details: [exporter/README.md](exporter/README.md).

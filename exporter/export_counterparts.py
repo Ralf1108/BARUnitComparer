@@ -3,9 +3,10 @@
     python exporter/export_counterparts.py [--out website/assets/counterparts.json] [--threads 6] [--no-web]
 
 The result maps a unit name to a counterpart id; units with the same id are counterparts. Where the ids come from:
-  1. the file that is already there (corrected by hand: stays), else the name without the faction letters (armllt, corllt, legllt -> llt);
+  1. the file that is already there (corrected by hand), else the name without the faction letters (armllt, corllt, legllt -> llt);
   2. the unit pages of beyondallreason.info: every page has a "counterpart" part. All units that a page names are put in one group with the unit, groups that share
-     a unit are joined. The group gets the id of its Armada unit (else Cortex, else Legion). This overrides 1. for the units that are in such a group;
+     a unit are joined. The group gets the id of its Armada unit (else Cortex, else Legion). The official site wins: this overrides 1., also an id corrected by hand,
+     for the units that are in such a group;
   3. a Scavenger copy (<name>_scav) always gets the id of its unit.
 The unit pages to read come from the sitemap of the website; only units that the unit data of the newest game version knows are used. Without --no-web nothing is
 changed for a unit that has no counterpart on its page. Groups with two units of one faction are reported, they are probably not wanted.
