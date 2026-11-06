@@ -109,7 +109,7 @@ function route() {
   const [page, a, b] = location.hash.replace(/^#\/?/, '').split('/');
   if (page === 'compare') {
     state.page = 'compare';
-    const wanted = (a || '').split(',').filter(u => state.units[u]);
+    const wanted = [...new Set((a || '').split(',').filter(u => state.units[u]))];
     const current = state.columns.map(c => c.unit);
     if (wanted.length && wanted.join() !== current.join()) state.columns = wanted.map(u => newColumn(u));
   } else {
@@ -213,12 +213,13 @@ function renderCompare() {
   const max = {};
   const reference = columns.find(c => c.ref);   // with a reference column the bars of the others are coloured
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.map(c => state.units[c.unit][s.key]));
+  const stats = STATS.filter(s => columns.some(c => s.key === 'weapons' ? state.units[c.unit].weapons.length : state.units[c.unit][s.key]));   // only what a unit has
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <h1 class="cmp-title">${present.length ? present.map(f => factionName(f)).join(' <span>vs.</span> ') : 'Choose units'}</h1>
     <div class="cmp-body"><div class="cmp-scroll">${columns.length
-      ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>`
+      ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
       ${chooserHtml()}</div>`;
   app.querySelector('.cmp-scroll').scrollLeft = left;
@@ -262,7 +263,7 @@ function scavengerHead(c, at) {
 
 const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Reference: the bars of all other columns are coloured green (as good or better) or red (worse) in comparison with this unit. Press again to switch it off.">Ref</button>`;
 
-function columnHtml(c, col, side, max, reference) {
+function columnHtml(c, col, side, max, reference, stats) {
   const u = state.units[c.unit], ref = reference && !c.ref ? state.units[reference.unit] : null;
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
   const head = c.scavOf ? scavengerHead(c, at) : `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
@@ -270,7 +271,7 @@ function columnHtml(c, col, side, max, reference) {
       <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${counterpartButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
-    <div class="stats f-${c.faction} ${side}" ${at(3)}>${STATS.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
+    <div class="stats f-${c.faction} ${side}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
 }
 
 // the unit selection at the right edge: a click on a unit adds a column
@@ -288,7 +289,7 @@ function pickerHtml() {
   if (!list.length) return '<p class="empty">No units here.</p>';
   return list.map(n => {
     const u = state.units[n];
-    return `<button class="pick" data-a="pick-add" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)} - add a column"><span class="tier t${u.tech}">T${u.tech}</span>${pictureTag(n, '')}${esc(u.name)}</button>`;
+    return `<button class="pick ${isShown(n) ? 'chosen' : ''}" data-a="pick-add" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)} - ${isShown(n) ? 'is already in the comparison' : 'add a column'}"><span class="tier t${u.tech}">T${u.tech}</span>${pictureTag(n, '')}${esc(u.name)}</button>`;
   }).join('');
 }
 
@@ -338,13 +339,15 @@ function toggleUnit(unit) {
   else addUnit(unit);
 }
 
-function addUnit(unit) { state.columns.push(newColumn(unit)); }
+// a unit is in the comparison once (also a Scavenger copy that "+ Scav" shows)
+const isShown = unit => state.columns.some(c => c.unit === unit || (state.scav && c.unit + '_scav' === unit));
+function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
 
 // ------------------------------------------------------------------ what the user does
 // with "+ Scav" every column with a unit gets its Scavenger copy as a column right of it (made here, not kept in state.columns)
 function displayColumns() {
   return state.columns.flatMap(c => {
-    if (!state.scav || !state.units[c.unit + '_scav']) return [c];
+    if (!state.scav || !state.units[c.unit + '_scav'] || state.columns.some(o => o.unit === c.unit + '_scav')) return [c];
     const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', scavOf: c.id };
     s.unit = c.unit + '_scav';
     return [c, s];
@@ -360,12 +363,12 @@ const actions = {
   'pick-faction'(v) { state.pick.faction = v; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
-  'pick-add'(v) { addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
+  'pick-add'(v) { if (isShown(v)) return; addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
   scav() { state.scav = !state.scav; renderCompare(); },
-  'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
+  'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).filter(n => n !== c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
-  'add-unit'(v) { state.columns.push(newColumn(v)); keepAddress(); render(); },
+  'add-unit'(v) { addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
 };
 

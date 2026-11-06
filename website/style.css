@@ -133,6 +133,8 @@ img { display: block; }
 .picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); align-content: start; gap: 2px; overflow-y: auto; background: #060606; }
 .pick { padding: 4px; text-align: center; font-size: 12px; line-height: 1.15; position: relative; }
 .pick:hover { background: #1a1a1a; }
+.pick.chosen { opacity: .35; cursor: default; }
+.pick.chosen:hover { background: none; }
 .pick.current { box-shadow: inset 0 0 0 1px var(--accent-line); }
 .pick img { width: 80px; height: 80px; object-fit: contain; margin: 0 auto; }
 .pick .tier { position: absolute; top: 3px; left: 3px; font-size: 10px; padding: 1px 4px; }
