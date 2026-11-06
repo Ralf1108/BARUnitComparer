@@ -252,13 +252,19 @@ function columnHtml(c, col, side, max, reference) {
   const u = !c.picking && c.unit && state.units[c.unit], list = columnUnits(c);
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
   return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
-      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${countersButton(c)}${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
+      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${counterpartButton(c)}${countersButton(c)}${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
       <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
       <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
       <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     </div>
     ${c.picking ? `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" style="grid-column:${col + 1};grid-row:2 / span 2"><div class="picker" data-picker>${pickerHtml(c, list)}</div></div>` : `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${u ? unitHtml(c, u) : ''}</div>
     <div class="stats f-${c.faction} ${side}" ${at(3)}>${u ? STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('') : ''}</div>`}`;
+}
+
+function counterpartButton(c) {
+  const has = !c.picking && c.unit && counterpartsOf(c.unit).length > 0;
+  const tip = has ? 'Counterparts: replace all other columns with the counterparts of this unit, the units of the other factions that do the same job (after the unit pages of beyondallreason.info).' : 'No counterparts are known for this unit, or no unit is chosen.';
+  return `<button class="counters" data-a="col-counterparts" title="${tip}" ${has ? '' : 'disabled'}>CP</button>`;
 }
 
 function countersButton(c) {
@@ -323,6 +329,7 @@ const actions = {
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
   clear() { state.columns = []; render(); },
+  'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of state.columns) o.ref = false; c.ref = !was; renderCompare(); },
   'add-column'() { const used = state.columns.map(c => c.faction); state.columns.push(newColumn(null, (FACTIONS.find(f => !used.includes(f.id)) || FACTIONS[0]).id)); render(); },
