@@ -1,4 +1,4 @@
-# Unit export for the unit comparison website (SPECIFICATION.md, section 10): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
+# Unit export for the unit comparison website (SPECIFICATION.md, section 3): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-export.lua write the data of all units, and copies the result to -Out:
 #   <Out>\<version>\data\units-<version>.json   all units with their values (the version of the game is in the name and in the file)
 #   <Out>\counterparts.json                     the counterpart ids, for all versions (an existing file is given to the game first: its ids are kept, only new units are added)
@@ -12,7 +12,7 @@
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
 # -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
-# installed as a package first, see SPECIFICATION.md "Several game versions").
+# installed as a package first, see SPECIFICATION.md, section 3.5 "Several game versions").
 # Exit code 1 and a message on stderr if the export failed; nothing is copied to -Out then.
 param(
     [string]$Out = (Join-Path (Split-Path $PSScriptRoot -Parent) 'website\assets'),
@@ -202,13 +202,16 @@ Move-Item (Join-Path $we 'counterparts.json') $Out -Force
 "moved counterparts.json to $Out"
 
 # the data of the website: the reduced file, the list of versions, the icons. A problem here is a warning: the export itself has worked
-$reduced = $false
-try {
-    $reduced = $true
-    foreach ($file in $exported) {   # a new export replaces the reduced file of that version
-        & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --force 2>&1 | ForEach-Object { "$_" }
-        if ($LASTEXITCODE -ne 0) { $reduced = $false }
-    }
-} catch { "$_" }
-if (-not $reduced) { Write-Host "WARNING: the data of the website was not made (exporter\reduce_units.py needs Python)." -ForegroundColor Yellow }
+$reduced = [bool](Get-Command python -ErrorAction SilentlyContinue)
+if ($reduced) {
+    try {
+        $ErrorActionPreference = 'Continue'   # a line of Python on stderr (a note, a warning) is no reason to stop here
+        foreach ($file in $exported) {   # a new export replaces the reduced file of that version
+            & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --force 2>&1 | ForEach-Object { "$_" }
+            if ($LASTEXITCODE -ne 0) { $reduced = $false }
+        }
+    } catch { "$_"; $reduced = $false }
+    $ErrorActionPreference = 'Stop'
+}
+if (-not $reduced) { Write-Host "WARNING: the data of the website was not made (exporter\reduce_units.py needs Python; see the lines above)." -ForegroundColor Yellow }
 Remove-Item $Work -Recurse -Force   # the sandbox is not needed any more (after an error it stays, for the log)

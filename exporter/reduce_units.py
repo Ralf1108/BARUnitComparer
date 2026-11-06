@@ -122,7 +122,6 @@ def reduce_file(f, out, data_dir, force):
     part = target.with_name(target.name + '.part')   # complete or not at all: the existence of the file decides whether it is made
     part.write_bytes(compress(text_of(full, version, units)))
     part.replace(target)
-    (folder / 'data' / f'{f.stem}.reduced.json.br').unlink(missing_ok=True)   # the file of an earlier version of this script
     print(f'{target.name}: {len(units)} units, {target.stat().st_size / 1024:.1f} KB (full file {f.stat().st_size / 1e6:.1f} MB)')
 
 

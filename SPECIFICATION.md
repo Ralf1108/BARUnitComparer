@@ -7,6 +7,7 @@ The project shows the units of Beyond All Reason (BAR) next to each other, to co
 | `exporter/` | starts the installed game once and writes all unit data as JSON | 3 |
 | `render_unit/` | renders a picture of every unit from the game's 3D models | 5 |
 | `export and render all units.bat` | both in one go, with progress | 6 |
+| `exporter/export_counterparts.py`, `export_counters.py` | counterparts and counters from beyondallreason.info, without the game | [exporter/README.md](exporter/README.md) |
 | `website/` | the website: unit catalog and comparison | [SPECIFICATION_WEBSITE.md](SPECIFICATION_WEBSITE.md) |
 
 ## 1. The website
@@ -22,6 +23,7 @@ All tools write into `website/assets/`, per game version (checked in, so a delet
 ```
 website/assets/                                everything the tools make
   counterparts.json                            unit name -> counterpart id, for all versions; corrected by hand here, kept by every export
+  counters.json                                unit name -> the units that counter it (exporter/export_counters.py, SPECIFICATION_WEBSITE.md)
   versions.json                                the game versions there are, newest last
   <version>/
     data/units-<version>.json                  all data of the exporter

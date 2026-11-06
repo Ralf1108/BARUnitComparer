@@ -72,7 +72,7 @@ Renders the units once and measures a grid of quality settings per format (JPEG 
 
 ## Requirements
 
-Python 3 with `numpy`, `Pillow` (a recent one with AVIF support; tested with 12.3.0) and `scipy` (quality check); Node.js (the first run runs `npm install` for three.js and playwright-core in this folder); Microsoft Edge or Google Chrome.
+Python 3.12 or newer with `numpy`, `Pillow` (a recent one with AVIF support; tested with 12.3.0) and `scipy` (quality check); Node.js (the first run runs `npm install` for three.js and playwright-core in this folder); Microsoft Edge or Google Chrome.
 
 ## Files
 

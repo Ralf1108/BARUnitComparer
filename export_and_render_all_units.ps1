@@ -11,7 +11,7 @@ $root = $PSScriptRoot
 $out = if ($Out) { $Out } else { Join-Path $root 'website\assets' }   # -Out: another folder for the pictures (for tests: never the real website\assets\)
 $chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
-$unsupported = New-Object System.Collections.Generic.List[string]   # units whose model is not an S3O file: no picture, not an error
+$unsupported = New-Object System.Collections.Generic.List[string]   # units whose model format is not supported (render_unit.py: S3O, Collada): no picture, not an error
 
 function Fail($text) {
     Write-Host ''
@@ -115,7 +115,7 @@ if (Test-Path $reducedFile) {
 
 # ---------------------------------------------------------------- 3. the pictures
 $names = New-Object System.Collections.Generic.List[string]
-foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { if (-not $wanted.Count -or $wanted -contains (Get-Faction $Matches[1])) { $names.Add($Matches[1]) } } }   # one unit per line (SPECIFICATION.md, section 2.1)
+foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { if (-not $wanted.Count -or $wanted -contains (Get-Faction $Matches[1])) { $names.Add($Matches[1]) } } }   # one unit per line (SPECIFICATION.md, section 3.1)
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
 Remove-Item (Join-Path $versionDir 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
@@ -174,7 +174,7 @@ Write-Host ''
 Write-Host '== Summary ==' -ForegroundColor Cyan
 Write-Host "   Unit data:  $($units.FullName)"
 Write-Host ("   Pictures:   {0} of {1} units done ({2} made now, {3} were there already), {4} failed" -f $ok, $names.Count, ($ok - $skipped), $skipped, ($names.Count - $ok - $unsupported.Count))
-if ($unsupported.Count) { Write-Host "   No picture:  $($unsupported -join ', ') (the model is not an S3O file, such models are not supported)" -ForegroundColor Yellow }
+if ($unsupported.Count) { Write-Host "   No picture:  $($unsupported -join ', ') (the model has a format that is not supported: only S3O and Collada are)" -ForegroundColor Yellow }
 Write-Host ("   Size:       {0:N1} MB in total, {1:N1} KB per picture" -f ($bytes / 1MB), $(if ($ok) { $bytes / $ok / 1KB } else { 0 }))
 Write-Host "   Folder:     $versionDir"
 Write-Host ("   Time:       {0} (export {1}, rendering {2})" -f (Clock $total), (Clock ($t1 - $t0)), (Clock ((Get-Date) - $t1)))

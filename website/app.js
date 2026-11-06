@@ -400,7 +400,7 @@ function remember() { undoStack.push(state.columns.slice()); if (undoStack.lengt
 function step(from, to) {
   if (!from.length) return;
   to.push(state.columns.slice());
-  state.columns = from.pop();
+  state.columns = from.pop().filter(c => state.units[c.unit]);   // a unit that the game version chosen since then does not have
   keepAddress(); render();
 }
 
@@ -424,11 +424,15 @@ const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[d
 const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
-  toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
-  'scroll-columns'(v) { const sc = app.querySelector('.cmp-scroll'); sc.scrollBy({ left: Number(v) * 420, behavior: 'smooth' }); },
+  toggle(v) { remember(); toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
+  'scroll-columns'(v) {   // by one column: its width and the gap between the columns
+    const sc = app.querySelector('.cmp-scroll'), col = sc.querySelector('.c-head:not(.is-ref), thead th[data-col]:not(.is-ref)');
+    const grid = sc.querySelector('.cmp-grid'), gap = grid ? parseFloat(getComputedStyle(grid).columnGap) || 0 : 0;
+    sc.scrollBy({ left: Number(v) * (col ? col.getBoundingClientRect().width + gap : 420), behavior: 'smooth' });
+  },
   'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
   'clear-all'() { remember(); state.columns = []; keepAddress(); render(); },
-  clear() { state.columns = []; render(); },
+  clear() { remember(); state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
@@ -495,10 +499,10 @@ document.addEventListener('drop', e => {
   const t = dropTarget(e);
   if (t) {
     e.preventDefault();
-    remember();
-    state.columns = state.columns.filter(o => o !== dragged);
-    state.columns.splice(state.columns.indexOf(t.real) + (t.after ? 1 : 0), 0, dragged);
-    keepAddress(); renderCompare();
+    const moved = state.columns.filter(o => o !== dragged);
+    moved.splice(moved.indexOf(t.real) + (t.after ? 1 : 0), 0, dragged);
+    if (moved.some((o, i) => o !== state.columns[i])) { remember(); state.columns = moved; keepAddress(); }   // dropped where it was: no step for Undo
+    renderCompare();
   }
 });
 document.addEventListener('dragend', () => { dragged = null; clearDrop(); });
@@ -535,7 +539,7 @@ document.addEventListener('change', async e => {
   if (kind === 'version') {
     await loadVersion(state.versions.find(v => v.dir === e.target.value));
     state.columns = state.columns.filter(c => state.units[c.unit]);   // a unit that this version does not have
-    render();
+    keepAddress(); render();
   }
 });
 

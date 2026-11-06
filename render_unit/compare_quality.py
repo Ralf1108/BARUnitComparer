@@ -1,4 +1,4 @@
-"""compare_quality.py: how much quality do the picture formats lose against the lossless PNG? (specification.md, section 12)
+"""compare_quality.py: how much quality do the picture formats lose against the lossless PNG? (SPECIFICATION.md, section 5)
 
     python compare_quality.py [--work DIR] [--size 400] [--units FILE] <unit> [<unit> ...]
 

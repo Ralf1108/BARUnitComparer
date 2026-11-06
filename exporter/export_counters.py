@@ -73,7 +73,7 @@ def main():
         print(f'(the codenames were not checked against the unit data: {e})')
 
     out = {'version': 1, 'sources': PAGES, 'counters': dict(sorted(counters.items()))}
-    Path(args.out).write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8')
+    Path(args.out).write_text(json.dumps(out, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(f'{len(counters)} units with counters written to {args.out}')
 
 

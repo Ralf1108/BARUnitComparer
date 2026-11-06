@@ -120,7 +120,7 @@ def main():
             ids[u] = ids[u[:-5]]
 
     lines = ',\n'.join(f'\t{json.dumps(u)}: {json.dumps(ids[u])}' for u in sorted(ids))
-    out.write_text('{\n"version": 1,\n"units": {\n' + lines + '\n}\n}\n', encoding='utf-8', newline='\r\n')
+    out.write_text('{\n"version": 1,\n"units": {\n' + lines + '\n}\n}\n', encoding='utf-8', newline='\n')   # LF like the exporter's file and .gitattributes
     print(f'{len(ids)} units written to {out}')
 
 

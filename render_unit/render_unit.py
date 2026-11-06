@@ -1,4 +1,4 @@
-"""render_unit.py: pictures of Beyond All Reason units, rendered from the game's own model files (SPECIFICATION.md, section 12).
+"""render_unit.py: pictures of Beyond All Reason units, rendered from the game's own model files (SPECIFICATION.md, section 5).
 
     python render_unit.py [--out DIR] [--units FILE] [--format png|bmp|jpeg|avif|webp|all] [--data DIR] [--game NAME] [--work DIR] [--size 400]
                           [--tex-size 2048] [--team R,G,B] [--browser EXE] [--param key=value ...] [-v] <unit> [<unit> ...]    (or @file with one unit name per line)
@@ -9,7 +9,7 @@ semi-transparent), the wanted formats are made from it; the encoding is a separa
 
 With two or more formats it then measures the quality of each against the lossless picture (PSNR and SSIM, needs scipy; --no-quality-check switches it off).
 
-What it does: reads the model (.s3o) and the textures of the unit from the game's pool (SPECIFICATION.md, section 5), converts the textures of a faction once
+What it does: reads the model (.s3o or .dae) and the textures of the unit from the game's pool (SPECIFICATION.md, section 2), converts the textures of a faction once
 (cached in --work), leaves out the pieces that the unit's script hides when the unit is created, and lets the browser (renderer/index.html, three.js) render all
 units in one session. The team colour parts get the colour of the faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black (--team: one colour for all).
 Default: only the unit names; the model is looked for by the name of the unit (objects3d/units/<unit>.s3o, Scavenger copies use the model of their unit).
@@ -17,7 +17,7 @@ Default: only the unit names; the model is looked for by the name of the unit (o
 the Raptors (their model is not named like the unit).
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
-import argparse, concurrent.futures, gzip, io, json, os, re, shutil, struct, subprocess, sys, tempfile, time
+import argparse, concurrent.futures, gzip, io, json, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 import numpy as np
@@ -412,7 +412,7 @@ def main():
         if not model or not pool.has(model):
             model = pool.find_model(unit)
         if not model:
-            problems.append(f'{unit}: no model found in the game' + ('' if u else f' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)'))
+            problems.append(f'{unit}: no model found in the game' + ('' if u else ' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)'))
             continue
         data = pool.read(model)
         fmt = next((f for f in MODEL_FORMATS if f.recognizes(model, data)), None)
@@ -430,7 +430,7 @@ def main():
             continue
         faction = u['editor']['faction'] if u else faction_of(unit)
         team = one_team or TEAM_COLORS.get(faction, TEAM_COLORS['leg'])
-        script = u['game'].get('scriptPath') if u else f'scripts/units/{re.sub(chr(95) + "scav$", "", unit)}.bos'
+        script = u['game'].get('scriptPath') if u else f'scripts/units/{unit.removesuffix("_scav")}.bos'
         hidden, script_used = hidden_pieces(pool, script)
         if a.verbose:
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')
@@ -494,7 +494,7 @@ def main():
     if pairs and len(formats) > 1 and not a.no_quality_check:
         quality_report(pairs, formats)
     if unsupported:
-        print(f'\n{len(unsupported)} unit(s) without picture because their model is not an S3O file: {", ".join(unsupported)}')
+        print(f'\n{len(unsupported)} unit(s) without picture because their model format is not supported (S3O, Collada): {", ".join(unsupported)}')
     for p in problems:
         print('ERROR:', p, file=sys.stderr)
     if failed or problems:

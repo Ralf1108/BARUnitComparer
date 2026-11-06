@@ -51,5 +51,6 @@ Renders a picture of a unit from the game's own 3D model and textures, in the lo
 
 - Windows with a BAR installation (the launcher's data folder; found automatically, or give it with the environment variable `BAR_DATA`).
 - Exporter: Windows PowerShell (part of Windows).
-- Website: Python 3 with `zopfli` for the data (without it the file is a little larger), Python 3 for the local web server, a current browser (AVIF).
-- Pictures: Python 3 with `numpy`, `Pillow` and (for the quality check) `scipy`; Node.js; Microsoft Edge or Google Chrome. The first run installs three.js and playwright-core with npm.
+- Python 3.12 or newer (the scripts use its syntax).
+- Website: `zopfli` for the data (`pip install zopfli`; without it the file is a little larger), Python for the local web server, a current browser (AVIF).
+- Pictures: Python with `numpy`, `Pillow` and (for the quality check) `scipy`; Node.js; Microsoft Edge or Google Chrome. The first run installs three.js and playwright-core with npm.

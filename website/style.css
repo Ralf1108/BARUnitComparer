@@ -126,12 +126,8 @@ img { display: block; }
 .ref:hover, .counters:hover:not(:disabled) { background: #222; }
 .counters:disabled { color: #555; border-color: #222; cursor: not-allowed; }
 .ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
-.c-factions { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 0 8px; }
-.c-factions button { padding: 2px 10px; font-size: 13px; color: var(--accent-text); background: #0e0e0e; }
-.chooser .c-factions { padding: 0; }
-.chooser .c-factions button { padding: 5px 11px; font-size: 15px; font-weight: 300; white-space: nowrap; }
-.chooser .c-factions .toggle-pick { margin-left: auto; padding: 5px 12px; color: var(--muted); font-size: 13px; }
-.c-factions .toggle-pick:hover { color: #fff; background: #222; }
+.c-factions { display: flex; flex-wrap: wrap; gap: 2px; }
+.c-factions button { padding: 5px 11px; font-size: 15px; font-weight: 300; white-space: nowrap; color: var(--accent-text); background: #0e0e0e; }
 .chooser.collapsed { width: 44px; margin-left: 12px; }
 .chooser.collapsed .toggle-pick { flex: 1; width: 44px; background: #0b0b0b; color: var(--muted); font-size: 15px; }
 .chooser.collapsed .toggle-pick:hover { background: #161616; color: #fff; }
@@ -148,7 +144,6 @@ img { display: block; }
 .clear:hover { background: #222; color: var(--text); }
 .x { width: 40px; height: 40px; flex: none; border-radius: 50%; border: 1px solid var(--line); background: #0b0b0b; font-size: 17px; display: grid; place-items: center; }
 .x:hover { background: #222; }
-.x.square { border-radius: 0; border: 0; background: #151515; }
 .c-cats { display: flex; flex-wrap: wrap; gap: 2px; padding-top: 2px; }
 .c-cats button { display: flex; align-items: center; gap: 6px; padding: 5px 11px; background: #3a3a3a; font-size: 15px; font-weight: 300; }
 .c-cats button svg { width: 12px; height: 12px; fill: #fff; }
@@ -159,7 +154,6 @@ img { display: block; }
 .pick:hover { background: #1a1a1a; }
 .pick.chosen { opacity: .35; cursor: default; }
 .pick.chosen:hover { background: none; }
-.pick.current { box-shadow: inset 0 0 0 1px var(--accent-line); }
 .pick img { width: 100%; max-width: 150px; aspect-ratio: 1; height: auto; object-fit: contain; margin: 0 auto; }
 .pick .tier { position: absolute; top: 3px; left: 3px; font-size: 10px; padding: 1px 4px; }
 
@@ -167,7 +161,6 @@ img { display: block; }
 /* the picture shrinks with the height of the window, so that the stats and the footer fit without a scrollbar */
 .c-pic { position: relative; width: var(--pic, 300px); max-width: 100%; margin: 0 auto; }
 .c-pic img { width: 100%; }
-.c-pic .x { position: absolute; top: 0; right: 0; }
 .c-name { font-size: 32px; font-weight: 300; letter-spacing: -1px; }
 .c-desc { color: var(--gold); font-size: 19px; letter-spacing: -.5px; }
 .c-desc .tier { margin-left: 8px; vertical-align: 2px; }
@@ -225,8 +218,8 @@ img { display: block; }
 .cmp-table { border-collapse: collapse; font-size: 14px; }
 .cmp-table th, .cmp-table td { padding: 5px 14px; border-bottom: 1px solid #1c1c1c; text-align: left; vertical-align: top; }
 .cmp-table thead th { border-bottom: 1px solid #444; min-width: 232px; font-weight: 400; }
-.cmp-table tbody th { color: var(--muted); font-weight: 300; white-space: nowrap; position: sticky; left: 0; background: var(--bg, #000); z-index: 2; }
-.cmp-table .t-corner { position: sticky; left: 0; background: var(--bg, #000); z-index: 3; min-width: 0; }
+.cmp-table tbody th { color: var(--muted); font-weight: 300; white-space: nowrap; position: sticky; left: 0; background: var(--bg); z-index: 2; }
+.cmp-table .t-corner { position: sticky; left: 0; background: var(--bg); z-index: 3; min-width: 0; }
 .cmp-table .t-fac { color: var(--accent-text); font-size: 13px; }
 .cmp-table .t-name { font-weight: 500; font-size: 16px; }
 .cmp-table .t-desc { color: var(--muted); font-size: 12px; }
