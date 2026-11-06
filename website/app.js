@@ -277,16 +277,16 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = state.units[c.unit], tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '<span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>'}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = state.units[c.unit];
-    if (s.key === 'weapons') return `<td>${esc(u.weapons.join(', '))}</td>`;
+    if (s.key === 'weapons') return `<td data-col="${c.id}">${esc(u.weapons.join(', '))}</td>`;
     const v = u[s.key];
-    if (!v) return '<td></td>';
+    if (!v) return `<td data-col="${c.id}"></td>`;
     const ref = reference && !c.ref ? state.units[reference.unit] : null;
     const verdict = ref ? ((s.lower ? v > ref[s.key] : v < ref[s.key]) ? ' diff-bad' : ' diff-good') : '';
-    return `<td class="num${verdict}${v === max[s.key] ? ' top' : ''}">${s.show(v)}</td>`;
+    return `<td data-col="${c.id}" class="num${verdict}${v === max[s.key] ? ' top' : ''}">${s.show(v)}</td>`;
   };
   return `<table class="cmp-table"><thead><tr><th class="t-corner"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it.">+ Scav</button></th>${columns.map(head).join('')}</tr></thead>
     <tbody>${stats.map(s => `<tr><th>${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
@@ -298,7 +298,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b></div>
-      <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
+      <div class="c-tools"><span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
@@ -407,6 +407,46 @@ const actions = {
   'add-unit'(v) { addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
 };
+
+// moving a column: drag the grip of its header, drop on another column (left half: before it, right half: after it)
+let dragged = null;
+const dropTarget = e => {
+  const el = e.target.closest && e.target.closest('[data-col]');
+  const c = el && displayColumns().find(o => o.id === Number(el.dataset.col));
+  const real = c && (c.scavOf ? state.columns.find(o => o.id === c.scavOf) : c);
+  if (!real || real === dragged) return null;
+  const r = el.getBoundingClientRect();
+  return { real, after: e.clientX > r.left + r.width / 2 };
+};
+const clearDrop = () => app.querySelectorAll('.drop-before, .drop-after').forEach(o => o.classList.remove('drop-before', 'drop-after'));
+document.addEventListener('dragstart', e => {
+  const grip = e.target.closest && e.target.closest('.grip');
+  if (!grip) return;
+  dragged = columnOf(grip);
+  const head = grip.closest('[data-col]');
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', dragged.unit);
+  e.dataTransfer.setDragImage(head, 20, 20);
+});
+document.addEventListener('dragover', e => {
+  if (!dragged) return;
+  const t = dropTarget(e);
+  clearDrop();
+  if (!t) return;
+  e.preventDefault();
+  app.querySelectorAll(`[data-col="${t.real.id}"], [data-col="${t.real.scavColumn ? t.real.scavColumn.id : -1}"]`).forEach(o => o.classList.add(t.after ? 'drop-after' : 'drop-before'));
+});
+document.addEventListener('drop', e => {
+  if (!dragged) return;
+  const t = dropTarget(e);
+  if (t) {
+    e.preventDefault();
+    state.columns = state.columns.filter(o => o !== dragged);
+    state.columns.splice(state.columns.indexOf(t.real) + (t.after ? 1 : 0), 0, dragged);
+    keepAddress(); renderCompare();
+  }
+});
+document.addEventListener('dragend', () => { dragged = null; clearDrop(); });
 
 document.addEventListener('click', e => {
   const el = e.target.closest('[data-a]');

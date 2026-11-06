@@ -235,3 +235,7 @@ img { display: block; }
 .cmp-table td.diff-bad { color: #ff6b62; }
 .cmp-table td.top { font-weight: 600; }
 .cmp-table th.is-ref { box-shadow: inset 0 -2px var(--gold); }
+.grip { cursor: grab; color: var(--muted); letter-spacing: -3px; padding: 6px 8px 6px 4px; user-select: none; font-size: 16px; line-height: 1; }
+.grip:hover { color: var(--text); }
+.drop-before { box-shadow: inset 4px 0 var(--gold); }
+.drop-after { box-shadow: inset -4px 0 var(--gold); }
