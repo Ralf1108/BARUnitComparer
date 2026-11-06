@@ -326,8 +326,8 @@ function chooserHtml() {
   const p = state.pick;
   if (!state.pickOpen) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}">
-    <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit (all factions)" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
-    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
+    <div class="c-searchrow"><div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit (all factions)" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
+    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}</div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
 }
