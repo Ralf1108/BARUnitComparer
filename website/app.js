@@ -201,8 +201,8 @@ function pickUnits() {
   const p = state.pick, search = p.search.trim().toLowerCase();
   return Object.keys(state.units).filter(n => {
     const u = state.units[n];
-    if (u.faction !== p.faction) return false;
-    return search ? (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search) : u.category === p.category;   // a search looks in all categories
+    if (search) return (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search);   // a search looks in all factions and categories
+    return u.faction === p.faction && u.category === p.category;
   }).sort(byTechAndCost);
 }
 
@@ -309,8 +309,8 @@ function chooserHtml() {
   const p = state.pick;
   if (!state.pickOpen) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}">
-    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
-    <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
+    <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit (all factions)" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
+    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
 }
@@ -391,7 +391,7 @@ const actions = {
   'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
   'clear-all'() { state.columns = []; keepAddress(); render(); },
   clear() { state.columns = []; render(); },
-  'pick-faction'(v) { state.pick.faction = v; refreshChooser(); },
+  'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) { if (isShown(v)) return; addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
@@ -460,6 +460,7 @@ document.addEventListener('input', e => {
     state.pick.search = e.target.value;
     app.querySelector('.picker').innerHTML = pickerHtml();
     app.querySelector('.picker').scrollTop = 0;
+    for (const b of app.querySelectorAll('.chooser .c-factions [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.faction);
     for (const b of app.querySelectorAll('.chooser .c-cats button')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.category);
   }
 });
