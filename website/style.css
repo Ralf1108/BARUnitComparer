@@ -239,3 +239,15 @@ img { display: block; }
 .grip:hover { color: var(--text); }
 .drop-before { box-shadow: inset 4px 0 var(--gold); }
 .drop-after { box-shadow: inset -4px 0 var(--gold); }
+.fav-wrap { position: relative; }
+.fav-open { padding: 4px 14px; color: var(--muted); }
+.fav-open:hover, .fav-open.active { color: var(--text); background: var(--panel); }
+.fav-panel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: max-content; min-width: 280px; max-width: min(560px, 90vw); background: #0d0d0d; border: 1px solid #444; box-shadow: 0 8px 24px #000a; }
+.fav-panel .empty { padding: 12px 14px; color: var(--muted); font-size: 13px; }
+.fav-item { display: flex; align-items: stretch; border-bottom: 1px solid #1c1c1c; }
+.fav-load { flex: 1; text-align: left; padding: 8px 14px; font-size: 14px; }
+.fav-load:hover { background: #1a1a1a; }
+.fav-del { padding: 0 12px; color: #c66; font-size: 13px; }
+.fav-del:hover { background: #3a1414; }
+.fav-star { color: var(--gold); font-size: 20px; line-height: 1; padding-top: 4px; padding-bottom: 4px; }
+.fav-star.on { background: #3a2c10; }

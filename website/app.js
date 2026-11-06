@@ -40,6 +40,13 @@ const state = {
 };
 let nextColumn = 1;
 
+// favorites: saved selections of units (a list of unit names each), kept in the browser
+function loadFavorites() { try { return JSON.parse(load('favorites', '[]')).filter(Array.isArray); } catch { return []; } }
+state.favorites = loadFavorites();
+state.favOpen = false;
+const favKey = units => units.join(',');
+const currentFavorite = () => state.favorites.findIndex(f => favKey(f) === favKey(state.columns.map(c => c.unit)));
+
 function load(key, fallback) { try { return localStorage.getItem('barunit.' + key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem('barunit.' + key, value); } catch { /* no storage: the setting lasts until the page is reloaded */ } }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -135,9 +142,19 @@ function render() {
   renderTray();
 }
 
+function favPanelHtml() {
+  if (!state.favOpen) return '';
+  const items = state.favorites.map((f, i) => {
+    const names = f.filter(n => state.units[n]).map(n => state.units[n].name);
+    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${esc(names.join(', '))}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite">&#10005;</button></div>` : '';
+  }).join('');
+  return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
+}
+
 function renderNav() {
   document.getElementById('nav-links').innerHTML = `<a href="#/catalog/${state.faction}/${state.category}" class="${state.page === 'catalog' ? 'active' : ''}">Catalog</a>
-    <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>`;
+    <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
+    <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   document.getElementById('version').innerHTML = state.versions.length > 1
     ? `Game version <select data-change="version">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.version === state.version ? 'selected' : ''}>${esc(v.version)}</option>`).join('')}</select>`
     : `Game version ${esc(state.version)}`;
@@ -216,7 +233,7 @@ function renderCompare() {
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
+    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -406,6 +423,19 @@ const actions = {
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) { if (isShown(v)) return; remember(); addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); renderCompare(); },
+  'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
+  'fav-save'() {
+    const at = currentFavorite();
+    if (at >= 0) state.favorites.splice(at, 1); else state.favorites.push(state.columns.map(c => c.unit));
+    save('favorites', JSON.stringify(state.favorites)); renderNav(); renderCompare();
+  },
+  'fav-del'(v) { state.favorites.splice(Number(v), 1); save('favorites', JSON.stringify(state.favorites)); renderNav(); if (state.page === 'compare') renderCompare(); },
+  'fav-load'(v) {
+    remember();
+    state.columns = state.favorites[Number(v)].filter(n => state.units[n]).map(n => newColumn(n));
+    state.favOpen = false;
+    if (location.hash === compareLink()) render(); else location.hash = compareLink();   // the address change shows the page
+  },
   undo() { step(undoStack, redoStack); },
   redo() { step(redoStack, undoStack); },
   scav() { state.scav = !state.scav; renderCompare(); },
@@ -470,6 +500,7 @@ document.addEventListener('keydown', e => {
 });
 
 document.addEventListener('click', e => {
+  if (state.favOpen && !e.target.closest('.fav-wrap')) { state.favOpen = false; renderNav(); }
   const el = e.target.closest('[data-a]');
   if (el) actions[el.dataset.a](el.dataset.v, el);
 });
