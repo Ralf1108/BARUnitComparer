@@ -53,6 +53,10 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const factionName = id => (FACTIONS.find(f => f.id === id) || { name: id }).name;
 const byTechAndCost = (a, b) => state.units[a].tech - state.units[b].tech || state.units[a].metal - state.units[b].metal || state.units[a].name.localeCompare(state.units[b].name);
 const pictureTag = (unit, cls = 'pic') => `<img class="${cls}" loading="lazy" alt="" data-unit="${esc(unit)}" src="${state.dir}images/${esc(unit)}.${PICTURE_TYPES[0]}">`;
+// a card or row of the catalog is a toggle button: reachable with Tab, Enter or Space presses it (the keydown handler below)
+const pressable = on => `tabindex="0" role="button" aria-pressed="${on}"`;
+// the grip of a column: dragged with the mouse, or focused and moved with the arrow keys left / right
+const GRIP = '<span class="grip" draggable="true" tabindex="0" role="button" aria-label="Move this column (arrow keys left and right)" title="Drag to move this column left or right (or focus it and use the arrow keys)">&#8942;&#8942;</span>';
 const iconTag = u => u.icon ? `<img class="role" loading="lazy" alt="" src="${state.dir}images/icons/${esc(u.icon)}">` : '';
 
 // a missing picture: the next format; after the last one all formats once more a moment later (a failed request is not always a missing file); a missing icon: nothing.
@@ -146,7 +150,7 @@ function favPanelHtml() {
   if (!state.favOpen) return '';
   const items = state.favorites.map((f, i) => {
     const names = f.filter(n => state.units[n]).map(n => `<span class="f-${state.units[n].faction}">${esc(state.units[n].name)}</span>`);
-    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite">&#10005;</button></div>` : '';
+    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
   }).join('');
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
 }
@@ -194,14 +198,14 @@ function renderCatalogUnits() {
   if (state.view === 'list') {
     box.innerHTML = `<div class="list"><div class="row head"><span>Tech</span><span></span><span></span><span>Name</span><span class="opt">Description</span><span class="num opt">Metal</span><span class="num opt">Energy</span><span class="num opt">Hitpoints</span><span class="num">DPS</span></div>${list.map(n => {
       const u = state.units[n];
-      return `<div class="row ${chosen.has(n) ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" title="Add to the comparison"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u) || '<span></span>'}${pictureTag(n)}
+      return `<div class="row ${chosen.has(n) ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(chosen.has(n))} title="${chosen.has(n) ? 'In the comparison: press to take it out' : 'Add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u) || '<span></span>'}${pictureTag(n)}
         <span>${esc(u.name)}</span><span class="desc">${esc(u.description)}</span><span class="num opt">${whole(u.metal)}</span><span class="num opt">${whole(u.energy)}</span><span class="num opt">${whole(u.hitpoints)}</span><span class="num">${u.dps ? whole(u.dps) : ''}</span></div>`;
     }).join('')}</div>`;
     return;
   }
   box.innerHTML = `<div class="grid ${state.showNames ? '' : 'hide-names'}">${list.map(n => {
     const u = state.units[n], on = chosen.has(n);
-    return `<div class="card ${on ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" title="${esc(u.name)}: add to the comparison"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u)}${on ? '<span class="check">&#10003;</span>' : ''}${pictureTag(n)}
+    return `<div class="card ${on ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(on)} title="${esc(u.name)}: ${on ? 'in the comparison, press to take it out' : 'add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u)}${on ? '<span class="check">&#10003;</span>' : ''}${pictureTag(n)}
       <div class="name">${esc(u.name)}</div><div class="desc">${esc(u.description)}</div></div>`;
   }).join('')}</div>`;
 }
@@ -304,8 +308,8 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 // the compact view: one row per value, one column per unit, the same red / green against the reference
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
-    const u = state.units[c.unit], tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '')}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '<span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>'}${tools}</div></th>`;
+    const u = state.units[c.unit], tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '')}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '${GRIP}'}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = state.units[c.unit];
@@ -326,7 +330,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b></div>
-      <div class="c-tools"><span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
+      <div class="c-tools">${GRIP}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
@@ -424,7 +428,11 @@ const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[d
 const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
-  toggle(v) { remember(); toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
+  toggle(v) {   // only the units: the search keeps its focus, the page its position; the card keeps the focus (keyboard)
+    remember(); toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray();
+    const again = document.querySelector(`#units [data-v="${CSS.escape(v)}"]`);
+    if (again) again.focus({ preventScroll: true });
+  },
   'scroll-columns'(v) {   // by one column: its width and the gap between the columns
     const sc = app.querySelector('.cmp-scroll'), col = sc.querySelector('.c-head:not(.is-ref), thead th[data-col]:not(.is-ref)');
     const grid = sc.querySelector('.cmp-grid'), gap = grid ? parseFloat(getComputedStyle(grid).columnGap) || 0 : 0;
@@ -512,6 +520,24 @@ document.addEventListener('keydown', e => {
   const k = e.key.toLowerCase();
   if (k === 'z' && !e.shiftKey) { e.preventDefault(); actions.undo(); }
   else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); actions.redo(); }
+});
+
+// the keyboard: Enter / Space press a card or row of the catalog (they are no <button>), the arrow keys move a column whose grip has the focus, Escape closes the favorites
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.favOpen) { state.favOpen = false; renderNav(); document.querySelector('.fav-open').focus(); return; }
+  const grip = e.target.closest && e.target.closest('.grip');
+  if (grip && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    e.preventDefault();
+    const c = columnOf(grip), at = state.columns.indexOf(c), to = at + (e.key === 'ArrowLeft' ? -1 : 1);
+    if (at < 0 || to < 0 || to >= state.columns.length) return;
+    remember();
+    state.columns.splice(at, 1); state.columns.splice(to, 0, c);
+    keepAddress(); renderCompare();
+    const again = app.querySelector(`[data-col="${c.id}"] .grip`);
+    if (again) again.focus();
+    return;
+  }
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[role="button"][data-a]')) { e.preventDefault(); e.target.click(); }
 });
 
 document.addEventListener('click', e => {

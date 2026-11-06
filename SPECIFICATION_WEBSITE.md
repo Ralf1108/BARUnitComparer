@@ -115,6 +115,8 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 
 **Search (selection and catalog):** a text finds the words of the name and the description at the start of a word (`pawn` finds Pawn and Pawn Launcher, not `armrespawn`). `<armpw>` (the closing bracket may be left out) finds a part of the code name; the field turns green then. The placeholder tells both.
 
+**Keyboard:** everything can be reached with Tab; what has the focus gets a gold frame (not after a mouse click). Cards and rows of the catalog are toggle buttons (Enter or Space marks or unmarks the unit, the focus stays on it). The grip of a column moves it with the arrow keys left and right (an Undo step like a drag). Escape closes the favorites. Ctrl+Z / Ctrl+Y: Undo / Redo.
+
 ## 5. Running it
 
 ```
