@@ -217,11 +217,13 @@ function renderCompare() {
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     <div class="cmp-clear"><button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
-    <div class="cmp-body"><div class="cmp-scroll">${columns.length
+    <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
+      <button class="more more-left" data-a="scroll-columns" data-v="-1" title="More columns to the left">&#8249;</button><button class="more more-right" data-a="scroll-columns" data-v="1" title="More columns to the right: scroll sideways">&#8250;</button></div>
       ${chooserHtml()}</div>`;
   app.querySelector('.cmp-scroll').scrollLeft = left;
+  app.querySelector('.cmp-scroll').addEventListener('scroll', updateMore);
   app.querySelector('.picker').scrollTop = listTop;
   fitLayout();
 }
@@ -247,12 +249,21 @@ function fitLayout() {
   fitPictures();
   const top = body.getBoundingClientRect().top + window.scrollY;
   body.style.minHeight = Math.max(320, window.innerHeight - top - document.querySelector('.legal').offsetHeight) + 'px';
+  updateMore();
 }
 
 function refreshChooser() {
   app.querySelector('.chooser').outerHTML = chooserHtml();
   const input = app.querySelector('.chooser .search');
   if (state.pick.search) input.focus();
+}
+
+// an arrow at the edge shows that more columns are hidden to the left or to the right
+function updateMore() {
+  const sc = app.querySelector('.cmp-scroll');
+  if (!sc) return;
+  app.querySelector('.more-left').hidden = sc.scrollLeft < 4;
+  app.querySelector('.more-right').hidden = sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 4;
 }
 
 function scavengerHead(c, at, sticky) {
@@ -357,6 +368,7 @@ const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
+  'scroll-columns'(v) { const sc = app.querySelector('.cmp-scroll'); sc.scrollBy({ left: Number(v) * 420, behavior: 'smooth' }); },
   'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
   'clear-all'() { state.columns = []; keepAddress(); render(); },
   clear() { state.columns = []; render(); },

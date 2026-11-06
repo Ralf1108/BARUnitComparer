@@ -98,7 +98,16 @@ img { display: block; }
 /* ------------------------------------------------ compare */
 .cmp-kicker { color: var(--gold); text-align: center; font-size: 38px; font-weight: 300; margin: 12px 0 0; }
 .cmp-body { display: flex; padding: 16px 24px 16px; }
-.cmp-scroll { flex: 1; min-width: 0; overflow-x: auto; }
+.cmp-wrap { flex: 1; min-width: 0; position: relative; }
+.cmp-scroll { overflow-x: auto; }
+/* the edge arrows: more columns are hidden there (the bar at the bottom of the scrolled area is about 17 px high) */
+.more { position: absolute; top: 0; bottom: 17px; width: 64px; z-index: 5; font-size: 54px; line-height: 1; color: #fff; display: flex; align-items: center; }
+.more[hidden] { display: none; }
+.more-right { right: 0; justify-content: flex-end; padding-right: 6px; background: linear-gradient(90deg, transparent, rgba(0, 0, 0, .92) 70%); animation: nudge-right 1.6s ease-in-out infinite; }
+.more-left { left: 0; justify-content: flex-start; padding-left: 6px; background: linear-gradient(270deg, transparent, rgba(0, 0, 0, .92) 70%); animation: nudge-left 1.6s ease-in-out infinite; }
+.more:hover { color: var(--gold); }
+@keyframes nudge-right { 50% { padding-right: 0; } }
+@keyframes nudge-left { 50% { padding-left: 0; } }
 .cmp-empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 18px; font-weight: 300; }
 .chooser { flex: none; width: clamp(340px, 26vw, 500px); margin-left: 24px; display: flex; flex-direction: column; }
 .chooser .picker { flex: 1 1 0; min-height: 120px; height: auto; margin: 12px 0 0; }
