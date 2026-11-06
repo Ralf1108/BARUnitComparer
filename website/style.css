@@ -96,10 +96,7 @@ img { display: block; }
 .btn.go { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
 
 /* ------------------------------------------------ compare */
-.cmp-kicker { color: var(--gold); text-align: center; font-size: 38px; font-weight: 300; margin: 12px 0 0; }
-.cmp-title { padding-bottom: 18px; text-align: center; font-size: 66px; font-weight: 700; margin: 0; line-height: 1.2; letter-spacing: -1.5px; }
-.cmp-title span { color: #555; font-weight: 700; }
-.cmp-body { display: flex; padding: 0 24px 16px; }
+.cmp-body { display: flex; padding: 24px 24px 16px; }
 .cmp-scroll { flex: 1; min-width: 0; overflow-x: auto; }
 .cmp-empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 18px; font-weight: 300; }
 .chooser { flex: none; width: 440px; margin-left: 24px; display: flex; flex-direction: column; }
@@ -190,10 +187,9 @@ img { display: block; }
 .two .right .stat { grid-template-columns: 1fr 112px; }
 .two .right .stat label { text-align: left; order: 2; }
 
-@media (max-height: 1000px) { .cmp-kicker { font-size: 26px; margin: 4px 0 0; } .cmp-title { font-size: 44px; padding-bottom: 8px; } }
 @media (max-width: 900px) {
   .cmp-body { flex-direction: column; } .chooser { width: auto; margin: 16px 0 0; } .chooser .picker { height: 360px; flex: none; }
-  .title h1 { font-size: 46px; } .title b { font-size: 30px; } .cmp-title { font-size: 40px; } .tabs a { padding: 0 12px 8px; font-size: 17px; }
+  .title h1 { font-size: 46px; } .title b { font-size: 30px; } .tabs a { padding: 0 12px 8px; font-size: 17px; }
   .card { width: 170px; min-height: 180px; } .card .pic { width: 130px; height: 130px; } .card .name { font-size: 17px; } .card .desc { font-size: 13px; }
   .row { grid-template-columns: 30px 24px 44px 1fr 60px; } .row .desc, .row .opt { display: none; } .row .pic { width: 40px; height: 40px; }
   .cmp-grid { grid-template-columns: repeat(var(--n), minmax(320px, 1fr)); } .stat { grid-template-columns: 86px 1fr; gap: 8px; font-size: 13px; } .two .right .stat { grid-template-columns: 1fr 86px; }

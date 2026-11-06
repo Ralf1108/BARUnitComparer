@@ -207,7 +207,6 @@ function pickUnits() {
 }
 
 function renderCompare() {
-  const present = [...new Set(state.columns.map(c => c.faction))];
   document.title = 'Compare - BAR Unit Comparer';
   const columns = displayColumns(), two = columns.length === 2;
   const max = {};
@@ -216,9 +215,7 @@ function renderCompare() {
   const stats = STATS.filter(s => columns.some(c => s.key === 'weapons' ? state.units[c.unit].weapons.length : state.units[c.unit][s.key]));   // only what a unit has
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
-  app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <h1 class="cmp-title">${present.length ? present.map(f => factionName(f)).join(' <span>vs.</span> ') : 'Choose units'}</h1>
-    <div class="cmp-body"><div class="cmp-scroll">${columns.length
+  app.innerHTML = `<div class="cmp-body"><div class="cmp-scroll">${columns.length
       ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
       ${chooserHtml()}</div>`;
