@@ -268,7 +268,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
   const head = c.scavOf ? scavengerHead(c, at) : `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b></div>
-      <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${counterpartButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
+      <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
@@ -293,12 +293,6 @@ function pickerHtml() {
   }).join('');
 }
 
-function counterpartButton(c) {
-  const has = counterpartsOf(c.unit).length > 0;
-  const tip = has ? 'Counterparts: replace all other columns with the counterparts of this unit, the units of the other factions that do the same job (after the unit pages of beyondallreason.info).' : 'No counterparts are known for this unit.';
-  return `<button class="counters" data-a="col-counterparts" title="${tip}" ${has ? '' : 'disabled'}>CP</button>`;
-}
-
 function countersButton(c) {
   const has = countersOf(c.unit).length > 0;
   const tip = has ? 'Counters: replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units).';
@@ -320,7 +314,7 @@ function unitHtml(c, u) {
   return `<div class="c-pic">${pictureTag(c.unit, '')}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
-    ${eq.length ? `<div class="c-eq">Counterparts: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
+    ${eq.length ? `<div class="c-eq"><button class="c-eq-all" data-a="add-counterparts" title="Add all counterparts of this unit as columns (the ones that are not in the comparison yet)">Counterparts:</button> ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
 }
 
 function statHtml(s, u, max, ref) {
@@ -365,9 +359,13 @@ const actions = {
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) { if (isShown(v)) return; addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
   scav() { state.scav = !state.scav; renderCompare(); },
-  'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).filter(n => n !== c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
+  'add-counterparts'(v, el) {
+    for (const n of counterpartsOf(columnOf(el).unit)) addUnit(n);
+    keepAddress(); renderCompare(); renderNav();
+    const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth;
+  },
   'add-unit'(v) { addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
 };

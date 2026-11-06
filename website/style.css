@@ -149,6 +149,8 @@ img { display: block; }
 .c-desc .tier { margin-left: 8px; vertical-align: 2px; }
 .c-eq { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; padding: 10px 0 2px; font-size: 13px; color: var(--muted); align-items: center; }
 .c-eq button { padding: 2px 10px; background: #111; border: 1px solid var(--accent-line); color: var(--accent-text); }
+.c-eq .c-eq-all { border-color: #333; color: var(--muted); }
+.c-eq .c-eq-all:hover { color: var(--text); border-color: #777; }
 .c-eq button:hover { background: #222; }
 
 .stats { padding-top: 18px; }
