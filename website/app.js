@@ -244,7 +244,7 @@ function renderCompare() {
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
+    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button> <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -316,7 +316,7 @@ function tableHtml(columns, stats, max, reference) {
     const verdict = ref ? ((s.lower ? v > ref[s.key] : v < ref[s.key]) ? ' diff-bad' : ' diff-good') : '';
     return `<td data-col="${c.id}" class="num${verdict}${v === max[s.key] ? ' top' : ''}">${s.show(v)}</td>`;
   };
-  return `<table class="cmp-table"><thead><tr><th class="t-corner"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it.">+ Scav</button></th>${columns.map(head).join('')}</tr></thead>
+  return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}</tr></thead>
     <tbody>${stats.map(s => `<tr><th>${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
@@ -326,7 +326,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b></div>
-      <div class="c-tools"><span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
+      <div class="c-tools"><span class="grip" draggable="true" title="Drag to move this column left or right">&#8942;&#8942;</span>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
