@@ -36,7 +36,7 @@ const state = {
   units: {}, counterpart: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], scav: false,
+  columns: [], scav: false, pick: { faction: 'arm', category: 'bots', search: '' },
 };
 let nextColumn = 1;
 
@@ -110,9 +110,8 @@ function route() {
   if (page === 'compare') {
     state.page = 'compare';
     const wanted = (a || '').split(',').filter(u => state.units[u]);
-    const current = state.columns.filter(c => c.unit).map(c => c.unit);
+    const current = state.columns.map(c => c.unit);
     if (wanted.length && wanted.join() !== current.join()) state.columns = wanted.map(u => newColumn(u));
-    if (!state.columns.length) state.columns = [newColumn(null, 'arm'), newColumn(null, 'cor')];
   } else {
     state.page = 'catalog';
     if (FACTIONS.some(f => f.id === a)) state.faction = a;
@@ -121,12 +120,11 @@ function route() {
   render();
 }
 
-function newColumn(unit, faction) {
-  const u = unit && state.units[unit];
-  return { id: nextColumn++, unit: unit || null, faction: u ? u.faction : faction, category: u ? u.category : 'bots', search: '', picking: !unit };
+function newColumn(unit) {
+  return { id: nextColumn++, unit, faction: state.units[unit].faction };
 }
 
-const chosenUnits = () => state.columns.filter(c => c.unit).map(c => c.unit);
+const chosenUnits = () => state.columns.map(c => c.unit);
 const compareLink = () => '#/compare/' + chosenUnits().join(',');
 function keepAddress() { if (state.page === 'compare') history.replaceState(null, '', compareLink()); }
 
@@ -199,12 +197,12 @@ function renderTray() {
 }
 
 // ------------------------------------------------------------------ compare
-function columnUnits(c) {
-  const search = c.search.trim().toLowerCase();
+function pickUnits() {
+  const p = state.pick, search = p.search.trim().toLowerCase();
   return Object.keys(state.units).filter(n => {
     const u = state.units[n];
-    if (u.faction !== c.faction) return false;
-    return search ? (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search) : u.category === c.category;   // a search looks in all categories
+    if (u.faction !== p.faction) return false;
+    return search ? (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search) : u.category === p.category;   // a search looks in all categories
   }).sort(byTechAndCost);
 }
 
@@ -213,18 +211,21 @@ function renderCompare() {
   document.title = 'Compare - BAR Unit Comparer';
   const columns = displayColumns(), two = columns.length === 2;
   const max = {};
-  const reference = columns.find(c => c.ref && c.unit && !c.picking);   // with a reference column the bars of the others are coloured
-  for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit && !c.picking).map(c => state.units[c.unit][s.key]));
+  const reference = columns.find(c => c.ref);   // with a reference column the bars of the others are coloured
+  for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.map(c => state.units[c.unit][s.key]));
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
+  const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <h1 class="cmp-title">${present.map(f => factionName(f)).join(' <span>vs.</span> ')}</h1>
-    <div class="cmp-scroll"><div class="cmp-grid ${two ? 'two' : ''}" style="--n:${Math.max(columns.length, 1)}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>
-      <button class="add-column" data-a="add-column" title="Add a column">+ Add column</button></div>`;
+    <h1 class="cmp-title">${present.length ? present.map(f => factionName(f)).join(' <span>vs.</span> ') : 'Choose units'}</h1>
+    <div class="cmp-body"><div class="cmp-scroll">${columns.length
+      ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference)).join('')}</div>`
+      : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
+      ${chooserHtml()}</div>`;
   app.querySelector('.cmp-scroll').scrollLeft = left;
-  fitPickers();
+  app.querySelector('.picker').scrollTop = listTop;
+  fitLayout();
 }
 
-// the unit selection takes the height that is left in the window: the page needs no scrollbar and the footer stays at the bottom
 // the unit pictures shrink (down to 60 px) when the stats and the footer would otherwise need a scrollbar
 function fitPictures() {
   const root = document.documentElement.style;
@@ -238,55 +239,69 @@ function fitPictures() {
   document.body.style.minHeight = '';
 }
 
-function fitPickers() {
-  const pickers = [...document.querySelectorAll('.picker')];
+// columns and unit selection fill the height of the window; the footer stays at the bottom, the page needs no scrollbar
+function fitLayout() {
+  const body = app.querySelector('.cmp-body');
+  if (!body) return;
+  body.style.minHeight = '0';
   fitPictures();
-  if (!pickers.length) return;
-  for (const p of pickers) p.style.height = '0px';
-  const cell = Math.max(...pickers.map(p => p.parentElement.offsetHeight));   // the rows that the other columns need beside it
-  document.body.style.minHeight = '0';
-  const free = window.innerHeight - document.body.offsetHeight;   // what is left in the window
-  document.body.style.minHeight = '';
-  for (const p of pickers) p.style.height = Math.max(80, free + cell) + 'px';
+  const top = body.getBoundingClientRect().top + window.scrollY;
+  body.style.minHeight = Math.max(320, window.innerHeight - top - document.querySelector('.legal').offsetHeight) + 'px';
 }
 
-function scavengerHead(c, col, at) {
-  return `<div class="c-head f-scv" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b><span class="c-tools"><button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button></span></div></div>`;
+function refreshChooser() {
+  app.querySelector('.chooser').outerHTML = chooserHtml();
+  const input = app.querySelector('.chooser .search');
+  if (state.pick.search) input.focus();
 }
+
+function scavengerHead(c, at) {
+  return `<div class="c-head f-scv" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b></div>
+    <div class="c-tools">${refButton(c)}</div></div>`;
+}
+
+const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Reference: the bars of all other columns are coloured green (as good or better) or red (worse) in comparison with this unit. Press again to switch it off.">Ref</button>`;
 
 function columnHtml(c, col, side, max, reference) {
-  const u = !c.picking && c.unit && state.units[c.unit], list = columnUnits(c);
+  const u = state.units[c.unit], ref = reference && !c.ref ? state.units[reference.unit] : null;
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
-  if (c.scavOf) return scavengerHead(c, col, at) + `<div class="c-unit f-scv ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
-    <div class="stats f-scv ${side}" ${at(3)}>${STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('')}</div>`;
-  return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
-      <div class="c-title"><b>${factionName(c.faction)}</b><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button><span class="c-tools">${counterpartButton(c)}${countersButton(c)}${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
-      <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
-      <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
-      <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
-    </div>
-    ${c.picking ? `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" style="grid-column:${col + 1};grid-row:2 / span 2"><div class="picker" data-picker>${pickerHtml(c, list)}</div></div>` : `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${u ? unitHtml(c, u) : ''}</div>
-    <div class="stats f-${c.faction} ${side}" ${at(3)}>${u ? STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('') : ''}</div>`}`;
+  const head = c.scavOf ? scavengerHead(c, at) : `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
+      <div class="c-title"><b>${factionName(c.faction)}</b></div>
+      <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${counterpartButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
+    </div>`;
+  return head + `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
+    <div class="stats f-${c.faction} ${side}" ${at(3)}>${STATS.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
+}
+
+// the unit selection at the right edge: a click on a unit adds a column
+function chooserHtml() {
+  const p = state.pick;
+  return `<div class="chooser f-${p.faction}">
+    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
+    <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
+    <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
+    <div class="picker">${pickerHtml()}</div></div>`;
+}
+
+function pickerHtml() {
+  const list = pickUnits();
+  if (!list.length) return '<p class="empty">No units here.</p>';
+  return list.map(n => {
+    const u = state.units[n];
+    return `<button class="pick" data-a="pick-add" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)} - add a column"><span class="tier t${u.tech}">T${u.tech}</span>${pictureTag(n, '')}${esc(u.name)}</button>`;
+  }).join('');
 }
 
 function counterpartButton(c) {
-  const has = !c.picking && c.unit && counterpartsOf(c.unit).length > 0;
-  const tip = has ? 'Counterparts: replace all other columns with the counterparts of this unit, the units of the other factions that do the same job (after the unit pages of beyondallreason.info).' : 'No counterparts are known for this unit, or no unit is chosen.';
+  const has = counterpartsOf(c.unit).length > 0;
+  const tip = has ? 'Counterparts: replace all other columns with the counterparts of this unit, the units of the other factions that do the same job (after the unit pages of beyondallreason.info).' : 'No counterparts are known for this unit.';
   return `<button class="counters" data-a="col-counterparts" title="${tip}" ${has ? '' : 'disabled'}>CP</button>`;
 }
 
 function countersButton(c) {
-  const has = !c.picking && c.unit && countersOf(c.unit).length > 0;
-  const tip = has ? 'Replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units), or no unit is chosen.';
+  const has = countersOf(c.unit).length > 0;
+  const tip = has ? 'Counters: replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units).';
   return `<button class="counters" data-a="col-counters" title="${tip}" ${has ? '' : 'disabled'}>Counters</button>`;
-}
-
-function pickerHtml(c, list) {
-  if (!list.length) return '<p class="empty">No units here.</p>';
-  return list.map(n => {
-    const u = state.units[n];
-    return `<button class="pick ${n === c.unit ? 'current' : ''}" data-a="col-pick" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)}"><span class="tier t${u.tech}">T${u.tech}</span>${pictureTag(n, '')}${esc(u.name)}</button>`;
-  }).join('');
 }
 
 // the units that counter this one (a scavenger unit like its normal unit)
@@ -301,7 +316,7 @@ function counterpartsOf(unit) {
 
 function unitHtml(c, u) {
   const eq = c.scavOf ? [] : counterpartsOf(c.unit);
-  return `<div class="c-pic">${pictureTag(c.unit, '')}${c.scavOf ? '' : '<button class="x square" data-a="col-unit-clear" title="Choose another unit">&#10005;</button>'}</div>
+  return `<div class="c-pic">${pictureTag(c.unit, '')}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
     ${eq.length ? `<div class="c-eq">Counterparts: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
@@ -323,18 +338,14 @@ function toggleUnit(unit) {
   else addUnit(unit);
 }
 
-function addUnit(unit) {
-  const empty = state.columns.find(c => !c.unit), u = state.units[unit];
-  if (empty) Object.assign(empty, { unit, faction: u.faction, category: u.category, search: '', picking: false });
-  else state.columns.push(newColumn(unit));
-}
+function addUnit(unit) { state.columns.push(newColumn(unit)); }
 
 // ------------------------------------------------------------------ what the user does
 // with "+ Scav" every column with a unit gets its Scavenger copy as a column right of it (made here, not kept in state.columns)
 function displayColumns() {
   return state.columns.flatMap(c => {
-    if (!state.scav || !c.unit || c.picking || !state.units[c.unit + '_scav']) return [c];
-    const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', category: c.category, search: '', picking: false, scavOf: c.id };
+    if (!state.scav || !state.units[c.unit + '_scav']) return [c];
+    const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', scavOf: c.id };
     s.unit = c.unit + '_scav';
     return [c, s];
   });
@@ -346,18 +357,16 @@ const actions = {
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
   clear() { state.columns = []; render(); },
+  'pick-faction'(v) { state.pick.faction = v; refreshChooser(); },
+  'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
+  'pick-clear'() { state.pick.search = ''; refreshChooser(); },
+  'pick-add'(v) { addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
   scav() { state.scav = !state.scav; renderCompare(); },
   'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
-  'add-column'() { const used = state.columns.map(c => c.faction); state.columns.push(newColumn(null, (FACTIONS.find(f => !used.includes(f.id)) || FACTIONS[0]).id)); render(); },
   'add-unit'(v) { state.columns.push(newColumn(v)); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
-  'col-faction'(v, el) { const c = columnOf(el); c.faction = v; c.picking = true; renderCompare(); },
-  'col-category'(v, el) { const c = columnOf(el); c.category = v; c.search = ''; c.picking = true; renderCompare(); },
-  'col-clear-search'(v, el) { const c = columnOf(el); c.search = ''; renderCompare(); },
-  'col-pick'(v, el) { const c = columnOf(el); Object.assign(c, { unit: v, picking: false, search: '' }); keepAddress(); render(); },
-  'col-unit-clear'(v, el) { const c = columnOf(el); c.unit = null; c.picking = true; keepAddress(); render(); },
 };
 
 document.addEventListener('click', e => {
@@ -368,14 +377,11 @@ document.addEventListener('click', e => {
 document.addEventListener('input', e => {
   const kind = e.target.dataset.input;
   if (kind === 'catalog-search') { state.search = e.target.value; renderCatalogUnits(); }
-  if (kind === 'col-search') {
-    const c = columnOf(e.target), caret = e.target.selectionStart;
-    c.search = e.target.value;
-    c.picking = true;
-    renderCompare();   // the input is made anew: it keeps the focus and the caret
-    const input = app.querySelector(`[data-col="${c.id}"] [data-input="col-search"]`);
-    input.focus();
-    input.setSelectionRange(caret, caret);
+  if (kind === 'pick-search') {   // only the list is made anew: the input keeps the focus
+    state.pick.search = e.target.value;
+    app.querySelector('.picker').innerHTML = pickerHtml();
+    app.querySelector('.picker').scrollTop = 0;
+    for (const b of app.querySelectorAll('.chooser .c-cats button')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.category);
   }
 });
 
@@ -384,10 +390,10 @@ document.addEventListener('change', async e => {
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
   if (kind === 'version') {
     await loadVersion(state.versions.find(v => v.dir === e.target.value));
-    state.columns = state.columns.filter(c => !c.unit || state.units[c.unit]);   // a unit that this version does not have
+    state.columns = state.columns.filter(c => state.units[c.unit]);   // a unit that this version does not have
     render();
   }
 });
 
-window.addEventListener('resize', () => { if (state.page === 'compare') fitPickers(); });
+window.addEventListener('resize', () => { if (state.page === 'compare') fitLayout(); });
 start();
