@@ -88,7 +88,9 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 - Units sorted by tech level, then by metal cost. A card has the tech level, the role icon, the picture, the name and the description.
 - A click on a unit marks it for the comparison, a bar at the bottom shows the marked units and leads to the compare page.
 
-## 4. Compare (`#/compare/<unit>,<unit>,...`)
+## 4. Compare (`#/compare/<unit>,<unit>,...?view=table&scav=1&ref=<unit>`)
+
+**The link** carries the units in their order and how they are shown, so that a shared link looks the same for the other one: `view` = `table` or `graphic`, `scav=1` if **+ Scav** is on, `ref` = the unit of the reference column (also a Scavenger copy, `corak_scav`). The address is kept up to date with every change (without a new entry in the history of the browser). An older link with only the units shows them without Ref and + Scav, in the view the browser remembers.
 
 **Layout:** the heading "Compare" with a row of buttons below it: **Undo**, **Redo**, **Table view** / **Graphic view**, the star (**Favorite**), **+ Scav**, **Clear all units**. Below that the columns on the left and the unit selection at the right edge. Columns and selection fill the height of the window, so that the page needs no scrollbar and the footer stays at the bottom: the pictures of the units shrink (60 to 300 px) when the values would not fit, the selection takes the rest.
 

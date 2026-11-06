@@ -115,14 +115,20 @@ async function start() {
   route();
 }
 
-// ------------------------------------------------------------------ the address: #/catalog/<faction>/<category>, #/compare/<unit>,<unit>
+// ------------------------------------------------------------------ the address: #/catalog/<faction>/<category>, #/compare/<unit>,<unit>?view=table|graphic&scav=1&ref=<unit>
 function route() {
-  const [page, a, b] = location.hash.replace(/^#\/?/, '').split('/');
+  const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
+  const [page, a, b] = path.split('/'), params = new URLSearchParams(query);
   if (page === 'compare') {
     state.page = 'compare';
     const wanted = [...new Set((a || '').split(',').filter(u => state.units[u]))];
     const current = state.columns.map(c => c.unit);
     if (wanted.length && wanted.join() !== current.join()) state.columns = wanted.map(u => newColumn(u));
+    // the view of the link (an old link without these keeps the view of the browser, has no Ref and no + Scav)
+    if (params.has('view')) state.table = params.get('view') === 'table';
+    state.scav = params.get('scav') === '1';
+    const ref = params.get('ref');
+    for (const c of displayColumns()) c.ref = c.unit === ref;
   } else {
     state.page = 'catalog';
     if (FACTIONS.some(f => f.id === a)) state.faction = a;
@@ -136,7 +142,14 @@ function newColumn(unit) {
 }
 
 const chosenUnits = () => state.columns.map(c => c.unit);
-const compareLink = () => '#/compare/' + chosenUnits().join(',');
+// the link of the comparison carries the units and how they are shown, so that a shared link looks the same for the other one
+function compareLink() {
+  const params = new URLSearchParams({ view: state.table ? 'table' : 'graphic' });
+  if (state.scav) params.set('scav', '1');
+  const ref = state.columns.length && displayColumns().find(c => c.ref);
+  if (ref) params.set('ref', ref.unit);
+  return '#/compare/' + chosenUnits().join(',') + '?' + params;
+}
 function keepAddress() { if (state.page === 'compare') history.replaceState(null, '', compareLink()); }
 
 // ------------------------------------------------------------------ frame
@@ -445,7 +458,7 @@ const actions = {
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) { if (isShown(v)) return; remember(); addUnit(v); keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav(); },   // the new column is at the right end: show it
-  'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); renderCompare(); },
+  'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },
   'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
   'fav-save'() {
     const at = currentFavorite();
@@ -461,9 +474,9 @@ const actions = {
   },
   undo() { step(undoStack, redoStack); },
   redo() { step(redoStack, undoStack); },
-  scav() { state.scav = !state.scav; renderCompare(); },
+  scav() { state.scav = !state.scav; keepAddress(); renderCompare(); },
   'col-counters'(v, el) { remember(); const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
-  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
+  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; keepAddress(); renderCompare(); },
   'add-counterparts'(v, el) {
     remember();
     for (const n of counterpartsOf(columnOf(el).unit)) addUnit(n);
