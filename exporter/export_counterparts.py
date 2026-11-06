@@ -11,28 +11,19 @@ The result maps a unit name to a counterpart id; units with the same id are coun
 The unit pages to read come from the sitemap of the website; only units that the unit data of the newest game version knows are used. Without --no-web nothing is
 changed for a unit that has no counterpart on its page. Groups with two units of one faction are reported, they are probably not wanted.
 """
-import argparse, gzip, json, re, sys, urllib.request
+import argparse, json, re, sys
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'shared'))
+from bar_common import fetch, newest_units  # noqa: E402
+
 SITE = 'https://www.beyondallreason.info'
 HEAD = '<h3 class="us-subheading">counterpart</h3>'
 LINK = re.compile(r'href="/unit/([^"/?#]+)"')
 PREFIXES = ('arm', 'cor', 'leg')
-
-
-def fetch(url):
-    last = None
-    for _ in range(3):
-        try:
-            request = urllib.request.Request(url, headers={'User-Agent': 'BARUnitComparer export_counterparts'})
-            with urllib.request.urlopen(request, timeout=60) as r:
-                return r.read().decode('utf-8')
-        except Exception as e:   # a failed request is not always a missing page: once more
-            last = e
-    raise RuntimeError(f'{url}: {last}')
 
 
 def counterparts_on_page(html):
@@ -44,16 +35,10 @@ def counterparts_on_page(html):
 
 
 def default_id(name):
-    base = name[:-5] if name.endswith('_scav') else name
+    base = name.removesuffix('_scav')
     if base[:3] in PREFIXES and len(base) > 3:
         return base[3:]
     return base
-
-
-def known_units(assets):
-    v = json.loads((assets / 'versions.json').read_text(encoding='utf-8'))['versions'][-1]
-    with gzip.open(assets / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
-        return set(json.load(f)['units'])
 
 
 def main():
@@ -63,7 +48,7 @@ def main():
     ap.add_argument('--no-web', action='store_true', help='only the file and the names, do not read the website')
     args = ap.parse_args()
     out = Path(args.out)
-    units = sorted(known_units(out.parent))
+    units = sorted(newest_units(out.parent))
 
     ids = {}
     if out.exists():

@@ -78,7 +78,7 @@ Python 3.12 or newer with `numpy`, `Pillow` (a recent one with AVIF support; tes
 
 | File | |
 |---|---|
-| `render_unit.py` | the main script and the shared part: game files, textures, hidden pieces, output formats, quality check |
+| `render_unit.py` | the main script and the shared part: textures, hidden pieces, output formats, quality check (the game files: `shared/bar_common.py`) |
 | `s3o_model.py`, `dae_model.py` | the model formats, game side: S3O (texture names in the header) and Collada (texture names from the `.dae.lua` next to the model) |
 | `render_unit.bat` | double-click starter with questions |
 | `compare_quality.py` | grid of quality settings |

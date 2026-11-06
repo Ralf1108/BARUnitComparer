@@ -9,21 +9,18 @@ The result maps a unit to the units that counter it:
 
 The names are the unit codenames (the pages link to /unit/<codename>). Codenames that the unit data of the newest game version does not know are reported.
 """
-import argparse, gzip, json, re, sys, urllib.request
+import argparse, json, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'shared'))
+from bar_common import fetch, newest_units  # noqa: E402
+
 PAGES = ['https://www.beyondallreason.info/armada-unit-chart-2', 'https://www.beyondallreason.info/cortex-unit-chart']
 ROW = 'class="flex-split botline"'
 SIDE = 'class="flex-split-child'
 ROW_END = 'role="listitem" class="w-dyn-item"'   # the next row (the counters inside a row are "unitagainst w-dyn-item")
 UNIT = re.compile(r'href="/unit/([^"/?#]+)"')   # empty slots link to "#"
-
-
-def fetch(url):
-    request = urllib.request.Request(url, headers={'User-Agent': 'BARUnitComparer export_counters'})
-    with urllib.request.urlopen(request, timeout=60) as r:
-        return r.read().decode('utf-8')
 
 
 def rows(html):
@@ -43,13 +40,6 @@ def rows(html):
     return result
 
 
-def known_units(assets):
-    versions = json.loads((assets / 'versions.json').read_text(encoding='utf-8'))['versions']
-    v = versions[-1]
-    with gzip.open(assets / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
-        return set(json.load(f)['units'])
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--out', default=str(ROOT / 'website' / 'assets' / 'counters.json'))
@@ -65,7 +55,7 @@ def main():
                 mine.extend(c for c in by if c not in mine)
 
     try:
-        known = known_units(Path(args.out).parent)
+        known = newest_units(Path(args.out).parent)
         unknown = sorted({u for t, by in counters.items() for u in [t, *by] if u not in known})
         if unknown:
             print('WARNING: not in the unit data of the newest game version: ' + ', '.join(unknown), file=sys.stderr)

@@ -17,7 +17,7 @@ Default: only the unit names; the model is looked for by the name of the unit (o
 the Raptors (their model is not named like the unit).
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
-import argparse, concurrent.futures, gzip, io, json, os, re, shutil, subprocess, sys, tempfile, time
+import argparse, concurrent.futures, io, json, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 import numpy as np
@@ -26,6 +26,8 @@ from PIL import Image
 import dae_model, s3o_model
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent / 'shared'))
+from bar_common import Pool, faction_of, find_data_dir, find_game, version_name  # noqa: E402  (the game's files, shared with the exporter)
 MODEL_FORMATS = (s3o_model, dae_model)   # a model format is a module with EXTENSION, recognizes() and textures(): the game side; the browser side is renderer/<ext>_loader.js
 
 DEFAULT_JOBS = max(1, min(4, (os.cpu_count() or 2) // 2))   # software rendering needs the processor and some 400 MB of memory per browser
@@ -33,80 +35,6 @@ DEFAULT_SIZE = 400   # edge of the square picture in pixels: the pictures on bey
 
 # colour of the team colour parts of the pictures, by faction (the colours are put through the same colour grading as the rest, so they look a bit different on the picture)
 TEAM_COLORS = {'arm': (90, 140, 235), 'cor': (235, 85, 75), 'leg': (130, 218, 105), 'scv': (175, 105, 225), 'rap': (20, 20, 20)}
-
-
-def faction_of(unit):
-    """Same rule as Shared.factionOf of the Level Editor: _scav = Scavengers, raptor_ = Raptors, otherwise the first three letters."""
-    if unit.endswith('_scav'):
-        return 'scv'
-    if unit.startswith('raptor_'):
-        return 'rap'
-    return unit[:3]
-
-
-# ---------------------------------------------------------------- the game: archive cache, .sdp, pool
-def find_data_dir(given):
-    """The data folder of the BAR installation (it has packages, pool and cache): the given one, $BAR_DATA, otherwise the first of the usual places."""
-    if given and not (Path(given, 'packages').is_dir() and Path(given, 'pool').is_dir()):
-        sys.exit(f'ERROR: {given} is not a BAR data folder (it has the folders packages and pool).')
-    usual = [given, os.environ.get('BAR_DATA'), r'C:\Games\Beyond-All-Reason\data', Path(os.environ.get('LOCALAPPDATA', '.'), 'Programs', 'Beyond-All-Reason', 'data'),
-             r'D:\Games\Beyond-All-Reason\data', Path.home() / '.local' / 'state' / 'Beyond All Reason', Path.home() / 'Library' / 'Application Support' / 'Beyond All Reason']
-    for c in usual:
-        if c and Path(c, 'packages').is_dir() and Path(c, 'pool').is_dir():
-            return Path(c)
-    sys.exit('ERROR: no BAR data folder found (it has the folders packages and pool). Give it with --data or the environment variable BAR_DATA. Looked in: '
-             + ', '.join(str(c) for c in usual if c))
-
-
-def find_game(data, wanted):
-    """The package (.sdp) of Beyond All Reason: the newest installed one, or the one named `wanted` ("Beyond All Reason <version>"). Returns (sdp path, name)."""
-    caches = sorted(Path(data, 'cache').glob('ArchiveCache*.lua'), key=lambda p: p.stat().st_mtime)
-    if not caches:
-        sys.exit(f'ERROR: no archive cache in {data}\\cache. Please start BAR once and let a game load.')
-    found = []
-    for e in caches[-1].read_text(encoding='utf-8', errors='replace').split('\n\t\t{\n')[1:]:
-        sdp = re.search(r'^\t\t\tname = "([^"]+\.sdp)"', e, re.M)
-        name = re.search(r'^\t\t\t\tname = "(Beyond All Reason [^"]+)"', e, re.M)
-        mod = re.search(r'^\t\t\tmodified = "(\d+)"', e, re.M)
-        if sdp and name:
-            found.append((int(mod.group(1)) if mod else 0, name.group(1), sdp.group(1)))
-    if not found:
-        sys.exit('ERROR: no Beyond All Reason package found in the archive cache.')
-    if wanted:
-        found = [f for f in found if f[1] == wanted]
-        if not found:
-            sys.exit(f'ERROR: game "{wanted}" is not installed.')
-    _, name, sdp = max(found)
-    return Path(data, 'packages', sdp), name
-
-
-class Pool:
-    """The files of one package: .sdp = gzip stream of [1 byte name length][name][16 bytes md5][4 bytes crc][4 bytes size], the file is in pool/<md5[:2]>/<md5[2:]>.gz."""
-    def __init__(self, data, sdp):
-        self.data = Path(data)
-        raw = gzip.open(sdp, 'rb').read()
-        self.entries, i = {}, 0
-        while i < len(raw):
-            n = raw[i]
-            self.entries[raw[i + 1:i + 1 + n].decode('latin-1')] = raw[i + 1 + n:i + 17 + n].hex()
-            i += 25 + n
-
-    def has(self, name):
-        return name in self.entries
-
-    def read(self, name):
-        h = self.entries[name]
-        return gzip.open(self.data / 'pool' / h[:2] / (h[2:] + '.gz'), 'rb').read()
-
-    def find_model(self, unit):
-        """Without the unit data: objects3d/units/<unit>.s3o; a Scavenger copy (<unit>_scav) uses the model of its unit."""
-        for name in (unit, re.sub(r'_scav$', '', unit)):
-            for folder in ('objects3d/units/', 'objects3d/'):
-                if self.has(f'{folder}{name}.s3o'):
-                    return f'{folder}{name}.s3o'
-        base = re.sub(r'_scav$', '', unit) + '.s3o'
-        hits = sorted(n for n in self.entries if n.startswith('objects3d/') and n.endswith('/' + base))
-        return hits[0] if hits else None
 
 
 def load_units(given, game):
@@ -118,7 +46,7 @@ def load_units(given, game):
     if not path.exists():
         sys.exit(f'ERROR: unit data {path} not found (--units). Run exporter/export_units.ps1 first, it writes units-<game version>.json.')
     units = json.loads(path.read_text(encoding='utf-8'))
-    version = game.replace('Beyond All Reason ', '', 1)
+    version = game.removeprefix('Beyond All Reason ')
     if units.get('gameVersion', version) != version:
         print(f'WARNING: {path.name} is of game version {units.get("gameVersion")}, not {version}', flush=True)
     print(f'unit data: {path}', flush=True)
@@ -395,7 +323,7 @@ def main():
     data_dir = find_data_dir(a.data)
     sdp, game = find_game(data_dir, a.game)
     print(f'game: {game}', flush=True)
-    out = Path(a.out) if a.out else HERE.parent / 'website' / 'assets' / re.sub(r'[^A-Za-z0-9._-]', '_', game.replace('Beyond All Reason ', '', 1)) / 'images'
+    out = Path(a.out) if a.out else HERE.parent / 'website' / 'assets' / version_name(game) / 'images'
     pool = Pool(data_dir, sdp)
     info = load_units(a.units_file, game)
     (work / 'models').mkdir(parents=True, exist_ok=True)

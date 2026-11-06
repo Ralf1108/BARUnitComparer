@@ -7,6 +7,7 @@ The project shows the units of Beyond All Reason (BAR) next to each other, to co
 | `exporter/` | starts the installed game once and writes all unit data as JSON | 3 |
 | `render_unit/` | renders a picture of every unit from the game's 3D models | 5 |
 | `export and render all units.bat` | both in one go, with progress | 6 |
+| `shared/` | what the Python and PowerShell tools share: data folder, game files, faction and version rules | 2 |
 | `exporter/export_counterparts.py`, `export_counters.py` | counterparts and counters from beyondallreason.info, without the game | [exporter/README.md](exporter/README.md) |
 | `website/` | the website: unit catalog and comparison | [SPECIFICATION_WEBSITE.md](SPECIFICATION_WEBSITE.md) |
 
@@ -32,7 +33,9 @@ website/assets/                                everything the tools make
     images/icons/<file>.png                    the role icons of the game version
 ```
 
-All tools find the data folder the same way: `--data` / `-Data`, otherwise the environment variable `BAR_DATA`, otherwise the usual places; a given folder that is none is an error.
+All tools find the data folder the same way: `--data` / `-Data`, otherwise the environment variable `BAR_DATA`, otherwise the usual places (`shared/data_dirs.txt`); a data folder has the folders `packages` and `pool`, a given folder that is none is an error.
+
+What the tools share is in `shared/`: `bar_common.py` for the Python tools (data folder, archive cache and pool of the game, faction of a unit by its name, version in file names, pages of beyondallreason.info, unit names of the newest version) and `BarCommon.ps1` for the PowerShell scripts (data folder, faction, version in file names, picture extension), with the same rules; both read `data_dirs.txt`. The Lua files of the exporter keep their own copies (they run inside the game).
 
 ## 3. The exporter (`exporter/`)
 

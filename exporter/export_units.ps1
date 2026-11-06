@@ -8,7 +8,7 @@
 #   .\export_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
 # -Out: default website\assets\.
 # -PrintGame: only prints the game that would be exported ("Beyond All Reason <version>") and ends, without starting anything.
-# -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places.
+# -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places (shared\data_dirs.txt).
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
 # -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
@@ -26,19 +26,11 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
+. (Join-Path (Split-Path $here -Parent) 'shared\BarCommon.ps1')   # Find-DataDir (the same rules as the Python tools)
 
 function Fail($text) {
     [Console]::Error.WriteLine("ERROR: $text")
     exit 1
-}
-
-# The data folder of the installation: the given one, $env:BAR_DATA, or the first usual place that looks like one
-function Find-DataDir($given) {
-    if ($given -and -not ((Test-Path (Join-Path $given 'packages')) -and (Test-Path (Join-Path $given 'engine')))) { Fail "$given is not a BAR data folder (it needs the folders packages and engine)." }
-    $usual = @($given, $env:BAR_DATA, 'C:\Games\Beyond-All-Reason\data', (Join-Path $env:LOCALAPPDATA 'Programs\Beyond-All-Reason\data'), 'C:\Program Files\Beyond-All-Reason\data', 'D:\Games\Beyond-All-Reason\data')
-    foreach ($c in $usual) { if ($c -and (Test-Path (Join-Path $c 'packages')) -and (Test-Path (Join-Path $c 'engine'))) { return (Resolve-Path $c).Path } }
-    $tried = ($usual | Where-Object { $_ }) -join ', '
-    Fail "No BAR data folder found (needs the folders packages and engine). Give it with -Data or the environment variable BAR_DATA. Looked in: $tried"
 }
 
 # Version of the installed official game (byar:test, otherwise byar:stable; the first one whose package is installed), as the engine names it
@@ -73,7 +65,7 @@ function Get-Engine($data, $wanted) {
         return $dir
     }
     $byVersion = { [regex]::Replace($_.Name, '\d+', [Text.RegularExpressions.MatchEvaluator] { param($m) $m.Value.PadLeft(10, '0') }) }
-    $engineDir = Get-ChildItem (Join-Path $data 'engine') -Directory | Where-Object { Test-Path (Join-Path $_.FullName 'spring.exe') } | Sort-Object $byVersion | Select-Object -Last 1
+    $engineDir = Get-ChildItem (Join-Path $data 'engine') -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'spring.exe') } | Sort-Object $byVersion | Select-Object -Last 1
     if (-not $engineDir) { throw 'No engine found in data\engine. Please start BAR once so the launcher installs it.' }
     return $engineDir
 }
@@ -84,7 +76,7 @@ public class WinUx { [DllImport("user32.dll")] public static extern bool SetWind
  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow(); [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h); }
 '@
 
-$Data = Find-DataDir $Data
+try { $Data = Find-DataDir $Data } catch { Fail $_.Exception.Message }
 $exe = (Get-Engine $Data $Engine).FullName + '\spring.exe'
 if (-not $Game) { $Game = Get-GameVersion $Data }
 if ($PrintGame) { $Game; exit 0 }

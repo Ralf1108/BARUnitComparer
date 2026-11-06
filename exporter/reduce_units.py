@@ -4,13 +4,16 @@
 
 Reads every <out>/<version>/data/units-<version>.json (or only --units) and writes, if it is not there yet (--force: anyway):
     <out>/<version>/data/units-<version>.reduced.json.gz   only the values the page shows, plus the new property `category`, as gzip at its maximum (pip install zopfli)
-    <out>/<version>/images/icons/<file>.png             the role icons of the units of that version, from the game (--data: data folder of BAR, default as in render_unit.py); skipped if the game version is not installed
+    <out>/<version>/images/icons/<file>.png             the role icons of the units of that version, from the game (--data: data folder of BAR, default as in shared/bar_common.py); skipped if the game version is not installed
 and in any case <out>/versions.json: the versions there are, newest last. --out: default website/assets/; nothing else in that folder is touched.
 """
 import argparse, gzip, json, re, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'shared'))
+import bar_common  # noqa: E402  (the game's files, shared with render_unit.py)
+
 CATEGORY_OF_GROUP = {'bot': 'bots', 'vehicle': 'vehicles', 'air': 'air', 'ships': 'sea', 'hover': 'hover', 'turrets': 'defense'}
 
 
@@ -63,11 +66,9 @@ def reduce_unit(unit_name, unit):
 
 def icon_files(data_dir, game_name, icon_types):
     """The pool of the game and {iconType: name of the file in the pool}. Raises SystemExit or OSError if the game is not there."""
-    sys.path.insert(0, str(ROOT / 'render_unit'))
-    import render_unit as ru
-    folder = ru.find_data_dir(data_dir)
-    sdp, _ = ru.find_game(folder, game_name)
-    pool = ru.Pool(folder, sdp)
+    folder = bar_common.find_data_dir(data_dir)
+    sdp, _ = bar_common.find_game(folder, game_name)
+    pool = bar_common.Pool(folder, sdp)
     text = pool.read('gamedata/icontypes.lua').decode('utf-8', errors='replace')
     bitmaps = {m.group(1).lower(): m.group(2).lower() for m in re.finditer(r'\b(\w+)\s*=\s*\{\s*bitmap\s*=\s*"([^"]+)"', text)}
     found = {}

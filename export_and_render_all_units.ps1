@@ -8,6 +8,7 @@
 param([string]$Faction = '', [string]$Format = '', [string]$Game = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+. (Join-Path $root 'shared\BarCommon.ps1')   # Get-Faction, Get-VersionName, Get-PictureExtension (the same rules as the Python tools)
 $out = if ($Out) { $Out } else { Join-Path $root 'website\assets' }   # -Out: another folder for the pictures (for tests: never the real website\assets\)
 $chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
@@ -19,9 +20,6 @@ function Fail($text) {
     exit 1
 }
 function Clock($span) { '{0:00}:{1:00}:{2:00}' -f [int][math]::Floor($span.TotalHours), $span.Minutes, $span.Seconds }
-
-# the faction of a unit as in the game's rules (Shared.factionOf): _scav = Scavengers, raptor_ = Raptors, otherwise the first three letters
-function Get-Faction($unit) { if ($unit.EndsWith('_scav')) { 'scv' } elseif ($unit.StartsWith('raptor_')) { 'rap' } else { $unit.Substring(0, [math]::Min(3, $unit.Length)) } }
 
 $known = [ordered]@{ arm = 'Armada'; cor = 'Cortex'; leg = 'Legion'; scv = 'Scavengers'; rap = 'Raptors' }
 if (-not $Faction -and -not $Yes) {
@@ -50,7 +48,7 @@ $exporter = Join-Path $root 'exporter\export_units.ps1'
 $printed = if ($Game) { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame -Game $Game } else { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame }
 if ($LASTEXITCODE -ne 0 -or -not $printed) { Fail 'The game version could not be found (see above).' }
 $gameName = @($printed)[-1].Trim()
-$version = ($gameName -replace '^Beyond All Reason\s+', '') -replace '[^A-Za-z0-9._-]', '_'   # the same rule as the file name of the export
+$version = Get-VersionName $gameName   # the same rule as the file name of the export
 $dataDir = Join-Path (Join-Path $out $version) 'data'
 $versionDir = Join-Path (Join-Path $out $version) 'images'   # the pictures
 $unitsFile = Join-Path $dataDir "units-$version.json"
@@ -121,7 +119,7 @@ if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what.
 Remove-Item (Join-Path $versionDir 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
 
 # a picture that is there is left alone: its files are written complete or not at all (render_unit.py), and every game version has its own folder
-function Files-Of($u) { @($formats | ForEach-Object { Join-Path $versionDir ("$u." + $(if ($_ -eq 'jpeg') { 'jpg' } else { $_ })) }) }
+function Files-Of($u) { @($formats | ForEach-Object { Join-Path $versionDir ("$u." + (Get-PictureExtension $_)) }) }
 $todo = New-Object System.Collections.Generic.List[string]; $skipped = 0; $bytes = 0
 foreach ($u in $names) {
     $files = Files-Of $u

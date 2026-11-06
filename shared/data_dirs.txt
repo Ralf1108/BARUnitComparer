@@ -1,0 +1,8 @@
+# The usual places of the data folder of a BAR installation, looked at in this order after --data / -Data and the environment variable BAR_DATA.
+# Read by shared/bar_common.py and shared/BarCommon.ps1. One folder per line; %VARIABLE% and a leading ~ (the home folder) are expanded; lines with # are notes.
+C:\Games\Beyond-All-Reason\data
+%LOCALAPPDATA%\Programs\Beyond-All-Reason\data
+C:\Program Files\Beyond-All-Reason\data
+D:\Games\Beyond-All-Reason\data
+~/.local/state/Beyond All Reason
+~/Library/Application Support/Beyond All Reason
