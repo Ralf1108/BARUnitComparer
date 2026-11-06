@@ -36,7 +36,7 @@ const state = {
   units: {}, counterpart: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], scav: false, pick: { faction: 'arm', category: 'bots', search: '' },
+  columns: [], scav: false, pick: { faction: 'arm', category: 'bots', search: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
 let nextColumn = 1;
 
@@ -216,6 +216,7 @@ function renderCompare() {
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
+    <div class="cmp-clear"><button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear</button></div>
     <div class="cmp-body"><div class="cmp-scroll">${columns.length
       ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -275,8 +276,9 @@ function columnHtml(c, col, side, max, reference, stats) {
 // the unit selection at the right edge: a click on a unit adds a column
 function chooserHtml() {
   const p = state.pick;
+  if (!state.pickOpen) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}">
-    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}<button class="clear-all" data-a="clear-all" title="Remove all units from the comparison and start again">&#10005;</button></div>
+    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
     <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
@@ -351,6 +353,7 @@ const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
+  'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
   'clear-all'() { state.columns = []; keepAddress(); render(); },
   clear() { state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; refreshChooser(); },
