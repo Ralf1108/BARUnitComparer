@@ -218,3 +218,20 @@ img { display: block; }
   .row { grid-template-columns: 30px 24px 44px 1fr 60px; } .row .desc, .row .opt { display: none; } .row .pic { width: 40px; height: 40px; }
   .cmp-grid { --colmin: 320px; } .stat { grid-template-columns: 86px 1fr; gap: 8px; font-size: 13px; } .two .right .stat { grid-template-columns: 1fr 86px; }
 }
+.cmp-clear .btn + .btn { margin-left: 6px; }
+.cmp-table { border-collapse: collapse; font-size: 14px; }
+.cmp-table th, .cmp-table td { padding: 5px 14px; border-bottom: 1px solid #1c1c1c; text-align: left; vertical-align: top; }
+.cmp-table thead th { border-bottom: 1px solid #444; min-width: 190px; font-weight: 400; }
+.cmp-table tbody th { color: var(--muted); font-weight: 300; white-space: nowrap; position: sticky; left: 0; background: var(--bg, #000); z-index: 2; }
+.cmp-table .t-corner { position: sticky; left: 0; background: var(--bg, #000); z-index: 3; min-width: 0; }
+.cmp-table .t-fac { color: var(--accent-text); font-size: 13px; }
+.cmp-table .t-name { font-weight: 500; font-size: 16px; }
+.cmp-table .t-desc { color: var(--muted); font-size: 12px; }
+.cmp-table .c-tools { padding: 6px 0 2px; flex-wrap: wrap; }
+.cmp-table .c-tools .x { width: 28px; height: 28px; font-size: 13px; }
+.cmp-table .ref, .cmp-table .counters { padding: 3px 8px; font-size: 12px; }
+.cmp-table td.num { font-variant-numeric: tabular-nums; }
+.cmp-table td.diff-good { color: #5fdc7e; }
+.cmp-table td.diff-bad { color: #ff6b62; }
+.cmp-table td.top { font-weight: 600; }
+.cmp-table th.is-ref { box-shadow: inset 0 -2px var(--gold); }
