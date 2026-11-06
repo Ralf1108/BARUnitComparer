@@ -1,6 +1,7 @@
 # Publishes the folder website/ with GitHub Pages (SPECIFICATION_WEBSITE.md, section 6).
 # One time in the repository: Settings > Pages > Build and deployment > Source: GitHub Actions.
 # After that every push to main that changes website/ publishes the site again; "Run workflow" in the Actions tab does it by hand.
+# The tests run first (tests/): the data files and a smoke test of the page in a headless Chrome; if one fails, nothing is published.
 name: Publish the website
 
 on:
@@ -8,6 +9,9 @@ on:
     branches: [main]
     paths:
       - 'website/**'
+      - 'tests/**'
+      - 'shared/**'
+      - 'exporter/reduce_units.py'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -21,7 +25,26 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # the runner has Python 3.12, Node.js and Google Chrome; playwright-core comes from render_unit/package-lock.json
+      - name: Install playwright-core
+        run: npm ci --no-audit --no-fund
+        working-directory: render_unit
+
+      - name: Data files and the rules of reduce_units.py
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Smoke test of the page
+        run: node tests/website_smoke.mjs
+        env:
+          BROWSER: /usr/bin/google-chrome
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
     environment:
       name: github-pages
