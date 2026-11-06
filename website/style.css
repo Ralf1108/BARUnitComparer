@@ -27,6 +27,8 @@ img { display: block; }
 #nav-links a { padding: 4px 14px; color: var(--muted); }
 #nav-links a.active { color: var(--text); background: var(--panel); }
 #version { color: var(--muted); font-size: 13px; }
+.gh { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.gh:hover { color: var(--text); }
 #version select { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; }
 
 .legal { color: #777; font-size: 12px; text-align: center; max-width: 900px; margin: 0 auto; padding: 24px; }
