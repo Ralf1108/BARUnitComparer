@@ -36,7 +36,7 @@ const state = {
   units: {}, counterpart: {}, versions: [], version: '',
   page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [],
+  columns: [], scav: false,
 };
 let nextColumn = 1;
 
@@ -211,7 +211,7 @@ function columnUnits(c) {
 function renderCompare() {
   const present = [...new Set(state.columns.map(c => c.faction))];
   document.title = 'Compare - BAR Unit Comparer';
-  const columns = state.columns, two = columns.length === 2;
+  const columns = displayColumns(), two = columns.length === 2;
   const max = {};
   const reference = columns.find(c => c.ref && c.unit && !c.picking);   // with a reference column the bars of the others are coloured
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.filter(c => c.unit && !c.picking).map(c => state.units[c.unit][s.key]));
@@ -248,11 +248,17 @@ function fitPickers() {
   for (const p of pickers) p.style.height = Math.max(80, free + cell) + 'px';
 }
 
+function scavengerHead(c, col, at) {
+  return `<div class="c-head f-scv" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b><span class="c-tools"><button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button></span></div></div>`;
+}
+
 function columnHtml(c, col, side, max, reference) {
   const u = !c.picking && c.unit && state.units[c.unit], list = columnUnits(c);
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
+  if (c.scavOf) return scavengerHead(c, col, at) + `<div class="c-unit f-scv ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
+    <div class="stats f-scv ${side}" ${at(3)}>${STATS.map(s => statHtml(s, u, max, reference && !c.ref ? state.units[reference.unit] : null)).join('')}</div>`;
   return `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
-      <div class="c-title"><b>${factionName(c.faction)}</b><small>Showing <em data-count>${list.length}</em> units</small><span class="c-tools">${counterpartButton(c)}${countersButton(c)}${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
+      <div class="c-title"><b>${factionName(c.faction)}</b><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button><span class="c-tools">${counterpartButton(c)}${countersButton(c)}${`<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Use this unit as the reference for the colours of the other columns">Ref</button>`}${state.columns.length > 1 ? `<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button>` : ''}</span></div>
       <div class="c-factions">${FACTIONS.map(f => `<button data-a="col-faction" data-v="${f.id}" class="f-${f.id} ${f.id === c.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
       <div class="c-search"><input class="search" data-input="col-search" placeholder="Search Unit" value="${esc(c.search)}">${c.search ? '<button class="clear" data-a="col-clear-search" title="Clear the search">&#10005;</button>' : ''}</div>
       <div class="c-cats">${CATEGORIES.map(k => `<button data-a="col-category" data-v="${k.id}" class="${k.id === c.category && !c.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
@@ -292,8 +298,8 @@ function counterpartsOf(unit) {
 }
 
 function unitHtml(c, u) {
-  const eq = counterpartsOf(c.unit);
-  return `<div class="c-pic">${pictureTag(c.unit, '')}<button class="x square" data-a="col-unit-clear" title="Choose another unit">&#10005;</button></div>
+  const eq = c.scavOf ? [] : counterpartsOf(c.unit);
+  return `<div class="c-pic">${pictureTag(c.unit, '')}${c.scavOf ? '' : '<button class="x square" data-a="col-unit-clear" title="Choose another unit">&#10005;</button>'}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
     ${eq.length ? `<div class="c-eq">Counterparts: ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
@@ -322,16 +328,26 @@ function addUnit(unit) {
 }
 
 // ------------------------------------------------------------------ what the user does
-const columnOf = el => state.columns.find(c => c.id === Number(el.closest('[data-col]').dataset.col));
+// with "+ Scav" every column with a unit gets its Scavenger copy as a column right of it (made here, not kept in state.columns)
+function displayColumns() {
+  return state.columns.flatMap(c => {
+    if (!state.scav || !c.unit || c.picking || !state.units[c.unit + '_scav']) return [c];
+    const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', category: c.category, search: '', picking: false, scavOf: c.id };
+    s.unit = c.unit + '_scav';
+    return [c, s];
+  });
+}
+const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[data-col]').dataset.col));
 
 const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
   clear() { state.columns = []; render(); },
+  scav() { state.scav = !state.scav; renderCompare(); },
   'col-counterparts'(v, el) { const c = columnOf(el); state.columns = [c, ...counterpartsOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
   'col-counters'(v, el) { const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
-  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of state.columns) o.ref = false; c.ref = !was; renderCompare(); },
+  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; renderCompare(); },
   'add-column'() { const used = state.columns.map(c => c.faction); state.columns.push(newColumn(null, (FACTIONS.find(f => !used.includes(f.id)) || FACTIONS[0]).id)); render(); },
   'add-unit'(v) { state.columns.push(newColumn(v)); keepAddress(); render(); },
   'remove-column'(v, el) { const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },

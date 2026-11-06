@@ -102,14 +102,14 @@ img { display: block; }
 .cmp-scroll { display: flex; overflow-x: auto; padding: 0 24px 16px; }
 .add-column { flex: none; width: 56px; margin-left: 24px; writing-mode: vertical-rl; background: #0b0b0b; border: 1px dashed #444; color: var(--muted); font-size: 20px; font-weight: 300; letter-spacing: 1px; }
 .add-column:hover { background: #161616; color: var(--text); border-color: #777; }
-.cmp-grid { flex: 1; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: repeat(var(--n), minmax(440px, 1fr)); column-gap: 32px; }
+.cmp-grid { flex: 1; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: repeat(var(--n), minmax(540px, 1fr)); column-gap: 32px; }
 .c-head { padding-bottom: 12px; }
-.c-title { display: flex; align-items: baseline; gap: 12px; }
+.c-title { display: flex; align-items: center; gap: 12px; }
 .c-title b { font-size: 34px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-title small { font-size: 16px; font-weight: 300; }
 .c-title small em { font-style: normal; color: var(--accent-text); }
 .c-tools { margin-left: auto; display: flex; align-items: center; gap: 8px; align-self: center; }
-.ref, .counters { padding: 6px 14px; border: 1px solid #444; background: #0b0b0b; font-size: 14px; }
+.ref, .counters { white-space: nowrap; padding: 6px 12px; border: 1px solid #444; background: #0b0b0b; font-size: 14px; }
 .ref:hover, .counters:hover:not(:disabled) { background: #222; }
 .counters:disabled { color: #555; border-color: #222; cursor: not-allowed; }
 .ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
