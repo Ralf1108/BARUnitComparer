@@ -120,7 +120,8 @@ img { display: block; }
 .c-title { display: flex; align-items: center; gap: 12px; }
 .c-title b { font-size: 34px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
-.c-tools .x { margin-left: auto; }
+.c-tools .x { margin-left: auto; color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
+.c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
 .ref, .counters { white-space: nowrap; padding: 6px 12px; border: 1px solid #444; background: #0b0b0b; font-size: 14px; }
 .ref:hover, .counters:hover:not(:disabled) { background: #222; }
 .counters:disabled { color: #555; border-color: #222; cursor: not-allowed; }
