@@ -96,7 +96,8 @@ img { display: block; }
 .btn.go { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
 
 /* ------------------------------------------------ compare */
-.cmp-body { display: flex; padding: 24px 24px 16px; }
+.cmp-kicker { color: var(--gold); text-align: center; font-size: 38px; font-weight: 300; margin: 12px 0 0; }
+.cmp-body { display: flex; padding: 16px 24px 16px; }
 .cmp-scroll { flex: 1; min-width: 0; overflow-x: auto; }
 .cmp-empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 18px; font-weight: 300; }
 .chooser { flex: none; width: 440px; margin-left: 24px; display: flex; flex-direction: column; }
@@ -113,6 +114,8 @@ img { display: block; }
 .ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
 .c-factions { display: flex; flex-wrap: wrap; gap: 2px; padding: 4px 0 8px; }
 .c-factions button { padding: 2px 10px; font-size: 13px; color: var(--accent-text); background: #0e0e0e; }
+.c-factions .clear-all { margin-left: auto; padding: 2px 12px; color: var(--muted); font-size: 15px; }
+.c-factions .clear-all:hover { color: #fff; background: #222; }
 .c-factions button.active { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .c-search { position: relative; }
 .c-search .search { width: 100%; padding-right: 46px; }
@@ -127,13 +130,13 @@ img { display: block; }
 .c-cats button svg { width: 12px; height: 12px; fill: #fff; }
 .c-cats button.active { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 
-.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); align-content: start; gap: 2px; overflow-y: auto; background: #060606; }
-.pick { padding: 4px; text-align: center; font-size: 12px; line-height: 1.15; position: relative; }
+.picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); align-content: start; gap: 2px; overflow-y: auto; background: #060606; }
+.pick { padding: 4px; text-align: center; font-size: 14px; line-height: 1.15; position: relative; }
 .pick:hover { background: #1a1a1a; }
 .pick.chosen { opacity: .35; cursor: default; }
 .pick.chosen:hover { background: none; }
 .pick.current { box-shadow: inset 0 0 0 1px var(--accent-line); }
-.pick img { width: 80px; height: 80px; object-fit: contain; margin: 0 auto; }
+.pick img { width: 180px; height: 180px; object-fit: contain; margin: 0 auto; }
 .pick .tier { position: absolute; top: 3px; left: 3px; font-size: 10px; padding: 1px 4px; }
 
 .c-unit { text-align: center; }

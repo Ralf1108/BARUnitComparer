@@ -215,7 +215,8 @@ function renderCompare() {
   const stats = STATS.filter(s => columns.some(c => s.key === 'weapons' ? state.units[c.unit].weapons.length : state.units[c.unit][s.key]));   // only what a unit has
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
-  app.innerHTML = `<div class="cmp-body"><div class="cmp-scroll">${columns.length
+  app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
+    <div class="cmp-body"><div class="cmp-scroll">${columns.length
       ? `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
       ${chooserHtml()}</div>`;
@@ -275,7 +276,7 @@ function columnHtml(c, col, side, max, reference, stats) {
 function chooserHtml() {
   const p = state.pick;
   return `<div class="chooser f-${p.faction}">
-    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}</div>
+    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction ? 'active' : ''}">${f.name}</button>`).join('')}<button class="clear-all" data-a="clear-all" title="Remove all units from the comparison and start again">&#10005;</button></div>
     <div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
@@ -350,6 +351,7 @@ const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) { toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray(); },   // only the units: the search keeps its focus, the page its position
+  'clear-all'() { state.columns = []; keepAddress(); render(); },
   clear() { state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
