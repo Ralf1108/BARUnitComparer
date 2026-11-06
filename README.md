@@ -4,6 +4,8 @@
 
 Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.info/) (BAR): all units of Armada, Cortex, Legion, Scavengers and Raptors, with pictures and values. An unofficial fan project.
 
+[![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/)
+
 ## Contents
 
 **Catalog**
@@ -11,13 +13,13 @@ Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.
 - A click marks a unit for the comparison.
 
 **Compare**
-- Any number of units side by side: values as bars, scaled to the largest value in each row.
-- The unit selection at the right edge: faction, search, category; a click on a unit adds a column.
+- Any number of units side by side: values as bars, scaled to the largest value in each row, or as a compact table.
+- The unit selection at the right edge: search over all units, faction, category; a click on a unit adds a column. Columns can be moved by drag and drop.
 - **Counterparts:** the units of the other factions that do the same job, one click adds them all.
 - **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
-- **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse). The reference column stays at the left edge when you scroll.
+- **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
 - **+ Scav:** shows the Scavenger copy of every unit next to it.
-- The comparison is kept in the link.
+- **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link.
 
 **Tools** (they get the content out of the installed game)
 - Exporter: the data of all units as JSON.

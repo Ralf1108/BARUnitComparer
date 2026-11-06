@@ -90,25 +90,30 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 
 ## 4. Compare (`#/compare/<unit>,<unit>,...`)
 
-**Layout:** the heading "Compare" with the button **Clear all units** below it; below that the columns on the left and the unit selection at the right edge. Columns and selection fill the height of the window, so that the page needs no scrollbar and the footer stays at the bottom: the pictures of the units shrink (60 to 300 px) when the values would not fit, the selection takes the rest. The page is only taller than the window when even the smallest pictures do not fit.
+**Layout:** the heading "Compare" with a row of buttons below it: **Undo**, **Redo**, **Table view** / **Graphic view**, the star (**Favorite**), **+ Scav**, **Clear all units**. Below that the columns on the left and the unit selection at the right edge. Columns and selection fill the height of the window, so that the page needs no scrollbar and the footer stays at the bottom: the pictures of the units shrink (60 to 300 px) when the values would not fit, the selection takes the rest.
 
-**The columns**
-- A column is a unit: the name of its faction (in the faction colour) and a row of buttons (below), the picture, name, description, tech level, the **counterparts** and the values. At the right end of the button row is the X that removes the column.
+**Header of the page:** Catalog, Compare (number of units), **Favorites** (list, see below); at the right the game version and the link to the source on GitHub.
+
+**Graphic view**
+- A column is a unit: the name of its faction (in the faction colour), a row of buttons (grip, **Counters**, **Ref**, the reddish **X** that removes the column), the picture, name, description, tech level, the **counterparts** and the values.
 - Any number of columns, each at least 400 px wide; they scroll sideways when they do not fit. An arrow with a fade at the left or right edge shows that more columns are hidden there; a click scrolls by one column.
-- A unit is in the comparison only once. Without a unit the area shows "Choose units on the right".
-- Values: Metal, Energy, Buildtime, Buildpower, Energy Make, Hitpoints, Radar Range, Speed, Weapons, DPS, Weapon Range. A row is shown only if at least one shown unit has a value for it (the rows are the same in all columns). The bars of a row are scaled to the largest value of that row among the shown units. A value of 0 shows no bar.
-- With exactly two columns the bars are mirrored and meet in the middle, as on the page of beyondallreason.info; with any other number they all run from left to right.
-- The address holds the chosen units, so a comparison can be kept as a link.
+- Values: Metal, Energy, Buildtime, Buildpower, Energy Make, Hitpoints, Radar Range, Speed, Weapons, DPS, Weapon Range. A row is shown only if at least one shown unit has a value for it. The bars are scaled to the largest value of the row among the shown units. A value of 0 shows no bar. With exactly two columns the bars are mirrored and meet in the middle, as on beyondallreason.info.
 
-**The buttons of a column**
-- **+ Scav:** a switch for all columns: the Scavenger copy of every shown unit is added as a column right of it ("Scavengers", only with a **Ref** button); pressed again they go away. Scavenger copies are stronger (about 10 % more cost, 25 % more hitpoints).
+**Table view:** one row per value, one column per unit, plain text; a small picture, faction, name, tech level, description and the buttons stand in the header of each column. The largest value of a row is bold. The same red / green against the reference. The row names stay at the left when scrolling sideways. The choice (table or graphic) is remembered in the browser.
+
+**Reference (Ref):** one unit at a time; pressed again it is off. The values of all other columns turn green (as good or better) or red (worse) in comparison with the reference (bars in the graphic view, text in the table); for Metal, Energy and Buildtime less is better. The reference column is moved to the first place and stays at the left edge when scrolling.
+
+**Other buttons**
+- **+ Scav** (top row, for all columns): adds the Scavenger copy of every shown unit as a column right of it ("Scavengers", only with a **Ref** button); pressed again they go away. Scavenger copies are stronger (about 10 % more cost, 25 % more hitpoints).
 - **Counters:** replaces all other columns with the units that counter this unit (`counters.json`). Grey if the unit has none (the charts name 25 units); a Scavenger unit uses the counters of its normal unit.
-- **Ref:** makes this unit the reference, only one at a time; pressed again it is off. The bars of all other columns turn green (as good or better) or red (worse) in comparison with the reference; for Metal, Energy and Buildtime less is better. Without a reference the bars keep their colours. The reference column is moved to the first place and stays at the left edge when the columns are scrolled (the others pass behind it).
-- **X:** removes the column.
+- **Counterparts:** the label "Counterparts:" below the description and one button per counterpart (units with the same id in `counterparts.json`; Scavenger copies only for a Scavenger unit). A click on a unit adds it; a click on the label adds all of them. A unit is in the comparison only once.
+- **Moving:** the grip at the start of the button row is dragged onto another column (left half: before it, right half: after it, marked by a gold line). Scavenger columns stay behind their unit.
+- **Undo / Redo** (also Ctrl+Z, Ctrl+Y outside of input fields): every change of the set or the order of the columns (add, remove, counters, counterparts, move, clear, load of a favorite) is a step, up to 100. Ref, + Scav and the views are not steps.
+- **Favorites:** the star saves the current units as a favorite (filled star: press again to remove it). The header button **Favorites (n)** opens the list: the unit names in the colour of their faction; a click loads them into the comparison (also from the catalog; an Undo brings the old selection back), the X deletes an entry. Stored in the browser (`localStorage`, key `barunit.favorites`): per browser and address, not shared.
 
-**Counterparts:** below the description the label "Counterparts:" and one button per counterpart, the units with the same id in `counterparts.json` (Scavenger copies only for a Scavenger unit). A click on a unit adds it as a column; a click on the label adds all of them. Units that are already shown are not added again.
+**The unit selection** (right edge, 3 columns of pictures of at most 150 px): at the top the search field with a clear button and the arrow that folds the selection away to the right (a strip remains, a click opens it again; remembered), below it the factions and the categories as buttons of the same size, then the list of units. The search looks in all factions and categories as you type; a faction or category click ends it. A click on a unit adds a column and scrolls to it; units already shown are dimmed.
 
-**The unit selection** (right edge, 3 columns of pictures of at most 150 px, as wide as the window allows): the factions, a search field with a clear button (a search looks in all categories of the faction), the categories and the list of the matching units. A click on a unit adds a column and scrolls to it; units already in the comparison are dimmed. The list keeps its scroll position. A small arrow next to the factions folds the selection away to the right; a narrow strip with an arrow remains, a click on it opens it again (the choice is remembered).
+**Search (selection and catalog):** a text finds the words of the name and the description at the start of a word (`pawn` finds Pawn and Pawn Launcher, not `armrespawn`). `<armpw>` (the closing bracket may be left out) finds a part of the code name; the field turns green then. The placeholder tells both.
 
 ## 5. Running it
 
