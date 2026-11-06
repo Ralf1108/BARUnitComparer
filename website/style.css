@@ -255,3 +255,4 @@ img { display: block; }
 .fav-star { color: var(--gold); font-size: 20px; line-height: 1; padding-top: 4px; padding-bottom: 4px; }
 .fav-star.on { background: #3a2c10; }
 .cmp-table .t-pic img { width: 64px; height: 64px; object-fit: contain; }
+.search.code { border-color: #3f8f55; background: #0b1a10; color: #9be3ae; }

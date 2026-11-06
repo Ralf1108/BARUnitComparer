@@ -166,7 +166,7 @@ function catalogUnits() {
   return Object.keys(state.units).filter(n => {
     const u = state.units[n];
     if (u.faction !== state.faction || (state.tiers.size && !state.tiers.has(u.tech))) return false;
-    return search ? (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search) : u.category === state.category;
+    return search ? matchUnit(n, u, search) : u.category === state.category;
   }).sort(byTechAndCost);
 }
 
@@ -181,7 +181,7 @@ function renderCatalog() {
       <span class="seg"><button data-a="view" data-v="list" class="${state.view === 'list' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM8 1h18v4H8zM0 8h5v4H0zM8 8h18v4H8zM0 15h5v4H0zM8 15h18v4H8z"/></svg>List</button><button data-a="view" data-v="grid" class="${state.view === 'grid' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM7 1h5v4H7zM14 1h5v4h-5zM21 1h5v4h-5zM0 8h5v4H0zM7 8h5v4H7zM14 8h5v4h-5zM21 8h5v4h-5zM0 15h5v4H0zM7 15h5v4H7zM14 15h5v4h-5zM21 15h5v4h-5z"/></svg>Grid</button></span>
       <label class="toggle"><input type="checkbox" data-change="names" ${state.showNames ? 'checked' : ''}><i></i>Show names</label>
       <span class="seg small">${[1, 2, 3].map(t => `<button data-a="tier" data-v="${t}" class="${state.tiers.has(t) ? 'active' : ''}">T${t}</button>`).join('')}</span>
-      <input class="search" data-input="catalog-search" placeholder="Search unit" value="${esc(state.search)}">
+      <input class="search ${isCodeSearch(state.search) ? 'code' : ''}" data-input="catalog-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(state.search)}">
     </div>
     <div id="units"></div></div>`;
   renderCatalogUnits();
@@ -214,11 +214,22 @@ function renderTray() {
 }
 
 // ------------------------------------------------------------------ compare
+// the search: a text finds the words of the name and the description (at the start of a word); <armpw> finds a part of the code name
+const isCodeSearch = q => q.trim().startsWith('<');
+function matchUnit(n, u, q) {
+  if (q.startsWith('<')) {
+    const code = q.slice(1).replace(/>$/, '').trim();
+    return code !== '' && n.includes(code);
+  }
+  const words = (u.name + ' ' + u.description).toLowerCase();
+  return words.startsWith(q) || words.includes(' ' + q) || words.includes('(' + q) || words.includes('-' + q) || words.includes('/' + q);
+}
+
 function pickUnits() {
   const p = state.pick, search = p.search.trim().toLowerCase();
   return Object.keys(state.units).filter(n => {
     const u = state.units[n];
-    if (search) return (u.name + ' ' + u.description + ' ' + n).toLowerCase().includes(search);   // a search looks in all factions and categories
+    if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
     return u.faction === p.faction && u.category === p.category;
   }).sort(byTechAndCost);
 }
@@ -326,7 +337,7 @@ function chooserHtml() {
   const p = state.pick;
   if (!state.pickOpen) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}">
-    <div class="c-searchrow"><div class="c-search"><input class="search" data-input="pick-search" placeholder="Search Unit (all factions)" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
+    <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search Unit (all factions), or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
     <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}</div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
@@ -507,6 +518,7 @@ document.addEventListener('click', e => {
 
 document.addEventListener('input', e => {
   const kind = e.target.dataset.input;
+  if (kind === 'catalog-search' || kind === 'pick-search') e.target.classList.toggle('code', isCodeSearch(e.target.value));
   if (kind === 'catalog-search') { state.search = e.target.value; renderCatalogUnits(); }
   if (kind === 'pick-search') {   // only the list is made anew: the input keeps the focus
     state.pick.search = e.target.value;
