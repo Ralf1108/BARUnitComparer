@@ -255,8 +255,8 @@ function refreshChooser() {
   if (state.pick.search) input.focus();
 }
 
-function scavengerHead(c, at) {
-  return `<div class="c-head f-scv" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b></div>
+function scavengerHead(c, at, sticky) {
+  return `<div class="c-head f-scv${sticky}" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b></div>
     <div class="c-tools">${refButton(c)}</div></div>`;
 }
 
@@ -265,12 +265,13 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function columnHtml(c, col, side, max, reference, stats) {
   const u = state.units[c.unit], ref = reference && !c.ref ? state.units[reference.unit] : null;
   const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
-  const head = c.scavOf ? scavengerHead(c, at) : `<div class="c-head f-${c.faction} ${side}" data-col="${c.id}" ${at(1)}>
+  const sticky = c.ref ? ' is-ref' : '';
+  const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b></div>
       <div class="c-tools"><button class="ref ${state.scav ? 'active' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column">&#10005;</button></div>
     </div>`;
-  return head + `<div class="c-unit f-${c.faction} ${side}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
-    <div class="stats f-${c.faction} ${side}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
+  return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
+    <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref)).join('')}</div>`;
 }
 
 // the unit selection at the right edge: a click on a unit adds a column
@@ -340,12 +341,15 @@ function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit))
 // ------------------------------------------------------------------ what the user does
 // with "+ Scav" every column with a unit gets its Scavenger copy as a column right of it (made here, not kept in state.columns)
 function displayColumns() {
-  return state.columns.flatMap(c => {
+  const list = state.columns.flatMap(c => {
     if (!state.scav || !state.units[c.unit + '_scav'] || state.columns.some(o => o.unit === c.unit + '_scav')) return [c];
     const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', scavOf: c.id };
     s.unit = c.unit + '_scav';
     return [c, s];
   });
+  const at = list.findIndex(c => c.ref);   // the reference column is the first one and stays at the left edge when the columns are scrolled
+  if (at > 0) list.unshift(...list.splice(at, 1));
+  return list;
 }
 const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[data-col]').dataset.col));
 

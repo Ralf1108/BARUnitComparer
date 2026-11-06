@@ -102,8 +102,10 @@ img { display: block; }
 .cmp-empty { color: var(--muted); text-align: center; padding: 60px 20px; font-size: 18px; font-weight: 300; }
 .chooser { flex: none; width: clamp(340px, 26vw, 500px); margin-left: 24px; display: flex; flex-direction: column; }
 .chooser .picker { flex: 1 1 0; min-height: 120px; height: auto; margin: 12px 0 0; }
-.cmp-grid { flex: 1; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: repeat(var(--n), minmax(400px, 1fr)); column-gap: 32px; }
+.cmp-grid { flex: 1; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: repeat(var(--n), minmax(var(--colmin), 1fr)); --colmin: 400px; --gap: 32px; column-gap: var(--gap); min-width: calc(var(--n) * var(--colmin) + (var(--n) - 1) * var(--gap)); }   /* as wide as its columns: the sticky reference column moves along the whole grid */
 .c-head { padding-bottom: 12px; }
+/* the reference column: as wide as one column, it sticks to the left edge of the scrolled area and the other columns pass behind it */
+.is-ref { grid-column: 1 / -1 !important; justify-self: start; min-width: var(--colmin); width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n)); position: sticky; left: 0; z-index: 2; background: var(--bg); box-shadow: 10px 0 10px -6px #000; }
 .c-title { display: flex; align-items: center; gap: 12px; }
 .c-title b { font-size: 34px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
@@ -181,7 +183,7 @@ img { display: block; }
 .weapons { color: #ee3b3b; font-weight: 400; font-size: 15px; letter-spacing: -.3px; }
 
 /* exactly two columns: mirrored, the bars meet in the middle */
-.two { column-gap: 2px; }
+.two { --gap: 2px; }
 .two .left.c-head { padding-right: 24px; }
 .two .right.c-head { padding-left: 24px; }
 .two .left .c-pic { margin-right: 0; }
@@ -202,5 +204,5 @@ img { display: block; }
   .title h1 { font-size: 46px; } .title b { font-size: 30px; } .tabs a { padding: 0 12px 8px; font-size: 17px; }
   .card { width: 170px; min-height: 180px; } .card .pic { width: 130px; height: 130px; } .card .name { font-size: 17px; } .card .desc { font-size: 13px; }
   .row { grid-template-columns: 30px 24px 44px 1fr 60px; } .row .desc, .row .opt { display: none; } .row .pic { width: 40px; height: 40px; }
-  .cmp-grid { grid-template-columns: repeat(var(--n), minmax(320px, 1fr)); } .stat { grid-template-columns: 86px 1fr; gap: 8px; font-size: 13px; } .two .right .stat { grid-template-columns: 1fr 86px; }
+  .cmp-grid { --colmin: 320px; } .stat { grid-template-columns: 86px 1fr; gap: 8px; font-size: 13px; } .two .right .stat { grid-template-columns: 1fr 86px; }
 }
