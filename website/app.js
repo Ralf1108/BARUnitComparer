@@ -145,8 +145,8 @@ function render() {
 function favPanelHtml() {
   if (!state.favOpen) return '';
   const items = state.favorites.map((f, i) => {
-    const names = f.filter(n => state.units[n]).map(n => state.units[n].name);
-    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${esc(names.join(', '))}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite">&#10005;</button></div>` : '';
+    const names = f.filter(n => state.units[n]).map(n => `<span class="f-${state.units[n].faction}">${esc(state.units[n].name)}</span>`);
+    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite">&#10005;</button></div>` : '';
   }).join('');
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
 }
