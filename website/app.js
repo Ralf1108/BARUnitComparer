@@ -173,8 +173,8 @@ function renderNav() {
     <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
     <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   document.getElementById('version').innerHTML = state.versions.length > 1
-    ? `Game version <select data-change="version">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.version === state.version ? 'selected' : ''}>${esc(v.version)}</option>`).join('')}</select>`
-    : `Game version ${esc(state.version)}`;
+    ? `<span class="v-label">Game version</span> <select data-change="version">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.version === state.version ? 'selected' : ''}>${esc(v.version)}</option>`).join('')}</select>`
+    : `<span class="v-label">Game version</span> ${esc(state.version)}`;
 }
 
 // ------------------------------------------------------------------ catalog
@@ -322,7 +322,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = state.units[c.unit], tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '')}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : '${GRIP}'}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '')}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div><div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = state.units[c.unit];

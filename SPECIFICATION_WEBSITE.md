@@ -1,6 +1,6 @@
 # Unit comparison website
 
-The website of the project: a unit catalog and a comparison of any number of units. The tools that produce its content are described in [SPECIFICATION.md](SPECIFICATION.md); the reduced data comes from `exporter/reduce_units.py`. Look and layout follow the unit pages and the compare page of beyondallreason.info (black background, Poppins, faction colours).
+The website of the project: a unit catalog and a comparison of any number of units. The tools that produce its content are described in [SPECIFICATION.md](SPECIFICATION.md); the reduced data comes from `exporter/reduce_units.py`. Look and layout follow the unit pages and the compare page of beyondallreason.info (black background, Poppins, faction colours). The sizes in `style.css` are a little smaller than on that site, so that more units fit next to each other; below 900 px width the unit selection goes under the columns, below 600 px (phones) everything is a step smaller and the header has two lines.
 
 | Part | What it is |
 |---|---|
