@@ -284,4 +284,5 @@ img { display: block; }
 .cmp-table .t-pic img { width: 64px; height: 64px; object-fit: contain; }
 .search.code { border-color: #3f8f55; background: #0b1a10; color: #9be3ae; }
 .fav-load span { color: var(--accent-text); }
+.fav-extra { color: var(--muted); font-style: normal; font-size: 12px; margin-left: 6px; white-space: nowrap; }
 #nav-links a, .fav-open { white-space: nowrap; }

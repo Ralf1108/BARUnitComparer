@@ -40,12 +40,17 @@ const state = {
 };
 let nextColumn = 1;
 
-// favorites: saved selections of units (a list of unit names each), kept in the browser
-function loadFavorites() { try { return JSON.parse(load('favorites', '[]')).filter(Array.isArray); } catch { return []; } }
+// favorites: saved selections of units, kept in the browser: { units: [names], scav: + Scav on, ref: the unit of the reference column or '' }
+// (a favorite saved before + Scav and Ref were kept is a plain list of names)
+function loadFavorites() {
+  try { return JSON.parse(load('favorites', '[]')).map(f => Array.isArray(f) ? { units: f, scav: false, ref: '' } : f).filter(f => f && Array.isArray(f.units)); } catch { return []; }
+}
 state.favorites = loadFavorites();
 state.favOpen = false;
-const favKey = units => units.join(',');
-const currentFavorite = () => state.favorites.findIndex(f => favKey(f) === favKey(state.columns.map(c => c.unit)));
+const refUnit = () => (state.columns.length && displayColumns().find(c => c.ref) || { unit: '' }).unit;
+const currentSetting = () => ({ units: state.columns.map(c => c.unit), scav: state.scav, ref: refUnit() });
+const favKey = f => `${f.units.join(',')}|${f.scav ? 1 : 0}|${f.ref || ''}`;
+const currentFavorite = () => state.favorites.findIndex(f => favKey(f) === favKey(currentSetting()));
 
 function load(key, fallback) { try { return localStorage.getItem('barunit.' + key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem('barunit.' + key, value); } catch { /* no storage: the setting lasts until the page is reloaded */ } }
@@ -146,8 +151,7 @@ const chosenUnits = () => state.columns.map(c => c.unit);
 function compareLink() {
   const params = new URLSearchParams({ view: state.table ? 'table' : 'graphic' });
   if (state.scav) params.set('scav', '1');
-  const ref = state.columns.length && displayColumns().find(c => c.ref);
-  if (ref) params.set('ref', ref.unit);
+  if (refUnit()) params.set('ref', refUnit());
   return '#/compare/' + chosenUnits().join(',') + '?' + params;
 }
 function keepAddress() { if (state.page === 'compare') history.replaceState(null, '', compareLink()); }
@@ -162,8 +166,9 @@ function render() {
 function favPanelHtml() {
   if (!state.favOpen) return '';
   const items = state.favorites.map((f, i) => {
-    const names = f.filter(n => state.units[n]).map(n => `<span class="f-${state.units[n].faction}">${esc(state.units[n].name)}</span>`);
-    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
+    const names = f.units.filter(n => state.units[n]).map(n => `<span class="f-${state.units[n].faction}">${esc(state.units[n].name)}</span>`);
+    const extras = [f.scav ? '+ Scav' : '', state.units[f.ref] ? `Ref ${esc(state.units[f.ref].name)}${f.ref.endsWith('_scav') ? ' (Scav)' : ''}` : ''].filter(Boolean);
+    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}${extras.length ? ` <em class="fav-extra">${extras.join(' · ')}</em>` : ''}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
   }).join('');
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
 }
@@ -462,13 +467,16 @@ const actions = {
   'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
   'fav-save'() {
     const at = currentFavorite();
-    if (at >= 0) state.favorites.splice(at, 1); else state.favorites.push(state.columns.map(c => c.unit));
+    if (at >= 0) state.favorites.splice(at, 1); else state.favorites.push(currentSetting());
     save('favorites', JSON.stringify(state.favorites)); renderNav(); renderCompare();
   },
   'fav-del'(v) { state.favorites.splice(Number(v), 1); save('favorites', JSON.stringify(state.favorites)); renderNav(); if (state.page === 'compare') renderCompare(); },
   'fav-load'(v) {
     remember();
-    state.columns = state.favorites[Number(v)].filter(n => state.units[n]).map(n => newColumn(n));
+    const f = state.favorites[Number(v)];
+    state.columns = f.units.filter(n => state.units[n]).map(n => newColumn(n));
+    state.scav = !!f.scav;
+    for (const c of displayColumns()) c.ref = c.unit === f.ref;
     state.favOpen = false;
     if (location.hash === compareLink()) render(); else location.hash = compareLink();   // the address change shows the page
   },

@@ -78,6 +78,21 @@ try {
   check(await page.locator('thead th[data-col]').count() === 4, 'a link opens table, + Scav ...', await page.locator('thead th[data-col]').count());
   check((await page.textContent('th.is-ref .t-name')).includes('Grunt'), '... and the reference column', await page.textContent('th.is-ref .t-name'));
 
+  // favorites: + Scav and Ref are saved with the units; an old favorite (only unit names) still loads
+  await page.click('[data-a="fav-save"]');
+  await page.goto(base + '#/compare/leggob?view=table');
+  await page.waitForSelector('.cmp-table');
+  await page.click('[data-a="fav-menu"]');
+  await page.click('[data-a="fav-load"] >> nth=0');
+  await page.waitForTimeout(300);
+  check(/^#\/compare\/armpw,corak\?.*scav=1/.test(await hash()) && /ref=corak/.test(await hash()), 'a favorite brings back + Scav and Ref', await hash());
+  await page.evaluate(() => localStorage.setItem('barunit.favorites', JSON.stringify([['armpw', 'corak']])));
+  await page.reload(); await page.waitForSelector('.cmp-table');
+  await page.click('[data-a="fav-menu"]');
+  await page.click('[data-a="fav-load"] >> nth=0');
+  await page.waitForTimeout(300);
+  check(/^#\/compare\/armpw,corak\?/.test(await hash()) && !/scav=1|ref=/.test(await hash()), 'an old favorite loads without + Scav and Ref', await hash());
+
   // keyboard: a column moves with the arrow keys
   await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
   await page.waitForSelector('.grip');
