@@ -32,6 +32,7 @@ Game and map are checked in the engine's archive cache before the start (otherwi
 |---|---|
 | `<version>/data/units-<version>.json` | One line per unit: `game` (all fields of the unit definition) and `editor` (faction, group, tech level, names, model, weapons with all fields and damage per armor class, what it builds, main shot figures) |
 | `counterparts.json` | Unit name -> counterpart id. Units with the same id belong together. One file for all game versions; meant to be corrected by hand |
+| `<version>/data/units-<version>.diff.json.gz` | A later game version: only the units that differ from the base version (values or picture), the new ones and the names of the gone ones (SPECIFICATION.md, section 3.5) |
 | `<version>/data/units-<version>.reduced.json.gz` | Only the values the website shows, plus the new property `category`; also `<version>/images/icons/` (the role icons of the game) and `versions.json`. Made by `reduce_units.py`, which also runs alone and makes only what is missing: `python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--force]`. Needs Python, for the smallest file with `zopfli` (`pip install zopfli`); if it fails the export has still worked and the script warns |
 
 The export does not depend on a list of fields: everything the engine knows about a unit and a weapon is written, so new fields of a newer version appear by themselves.

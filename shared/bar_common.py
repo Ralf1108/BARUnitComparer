@@ -111,10 +111,16 @@ class Pool:
 
 # ---------------------------------------------------------------- the website's data and beyondallreason.info
 def newest_units(assets=ASSETS):
-    """The unit names of the newest game version in website/assets/ (versions.json, the reduced file)."""
-    v = json.loads((Path(assets) / 'versions.json').read_text(encoding='utf-8'))['versions'][-1]
-    with gzip.open(Path(assets) / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
-        return set(json.load(f)['units'])
+    """The unit names of the newest game version in website/assets/ (versions.json): the units of the base version (the reduced file) with the changes of the newest
+    version (its diff file: new units, units that are gone)."""
+    versions = json.loads((Path(assets) / 'versions.json').read_text(encoding='utf-8'))['versions']
+    read = lambda v: json.loads(gzip.decompress((Path(assets) / v['dir'] / 'data' / v['file']).read_bytes()))
+    base = read(next((v for v in versions if v.get('base')), versions[0]))
+    newest = versions[-1]
+    if newest.get('base', newest is versions[0]):
+        return set(base['units'])
+    diff = read(newest)
+    return (set(base['units']) - set(diff.get('removed', []))) | set(diff['units'])
 
 
 def fetch(url, tries=3):

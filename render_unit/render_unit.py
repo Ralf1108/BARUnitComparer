@@ -17,7 +17,7 @@ Default: only the unit names; the model is looked for by the name of the unit (o
 the Raptors (their model is not named like the unit).
 Needs: Python with numpy and Pillow, Node.js (the first run installs three.js and playwright-core with npm), Microsoft Edge or Chrome.
 """
-import argparse, concurrent.futures, io, json, os, re, shutil, subprocess, sys, tempfile, time
+import argparse, concurrent.futures, hashlib, io, json, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 import numpy as np
@@ -100,6 +100,49 @@ def hidden_pieces(pool, script_path):
     for st in re.finditer(r'\b(hide|show)\s+(\w+)\s*;', text[m.end():i - 1], re.I):
         (hidden.add if st.group(1).lower() == 'hide' else hidden.discard)(st.group(2).lower())
     return hidden, sp
+
+
+# ---------------------------------------------------------------- what a picture is made of
+def picture_inputs(pool, unit, u):
+    """The files of the game a picture of the unit is made of: (model, model bytes, model format module, tex1, tex2, normal map, script source), or a text saying why there is
+    none. u: the entry of the unit in units-<version>.json, or None (the model is then looked for by the name)."""
+    model = (u['editor']['model'].lower() if u else None)
+    if not model or not pool.has(model):
+        model = pool.find_model(unit)
+    if not model:
+        return 'no model found in the game' + ('' if u else ' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)')
+    data = pool.read(model)
+    fmt = next((f for f in MODEL_FORMATS if f.recognizes(model, data)), None)
+    if not fmt:
+        return None   # a format without a module here: no picture, not an error
+    try:
+        tex1, tex2, normal_name = fmt.textures(pool, model, data, ((u or {}).get('game', {}).get('customParams') or {}).get('normaltex'))
+    except ValueError as e:
+        return f'{model}: {e}'
+    if not pool.has(f'unittextures/{tex1}'):
+        return f'texture unittextures/{tex1} not found in the game'
+    script = u['game'].get('scriptPath') if u else f'scripts/units/{unit.removesuffix("_scav")}.bos'
+    return model, data, fmt, tex1, tex2, normal_name, script
+
+
+def picture_fingerprints(pool, info, units):
+    """{unit: fingerprint} of what a picture is made of (model, the three textures, the pieces the script hides, the faction colour): the same fingerprint in two game versions
+    means the same picture, so a later version renders only the units whose fingerprint changed (exporter/reduce_units.py). The pool knows the md5 of every file, so
+    nothing but the model is read. A unit without picture (no model, format not supported) gets None."""
+    out = {}
+    for unit in units:
+        u = info.get(unit)
+        found = picture_inputs(pool, unit, u)
+        if not isinstance(found, tuple):
+            out[unit] = None
+            continue
+        model, _, _, tex1, tex2, normal_name, script = found
+        normal_name = normal_name or f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'   # the same rule as prepare_base
+        files = [model, f'unittextures/{tex1}', f'unittextures/{tex2}', normal_name]
+        faction = u['editor']['faction'] if u else faction_of(unit)
+        hidden, _ = hidden_pieces(pool, script)   # of the script only what the picture shows: another script that hides the same pieces gives the same picture
+        out[unit] = hashlib.md5('|'.join([faction, ','.join(sorted(hidden))] + [f'{f}={pool.entries.get(f, "-")}' for f in files]).encode()).hexdigest()
+    return out
 
 
 # ---------------------------------------------------------------- textures: the DDS atlases -> the four maps of the material
@@ -336,29 +379,17 @@ def main():
             skipped += 1
             continue
         u = info.get(unit)
-        model = (u['editor']['model'].lower() if u else None)
-        if not model or not pool.has(model):
-            model = pool.find_model(unit)
-        if not model:
-            problems.append(f'{unit}: no model found in the game' + ('' if u else ' (looked for by the name; --units FILE gives the model of every unit, e.g. of the Raptors)'))
-            continue
-        data = pool.read(model)
-        fmt = next((f for f in MODEL_FORMATS if f.recognizes(model, data)), None)
-        if not fmt:   # a format without a module here (none of the 1663 units of game test-31820)
-            print(f'SKIP {unit}: the model {model} has a format that is not supported (S3O, Collada); no picture', flush=True)
+        found = picture_inputs(pool, unit, u)
+        if found is None:   # a format without a module here (none of the 1663 units of game test-31820)
+            print(f'SKIP {unit}: the model has a format that is not supported (S3O, Collada); no picture', flush=True)
             unsupported.append(unit)
             continue
-        try:
-            tex1, tex2, normal_name = fmt.textures(pool, model, data, ((u or {}).get('game', {}).get('customParams') or {}).get('normaltex'))
-        except ValueError as e:
-            problems.append(f'{unit}: {model}: {e}')
+        if isinstance(found, str):
+            problems.append(f'{unit}: {found}')
             continue
-        if not pool.has(f'unittextures/{tex1}'):
-            problems.append(f'{unit}: texture unittextures/{tex1} not found in the game')
-            continue
+        model, data, fmt, tex1, tex2, normal_name, script = found
         faction = u['editor']['faction'] if u else faction_of(unit)
         team = one_team or TEAM_COLORS.get(faction, TEAM_COLORS['leg'])
-        script = u['game'].get('scriptPath') if u else f'scripts/units/{unit.removesuffix("_scav")}.bos'
         hidden, script_used = hidden_pieces(pool, script)
         if a.verbose:
             print(f'  {unit}: faction {faction}, team colour {team}, model {model}, hidden pieces ({script_used or "no script source"}): {", ".join(sorted(hidden)) or "-"}')

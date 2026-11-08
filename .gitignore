@@ -52,3 +52,8 @@ __pycache__/
 website/assets/**/*.part
 website/assets/.render_state.json
 render_errors.txt
+
+# the full export of a later game version stays local: in Git are only its diff file (units-<version>.diff.json.gz) and the pictures that differ from the base version;
+# the full export of the base version is the one exception (reduce_units.py compares with its reduced file, the full file is the source of it)
+website/assets/*/data/units-*.json
+!website/assets/test-31820-45ea098/data/units-test-31820-45ea098.json

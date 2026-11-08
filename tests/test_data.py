@@ -50,13 +50,20 @@ class Rules(unittest.TestCase):
         self.assertEqual(set(r), FIELDS)
         self.assertEqual((r['category'], r['buildTime'], r['energyMake'], r['weapons'], r['dps']), ('bots', 15, 6, ['BeamLaser'], 100))
 
+    def test_compare_with_base(self):
+        base = {'a': {'metal': 1, 'icon': 'x.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'gone': {'metal': 1}}
+        units = {'a': {'metal': 2, 'icon': 'y.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'new': {'metal': 1}}
+        changed, pictures = ru.compare(units, {'b': '2', 'lootboxnano_t1': '2'}, base, {'b': '1', 'lootboxnano_t1': '1'})
+        self.assertEqual((changed, pictures), ({'a', 'b', 'new'}, {'b', 'new'}))   # the loot boxes get a model by chance: no change
+        self.assertEqual(ru.compare({'b': {'metal': 1}}, {}, {'b': {'metal': 1}}, {'b': '1'}), (set(), set()))   # without fingerprints only the values count
+
     def test_shared_rules(self):
         self.assertEqual([bar_common.faction_of(u) for u in ('armpw', 'corak_scav', 'raptor_land_x', 'legcom')], ['arm', 'scv', 'rap', 'leg'])
         self.assertEqual(bar_common.version_name('Beyond All Reason test-1 a/b'), 'test-1_a_b')
 
 
 class Assets(unittest.TestCase):
-    """The files the page reads (website/assets/): versions.json, the reduced files, counterparts.json, counters.json."""
+    """The files the page reads (website/assets/): versions.json, the reduced file of the base version, the diff files of the others, counterparts.json, counters.json."""
     @classmethod
     def setUpClass(cls):
         cls.versions = json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8'))['versions']
@@ -64,36 +71,56 @@ class Assets(unittest.TestCase):
         for v in cls.versions:
             with gzip.open(ASSETS / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
                 cls.data[v['dir']] = json.load(f)
+        cls.base = next(v['dir'] for v in cls.versions if v.get('base'))
 
     def test_versions(self):
         self.assertTrue(self.versions, 'versions.json lists no version')
+        self.assertEqual(sum(1 for v in self.versions if v.get('base')), 1, 'exactly one base version')
+        self.assertEqual([v['version'] for v in self.versions], sorted((v['version'] for v in self.versions), key=ru.natural), 'oldest first')
         for v in self.versions:
-            self.assertEqual(self.data[v['dir']]['gameVersion'], v['version'])
+            d = self.data[v['dir']]
+            self.assertEqual(d['gameVersion'], v['version'])
+            self.assertRegex(v.get('date', ''), r'^(\d{4}-\d\d-\d\d)?$')
+            if v.get('base'):
+                self.assertTrue(v['file'].endswith('.reduced.json.gz'))
+            else:
+                self.assertTrue(v['file'].endswith('.diff.json.gz'))
+                self.assertEqual((d['base'], v['changed']), (self.data[self.base]['gameVersion'], len(d['units'])), v['dir'])
 
     def test_reduced_units(self):
         for folder, data in self.data.items():
-            units = data['units']
-            self.assertEqual(len(units), data['count'], folder)
+            units, is_base = data['units'], folder == self.base
+            if is_base:
+                self.assertEqual(len(units), data['count'], folder)
+            else:   # the units of a diff file: changed or new; the ones that are gone are only names
+                self.assertLessEqual(len(units), data['count'], folder)
+                self.assertFalse(set(data['removed']) & set(units), folder)
+                self.assertTrue(set(data['removed']) <= set(self.data[self.base]['units']), folder)
             for name, u in units.items():
-                self.assertEqual(set(u) - {'icon'}, FIELDS, name)
+                self.assertEqual(set(u) - {'icon', 'ownPicture', 'ownIcon'}, FIELDS, name)
                 self.assertIn(u['faction'], {'arm', 'cor', 'leg', 'scv', 'rap'}, name)
                 self.assertIn(u['category'], CATEGORIES, name)
                 self.assertIn(u['tech'], (1, 2, 3), name)
                 self.assertTrue(u['name'], name)
+                if not is_base and name in self.data[self.base]['units'] and not u.get('ownPicture'):
+                    plain = lambda x: {k: v for k, v in x.items() if k not in ('icon', 'ownIcon')}
+                    self.assertNotEqual(plain(u), plain(self.data[self.base]['units'][name]), f'{folder}: {name} is the same as in the base')
                 if 'icon' in u:
-                    self.assertTrue((ASSETS / folder / 'images' / 'icons' / u['icon']).exists(), f'{name}: icon {u["icon"]}')
+                    self.assertTrue((ASSETS / (folder if u.get('ownIcon') else self.base) / 'images' / 'icons' / u['icon']).exists(), f'{folder}: {name}: icon {u["icon"]}')
 
     def test_pictures(self):
-        """Every unit has a picture in one of the formats the page tries, and the names are lower case (GitHub Pages is case sensitive)."""
+        """Every unit of the base has a picture in one of the formats the page tries, every unit of a diff file with ownPicture one in its version's folder;
+        the names are lower case (GitHub Pages is case sensitive)."""
         for folder, data in self.data.items():
             images = ASSETS / folder / 'images'
-            files = {p.name for p in images.iterdir() if p.is_file()}
+            files = {p.name for p in images.iterdir() if p.is_file()} if images.exists() else set()
             self.assertEqual([f for f in files if f != f.lower()], [], 'upper case in picture names')
-            missing = [n for n in data['units'] if not any(f'{n}.{ext}' in files for ext in ('avif', 'webp', 'png', 'jpg'))]
+            wanted = data['units'] if folder == self.base else [n for n, u in data['units'].items() if u.get('ownPicture')]
+            missing = [n for n in wanted if not any(f'{n}.{ext}' in files for ext in ('avif', 'webp', 'png', 'jpg'))]
             self.assertLessEqual(len(missing), 5, f'{folder}: units without a picture: {missing[:20]}')
 
     def test_counterparts_and_counters(self):
-        newest = set(self.data[self.versions[-1]['dir']]['units'])
+        newest = bar_common.newest_units(ASSETS)
         counterparts = json.loads((ASSETS / 'counterparts.json').read_text(encoding='utf-8'))['units']
         self.assertTrue(all(isinstance(i, str) and i for i in counterparts.values()))
         self.assertTrue(newest <= set(counterparts), f'units without counterpart id: {sorted(newest - set(counterparts))[:20]}')
