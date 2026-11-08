@@ -1,9 +1,10 @@
 # Everything for one game version, every step only if its result is missing (SPECIFICATION.md, section 6). Started by "export and render all units.bat".
 #   1. export       website\assets\<version>\data\units-<version>.json           (exporter\export_units.ps1, starts the game)
 #   2. reduce       website\assets\<version>\data\units-<version>.reduced.json.gz   (exporter\reduce_units.py) of the base version (the first one exported);
-#                   every later version gets units-<version>.diff.json.gz: only what differs from the base version
+#                   every later version gets units-<version>.diff.json.gz: only what changed against the version before it (nothing changed: no file, the
+#                   version is only named in versions.json as unchanged, and the script ends here)
 #   3. pictures     website\assets\<version>\images\<unit>.<format>              (render_unit\render_unit.py), only for the units without a picture;
-#                   of a later version only the units whose picture differs from the base (reduce_units.py --pictures)
+#                   of a later version only the units whose picture changed (reduce_units.py --pictures)
 # So an aborted run can be started again and goes on. The output of the scripts is not shown, only the progress.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
 # -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. -Game "Beyond All Reason <version>": another installed version (default: the installed one). -Force: all three steps again, even if the results are there. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
@@ -55,8 +56,12 @@ $dataDir = Join-Path (Join-Path $out $version) 'data'
 $versionDir = Join-Path (Join-Path $out $version) 'images'   # the pictures
 $unitsFile = Join-Path $dataDir "units-$version.json"
 $reducedFile = Join-Path $dataDir "units-$version.reduced.json.gz"
-$diffFile = Join-Path $dataDir "units-$version.diff.json.gz"   # a later version: only what differs from the base version
+$diffFile = Join-Path $dataDir "units-$version.diff.json.gz"   # a later version: only what changed against the version before
 function Test-Reduced { (Test-Path $reducedFile) -or (Test-Path $diffFile) }
+function Test-Unchanged {   # compared with the version before, nothing changed (versions.json: unchanged)
+    $listing = Join-Path $out 'versions.json'
+    (Test-Path $listing) -and (@((Get-Content $listing -Raw | ConvertFrom-Json).unchanged) -contains $version)
+}
 function Reduced-Name { Split-Path $(if (Test-Path $reducedFile) { $reducedFile } else { $diffFile }) -Leaf }
 $needExport = $Force -or -not (Test-Path $unitsFile)
 $state = { param($needed, $text) if ($needed) { $text } else { 'there already, skipped' } }
@@ -64,7 +69,7 @@ $state = { param($needed, $text) if ($needed) { $text } else { 'there already, s
 Write-Host ''
 Write-Host "Game version $version" -ForegroundColor Cyan
 Write-Host "  1. Export the unit data:  $(& $state $needExport 'the game is started once in a small window (about 30 seconds)')"
-Write-Host "  2. Reduced data of the website:  $(& $state ($needExport -or -not (Test-Reduced)) 'will be made')"
+Write-Host "  2. Reduced data of the website:  $(& $state ($needExport -or -not ((Test-Reduced) -or (Test-Unchanged))) 'will be made')"
 Write-Host "  3. Pictures of $what as $formatText in the default quality and size, to $versionDir"
 Write-Host '     Only the missing ones (roughly 0.1 to 0.5 seconds per picture).'
 Write-Host ''
@@ -107,13 +112,20 @@ New-Item -ItemType Directory $versionDir -Force | Out-Null
 # ---------------------------------------------------------------- 2. the reduced data of the website
 Write-Host ''
 Write-Host '== 2/3  Reduced data of the website ==' -ForegroundColor Cyan
-if (Test-Reduced) {
-    Write-Host "   $(Reduced-Name) $(if ($needExport) { 'made with the export' } else { 'is there already, skipped' })" -ForegroundColor Green
+if ((Test-Reduced) -or (Test-Unchanged)) {
+    if (Test-Reduced) { Write-Host "   $(Reduced-Name) $(if ($needExport) { 'made with the export' } else { 'is there already, skipped' })" -ForegroundColor Green }
 } else {
     $reduceLog = Join-Path $env:TEMP 'reduce_units_log.txt'
     try { & python (Join-Path $root 'exporter\reduce_units.py') --units $unitsFile --out $out *> $reduceLog } catch { }
     if (Test-Reduced) { Write-Host "   $(Reduced-Name) made" -ForegroundColor Green }
+    elseif (Test-Unchanged) { }
     else { Write-Host "   The reduced data could not be made, see $reduceLog. The pictures are made all the same." -ForegroundColor Yellow }
+}
+
+if ((Test-Unchanged) -and -not (Test-Reduced)) {
+    Write-Host ''
+    Write-Host "Nothing of $version changed against the version before: no diff file, no pictures; the version is not shown on the page." -ForegroundColor Green
+    exit 0
 }
 
 # ---------------------------------------------------------------- 3. the pictures
@@ -123,7 +135,7 @@ if (Test-Reduced) { $pictureUnits = @(& python (Join-Path $root 'exporter\reduce
 else { foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { $pictureUnits += $Matches[1] } } }   # without the reduced data: all units (one unit per line, SPECIFICATION.md, section 3.1)
 foreach ($u in $pictureUnits) { if ($u -and (-not $wanted.Count -or $wanted -contains (Get-Faction $u))) { $names.Add($u) } }
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
-if ($names.Count -eq 0 -and (Test-Path $diffFile)) { Write-Host ''; Write-Host "No picture of $version differs from the base version: nothing to render." -ForegroundColor Green; exit 0 }
+if ($names.Count -eq 0 -and (Test-Path $diffFile)) { Write-Host ''; Write-Host "No picture of $version changed against the version before: nothing to render." -ForegroundColor Green; exit 0 }
 if ($names.Count -eq 0) { Fail "No units found in $($units.FullName) for: $what." }
 Remove-Item (Join-Path $versionDir 'render_errors.txt') -ErrorAction SilentlyContinue   # the list of the last run (only this one file of the folder; it is written again if there are errors)
 

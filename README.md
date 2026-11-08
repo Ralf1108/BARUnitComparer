@@ -19,7 +19,7 @@ Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.
 - **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
 - **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
 - **+ Scav:** shows the Scavenger copy of every unit next to it.
-- **Versions:** compares game versions: only the units that changed since the base version, the old and the new version side by side, the changed values marked. Every column can show any exported version.
+- **Versions:** compares game versions: only the units that changed, the version before and the changed version side by side, the changed values marked. Every column can show any exported version. A version in which no unit changed is not shown.
 - **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link (units, view, Ref and + Scav), ready to share.
 
 **Tools** (they get the content out of the installed game)
@@ -33,6 +33,7 @@ Install BAR and start it once (so that a game has been loaded), then double clic
 | File | What happens |
 |---|---|
 | `export and render all units.bat` | makes everything that is missing for the installed game version: unit data and data of the website in `website/assets/<version>/data/`, pictures in `website/assets/<version>/images/` |
+| `update game versions.bat` | looks for new game versions on the BAR package server, downloads each one, exports it and keeps only what changed against the version before (`--list`: only show them) |
 | `website/serve.bat` | starts the local web server and opens the website |
 
 All tools, their parameters and requirements: [TOOLS.md](TOOLS.md).

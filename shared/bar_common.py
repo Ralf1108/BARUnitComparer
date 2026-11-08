@@ -58,8 +58,27 @@ def find_data_dir(given=''):
              + ', '.join(str(c) for c in candidates if c))
 
 
+def rapid_package(data, name):
+    """The package (.sdp) of the game `name` from the rapid lists of the data folder (rapid/<server>/<repo>/versions.gz: tag,md5,depends,name), if it is in packages/;
+    else None. A package that was just downloaded (exporter/update_versions.py) is not in the archive cache yet: the engine adds it when it starts."""
+    for listing in Path(data, 'rapid').glob('*/*/versions.gz'):
+        try:
+            lines = gzip.decompress(listing.read_bytes()).decode('utf-8', errors='replace').splitlines()
+        except OSError:
+            continue
+        for line in lines:
+            f = line.strip().split(',')
+            if len(f) >= 4 and f[3] == name and Path(data, 'packages', f[1] + '.sdp').exists():
+                return Path(data, 'packages', f[1] + '.sdp')
+    return None
+
+
 def find_game(data, wanted=''):
     """The package (.sdp) of Beyond All Reason: the newest installed one, or the one named `wanted` ("Beyond All Reason <version>"). Returns (sdp path, name)."""
+    if wanted:
+        sdp = rapid_package(data, wanted)
+        if sdp:
+            return sdp, wanted
     caches = sorted(Path(data, 'cache').glob('ArchiveCache*.lua'), key=lambda p: p.stat().st_mtime)
     if not caches:
         sys.exit(f'ERROR: no archive cache in {data}\\cache. Please start BAR once and let a game load.')
@@ -111,16 +130,16 @@ class Pool:
 
 # ---------------------------------------------------------------- the website's data and beyondallreason.info
 def newest_units(assets=ASSETS):
-    """The unit names of the newest game version in website/assets/ (versions.json): the units of the base version (the reduced file) with the changes of the newest
-    version (its diff file: new units, units that are gone)."""
+    """The unit names of the newest game version in website/assets/ (versions.json): the units of the base version (the reduced file) with the changes of every later
+    version in turn (its diff file against the version before: new units, units that are gone)."""
     versions = json.loads((Path(assets) / 'versions.json').read_text(encoding='utf-8'))['versions']
     read = lambda v: json.loads(gzip.decompress((Path(assets) / v['dir'] / 'data' / v['file']).read_bytes()))
-    base = read(next((v for v in versions if v.get('base')), versions[0]))
-    newest = versions[-1]
-    if newest.get('base', newest is versions[0]):
-        return set(base['units'])
-    diff = read(newest)
-    return (set(base['units']) - set(diff.get('removed', []))) | set(diff['units'])
+    first = next((i for i, v in enumerate(versions) if v.get('base')), 0)
+    names = set(read(versions[first])['units'])
+    for v in versions[first + 1:]:
+        diff = read(v)
+        names = (names - set(diff.get('removed', []))) | set(diff['units'])
+    return names
 
 
 def fetch(url, tries=3):

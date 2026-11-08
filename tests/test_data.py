@@ -2,13 +2,13 @@
 
     python -m unittest discover -s tests -v
 
-Needs no game installation (the icons are not made here). Run by the workflow .github/workflows/pages.yml before the site is published.
+Needs no game installation (the icons are not made here). The environment variable BARUNIT_ASSETS: another assets folder (a test of the exporter). Run by the workflow .github/workflows/pages.yml before the site is published.
 """
-import gzip, json, sys, unittest
+import gzip, json, os, sys, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ASSETS = ROOT / 'website' / 'assets'
+ASSETS = Path(os.environ.get('BARUNIT_ASSETS') or ROOT / 'website' / 'assets')
 sys.path.insert(0, str(ROOT / 'exporter'))
 sys.path.insert(0, str(ROOT / 'shared'))
 import reduce_units as ru  # noqa: E402
@@ -50,7 +50,7 @@ class Rules(unittest.TestCase):
         self.assertEqual(set(r), FIELDS)
         self.assertEqual((r['category'], r['buildTime'], r['energyMake'], r['weapons'], r['dps']), ('bots', 15, 6, ['BeamLaser'], 100))
 
-    def test_compare_with_base(self):
+    def test_compare_with_version_before(self):
         base = {'a': {'metal': 1, 'icon': 'x.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'gone': {'metal': 1}}
         units = {'a': {'metal': 2, 'icon': 'y.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'new': {'metal': 1}}
         changed, pictures = ru.compare(units, {'b': '2', 'lootboxnano_t1': '2'}, base, {'b': '1', 'lootboxnano_t1': '1'})
@@ -63,10 +63,12 @@ class Rules(unittest.TestCase):
 
 
 class Assets(unittest.TestCase):
-    """The files the page reads (website/assets/): versions.json, the reduced file of the base version, the diff files of the others, counterparts.json, counters.json."""
+    """The files the page reads (website/assets/): versions.json, the reduced file of the base version, the diff files of the later ones (each against the version
+    before it), counterparts.json, counters.json."""
     @classmethod
     def setUpClass(cls):
-        cls.versions = json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8'))['versions']
+        listing = json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8'))
+        cls.versions, cls.unchanged = listing['versions'], listing.get('unchanged', [])
         cls.data = {}
         for v in cls.versions:
             with gzip.open(ASSETS / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
@@ -75,38 +77,55 @@ class Assets(unittest.TestCase):
 
     def test_versions(self):
         self.assertTrue(self.versions, 'versions.json lists no version')
-        self.assertEqual(sum(1 for v in self.versions if v.get('base')), 1, 'exactly one base version')
-        self.assertEqual([v['version'] for v in self.versions], sorted((v['version'] for v in self.versions), key=ru.natural), 'oldest first')
-        for v in self.versions:
+        self.assertTrue(self.versions[0].get('base') and sum(1 for v in self.versions if v.get('base')) == 1, 'exactly one base version, the first one')
+        names = [v['version'] for v in self.versions]
+        self.assertEqual(names, sorted(names, key=ru.natural), 'oldest first')
+        self.assertEqual(self.unchanged, sorted(self.unchanged, key=ru.natural))
+        self.assertFalse(set(self.unchanged) & set(names), 'a version in which nothing changed is not listed')
+        self.assertTrue(all(ru.natural(u) > ru.natural(names[0]) for u in self.unchanged), 'unchanged versions are newer than the base')
+        for before, v in zip([None, *self.versions], self.versions):
             d = self.data[v['dir']]
             self.assertEqual(d['gameVersion'], v['version'])
             self.assertRegex(v.get('date', ''), r'^(\d{4}-\d\d-\d\d)?$')
             if v.get('base'):
                 self.assertTrue(v['file'].endswith('.reduced.json.gz'))
-            else:
+            else:   # against the version before it
                 self.assertTrue(v['file'].endswith('.diff.json.gz'))
-                self.assertEqual((d['base'], v['changed']), (self.data[self.base]['gameVersion'], len(d['units'])), v['dir'])
+                self.assertEqual((d['before'], v['changed']), (before['version'], len(d['units'])), v['dir'])
+                self.assertTrue(d['units'] or d['removed'], f'{v["dir"]}: an empty diff file')
 
     def test_reduced_units(self):
-        for folder, data in self.data.items():
+        """The chain: every diff file against the units of the version before (the base with the diff files before it applied)."""
+        state, icons = {}, {}   # the units of the version before; {icon file: folder}
+        plain = lambda x: {k: v for k, v in x.items() if k not in ('icon', 'ownIcon', 'ownPicture')}
+        for v in self.versions:
+            folder, data = v['dir'], self.data[v['dir']]
             units, is_base = data['units'], folder == self.base
             if is_base:
                 self.assertEqual(len(units), data['count'], folder)
             else:   # the units of a diff file: changed or new; the ones that are gone are only names
                 self.assertLessEqual(len(units), data['count'], folder)
                 self.assertFalse(set(data['removed']) & set(units), folder)
-                self.assertTrue(set(data['removed']) <= set(self.data[self.base]['units']), folder)
+                self.assertTrue(set(data['removed']) <= set(state), folder)
             for name, u in units.items():
                 self.assertEqual(set(u) - {'icon', 'ownPicture', 'ownIcon'}, FIELDS, name)
                 self.assertIn(u['faction'], {'arm', 'cor', 'leg', 'scv', 'rap'}, name)
                 self.assertIn(u['category'], CATEGORIES, name)
                 self.assertIn(u['tech'], (1, 2, 3), name)
                 self.assertTrue(u['name'], name)
-                if not is_base and name in self.data[self.base]['units'] and not u.get('ownPicture'):
-                    plain = lambda x: {k: v for k, v in x.items() if k not in ('icon', 'ownIcon')}
-                    self.assertNotEqual(plain(u), plain(self.data[self.base]['units'][name]), f'{folder}: {name} is the same as in the base')
+                if not is_base and name in state and not u.get('ownPicture') and not u.get('ownIcon') and u.get('icon') == state[name].get('icon'):
+                    self.assertNotEqual(plain(u), plain(state[name]), f'{folder}: {name} is the same as in the version before')
                 if 'icon' in u:
-                    self.assertTrue((ASSETS / (folder if u.get('ownIcon') else self.base) / 'images' / 'icons' / u['icon']).exists(), f'{folder}: {name}: icon {u["icon"]}')
+                    at = folder if is_base or u.get('ownIcon') else icons.get(u['icon'], self.base)
+                    self.assertTrue((ASSETS / at / 'images' / 'icons' / u['icon']).exists(), f'{folder}: {name}: icon {u["icon"]}')
+            if is_base:
+                icons = {u['icon']: folder for u in units.values() if 'icon' in u}
+            else:
+                icons.update({u['icon']: folder for u in units.values() if u.get('ownIcon')})
+            state.update(units)
+            for name in data.get('removed', []):
+                del state[name]
+        self.assertEqual(set(state), bar_common.newest_units(ASSETS), 'newest_units: the same chain')
 
     def test_pictures(self):
         """Every unit of the base has a picture in one of the formats the page tries, every unit of a diff file with ownPicture one in its version's folder;

@@ -19,24 +19,25 @@ Unit catalog and comparison of any number of units: [SPECIFICATION_WEBSITE.md](S
 
 The data folder of the BAR installation (e.g. `C:\Games\Beyond-All-Reason\data`) holds the files in a pool: `packages/<hash>.sdp` is a gzip stream of entries `[1 byte length of the name][name][16 bytes md5][4 bytes crc][4 bytes size]` (the biggest `.sdp` is the game), the file of an entry is `pool/<first two hex digits of the md5>/<the other 30 digits>.gz` (gzip). Names are in lower case: `objects3d/units/armllt.s3o`, `unittextures/arm_color.dds`, `unitpics/armllt.dds`, `scripts/units/armllt.bos`. `cache/ArchiveCache*.lua` lists the installed archives (games, maps) as the engine knows them. All tools only **read** this folder.
 
-All tools write into `website/assets/`, per game version (checked in, so a deleted or overwritten result can be restored; of a later version only what differs from the base version, section 3.5):
+All tools write into `website/assets/`, per game version (checked in, so a deleted or overwritten result can be restored; of a later version only what changed against the version before, section 3.5):
 
 ```
 website/assets/                                everything the tools make
   counterparts.json                            unit name -> counterpart id, for all versions; groups of beyondallreason.info win, the rest can be corrected by hand (section 3.2)
   counters.json                                unit name -> the units that counter it (exporter/export_counters.py, SPECIFICATION_WEBSITE.md)
-  versions.json                                the game versions there are, oldest first, with their date; one of them is the base version
+  versions.json                                the game versions shown, oldest first, with their date (the first is the base version); the versions in which nothing changed
   <base version>/                              the base version (the first one exported): everything
     data/units-<version>.json                  all data of the exporter
     data/units-<version>.reduced.json.gz       what the website shows
     data/pictures.json                         the fingerprint of every unit's picture (model, textures, hidden pieces, faction)
     images/<unit>.<format>                     the pictures
     images/icons/<file>.png                    the role icons of the game version
-  <other version>/                             every other version: only what differs from the base version
+  <later version>/                             every later version: only what changed against the version before it (nothing changed: no files, not shown)
     data/units-<version>.json                  all data of the exporter (local only, not in Git: .gitignore)
-    data/units-<version>.diff.json.gz          the units whose values or picture differ, the new units, the names of the units that are gone
-    images/<unit>.<format>                     only the pictures that differ from the base
-    images/icons/<file>.png                    only the icons that differ from the base
+    data/units-<version>.diff.json.gz          the units whose values, picture or icon changed, the new units, the names of the units that are gone
+    data/pictures.json                         the fingerprints of the pictures that changed
+    images/<unit>.<format>                     only the pictures that changed
+    images/icons/<file>.png                    only the icons that changed
 ```
 
 All tools find the data folder the same way: `--data` / `-Data`, otherwise the environment variable `BAR_DATA`, otherwise the usual places (`shared/data_dirs.txt`); a data folder has the folders `packages` and `pool`, a given folder that is none is an error.
@@ -124,19 +125,21 @@ What the script sets (relevant if the game is started another way):
 
 The unit files are Lua files in the pool (`units/<folder>/<name>.lua`) and could be read with a Lua reader (e.g. `lupa`); names and descriptions come from the language files. This would need no started game and could read older versions from their packages. Not the source because the game **changes the data when it loads it**, which a script would have to rebuild: the Scavenger copies (`*_scav`) do not exist as files, the post-processing at game start (game options, balance changes, raptors), and the derived values (damage per second, tech level, type). If it is ever built, compare its numbers with the exporter's file; the exporter stays the reference.
 
-### 3.5 Several game versions: the base version and the differences
+### 3.5 Several game versions: the base version and the changes, step by step
 
-Every game version that is installed can be exported (`-Game "Beyond All Reason <version>"`; the launcher keeps the older packages: on this machine twelve versions from test-31450 to test-31836). Tried with test-31450 (2026-09-29), test-31820 and test-31836: each starts with the newest engine.
+**Where the versions come from:** the package server of BAR (rapid, `https://repos-cdn.beyondallreason.dev/byar/versions.gz`) has a package for **every commit** of the Beyond All Reason repository, `byar:git:<full hash>` = "Beyond All Reason test-<number>-<short hash>" (12,593 of them, back to test-11420; 333 in 2026 up to November). The packages and their files stay on the server, so any version can be downloaded again and gives the same export: what the players had. `pr-downloader` of the BAR installation (`<BAR>/bin/pr-downloader.exe`, with the settings of the launcher) downloads a version into the data folder (only the files that are missing); the export then runs with `-Game "Beyond All Reason <version>"`. A package just downloaded is not in the archive cache of the installation yet: the tools then find it through the rapid lists of the data folder (`bar_common.rapid_package`, `Test-RapidPackage` in `export_units.ps1`); the engine adds it when it starts. Tried with test-31450 (2026-09-29) to test-31836: each starts with the installed engine (recoil 2026.07.04).
 
-**Base version:** the first version exported (test-31820) keeps everything: the reduced file of all units and all pictures. **Every other version keeps only what differs from it** (`exporter/reduce_units.py`): `units-<version>.diff.json.gz` with the units whose values (the reduced fields) or picture differ, the units that are new (both with their whole reduced entry) and the names of the units that are gone; in its `images/` only the pictures (and icons) that differ. Its full export stays local (`.gitignore`). Measured: test-31450 against test-31820: 149 of 1660 units differ, 111 of them with another picture, 4 are gone; diff file 5.6 KB, pictures 1.3 MB (instead of 54 KB and 27 MB for a full version). test-31836 against test-31820: nothing the page shows differs (diff file 0.1 KB, no picture).
+**New versions:** `update game versions.bat` (`exporter/update_versions.py`; `--list` only shows them, `--max N` takes only the first N) reads the list of the server, takes every version newer than the newest one done (`versions.json`), oldest first, and for each one in turn downloads it and runs `export_and_render_all_units.ps1 -Game <it> -Yes`: export, diff, the pictures that changed. A run that stops can be started again.
 
-**A picture differs** if its **fingerprint** differs: an md5 over the md5 of the model file, the three textures (the pool knows the md5 of every file, nothing has to be read but the model), the pieces the script hides when the unit is created and the faction colour (`render_unit.picture_fingerprints`, the same inputs as the rendering). Of the script only the hidden pieces count: test-31836 changed the script of `legkark`, but not what it hides. The fingerprints of the base are kept in `data/pictures.json`, so a later version is compared without rendering anything; only the pictures that differ are rendered (`reduce_units.py --pictures <folder>` lists them for `export_and_render_all_units.ps1`). Without the game installed there are no fingerprints: then only the values are compared.
+**Base version:** the first version exported (test-31820, 2026-11-04) keeps everything: the reduced file of all units and all pictures. **Every later version keeps only what changed against the version before it** (`exporter/reduce_units.py`; the version before = the base with the changes of every version in between): `units-<version>.diff.json.gz` (`before`: that version) with the units whose values (the reduced fields), picture or icon changed, the units that are new (both with their whole reduced entry) and the names of the units that are gone; `data/pictures.json` with the fingerprints of the changed pictures; in its `images/` only the pictures (and icons) that changed. **A version in which nothing changed gets no files** and is not shown; `versions.json` only names it (`unchanged`), so it is not compared again. Its full export stays local (`.gitignore`). Measured: test-31836 against test-31820: nothing the page shows changed (unchanged). A test chain (in a scratch folder, `update_versions.py --max 2`) from test-31450 as base: test-31465 (downloaded, it was not installed) 10 units changed against test-31450, 2 pictures and 1 icon, diff file 0.8 KB; test-31479 24 units against test-31465, 4 pictures, 1.4 KB; about 50 seconds per version (export 45 s, pictures a few seconds).
+
+**A picture differs** if its **fingerprint** differs: an md5 over the md5 of the model file, the three textures (the pool knows the md5 of every file, nothing has to be read but the model), the pieces the script hides when the unit is created and the faction colour (`render_unit.picture_fingerprints`, the same inputs as the rendering). Of the script only the hidden pieces count: test-31836 changed the script of `legkark`, but not what it hides. The fingerprints are kept in `data/pictures.json` (of the base all, of a later version the changed ones), so a later version is compared without rendering anything; only the pictures that changed are rendered (`reduce_units.py --pictures <folder>` lists them for `export_and_render_all_units.ps1`). Without the game installed there are no fingerprints: then only the values are compared.
 
 **Chance in the game:** the Scavenger loot boxes (`lootbox*`) get one of two models by chance at every start of the game (`unitbasedefs/lootboxes/lootboxnano.lua`: `math.random(1, 2)`): two exports of the same version differ there. Their pictures are not compared (`RANDOM_MODEL` in `reduce_units.py`).
 
 **Date of a version:** the version name ends with the short hash of the commit of the Beyond All Reason repository it was built from (`test-31836-b250a16`); the date of that commit (GitHub API, `/repos/beyond-all-reason/Beyond-All-Reason/commits/<hash>`) is the date in `versions.json`. It is asked once per version; the dates there are kept.
 
-A renamed unit shows up as gone and new. If the base version is ever to be changed: make the new base's reduced file with everything (delete the old one, `--force`), then all diff files again.
+A renamed unit shows up as gone and new. A diff file depends on all files before it: if one in the middle is made again, the later ones have to be made again too (`reduce_units.py --force` makes all of them again, from the full exports). If the base version is ever to be changed: make the new base's reduced file with everything (delete the old one, `--force`), then all diff files again. A version older than the base is left out.
 
 ## 4. Models, textures, pictures in the game
 
@@ -201,7 +204,7 @@ At the same SSIM AVIF is the smallest (12 KB, WebP 15 KB, JPEG 28 KB). The alpha
 In the root of the repository (starts `export_and_render_all_units.ps1`). It asks for the factions (`all`, or `arm`, `cor`, `leg`, `scv`, `rap`) and the picture format (`avif` = default, `webp`, `jpeg`, `png`, `bmp`, several separated by commas, or `all`), finds the game version without starting the game, shows what is to do and asks for confirmation. Then, **every step only if its result is missing**:
 
 1. **Export:** `website/assets/<version>/data/units-<version>.json`; if it is missing the exporter runs and shows only its four steps.
-2. **Reduced data of the website:** `website/assets/<version>/data/units-<version>.reduced.json.gz` of the base version, `units-<version>.diff.json.gz` of every other one (`exporter/reduce_units.py`; section 3.5, `SPECIFICATION_WEBSITE.md`, section 1). The pictures of step 3 are then only the ones that differ from the base.
+2. **Reduced data of the website:** `website/assets/<version>/data/units-<version>.reduced.json.gz` of the base version, `units-<version>.diff.json.gz` of every later one, against the version before (`exporter/reduce_units.py`; section 3.5, `SPECIFICATION_WEBSITE.md`, section 1). The pictures of step 3 are then only the ones that changed; if nothing changed, the script ends after step 2.
 3. **Pictures:** `website/assets/<version>/images/<unit>.<format>`, only for the units whose files are missing (`render_unit.py --units <that file> --game <that version>`, default quality and size), 80 units per call. One line shows the progress, rewritten every 20 pictures and never longer than the window: `done / total`, percentage, the size of the finished pictures, elapsed time, the ETA with the seconds per picture it is calculated from, the last unit.
 
 So a run can be stopped at any time and started again: it goes on where it stopped. Files are written complete or not at all (`<file>.part`, then renamed). A new game version gets its own folder.

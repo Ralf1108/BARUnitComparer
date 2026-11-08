@@ -33,15 +33,33 @@ function Fail($text) {
     exit 1
 }
 
+function Read-RapidVersions($file) {
+    Add-Type -AssemblyName System.IO.Compression
+    $fs = [IO.File]::OpenRead($file)
+    $gz = New-Object IO.Compression.GZipStream($fs, [IO.Compression.CompressionMode]::Decompress)
+    $sr = New-Object IO.StreamReader($gz)
+    $text = $sr.ReadToEnd(); $sr.Close(); $fs.Close()
+    return $text
+}
+
+# Is the package of this game in the data folder (a rapid list names it and its .sdp is in packages)? A package just downloaded (exporter\update_versions.py)
+# is not in the archive cache yet: the engine adds it when it starts.
+function Test-RapidPackage($data, $name) {
+    foreach ($file in @(Get-ChildItem (Join-Path $data 'rapid') -Recurse -Filter 'versions.gz' -ErrorAction SilentlyContinue)) {
+        foreach ($line in ((Read-RapidVersions $file.FullName) -split "`n")) {
+            $f = $line.Trim().Split(',')
+            if ($f.Count -ge 4 -and $f[3] -eq $name -and (Test-Path (Join-Path $data ('packages\' + $f[1] + '.sdp')))) { return $true }
+        }
+    }
+    return $false
+}
+
 # Version of the installed official game (byar:test, otherwise byar:stable; the first one whose package is installed), as the engine names it
 function Get-GameVersion($data) {
     Add-Type -AssemblyName System.IO.Compression
     $versionsFile = Join-Path $data 'rapid\repos-cdn.beyondallreason.dev\byar\versions.gz'
     if (-not (Test-Path $versionsFile)) { throw 'No game data found (rapid\...\byar\versions.gz). Please start BAR once and let a game load.' }
-    $fs = [IO.File]::OpenRead($versionsFile)
-    $gz = New-Object IO.Compression.GZipStream($fs, [IO.Compression.CompressionMode]::Decompress)
-    $sr = New-Object IO.StreamReader($gz)
-    $text = $sr.ReadToEnd(); $sr.Close(); $fs.Close()
+    $text = Read-RapidVersions $versionsFile
     $game = $null; $fallback = $null
     foreach ($tag in @('byar:test', 'byar:stable')) {
         foreach ($line in ($text -split "`n")) {
@@ -90,7 +108,7 @@ if (-not $Map) {   # any installed map will do (modtype 3 = map in the archive c
     if ($maps -contains 'Hooked 1.1.1') { $Map = 'Hooked 1.1.1' } elseif ($maps.Count) { $Map = $maps[0] } else { Fail "No map found in $archiveCache. Please start BAR once and let a game load." }
 }
 foreach ($archive in @(@('Game', $Game), @('Map', $Map))) {
-    if ($archives -notmatch ('name = "' + [regex]::Escape($archive[1]) + '"')) {
+    if ($archives -notmatch ('name = "' + [regex]::Escape($archive[1]) + '"') -and -not ($archive[0] -eq 'Game' -and (Test-RapidPackage $Data $archive[1]))) {
         Fail "$($archive[0]) '$($archive[1])' is not installed (not in $archiveCache). Give an installed one with -$($archive[0]); a new download is known after BAR has been started once."
     }
 }
