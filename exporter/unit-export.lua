@@ -19,8 +19,8 @@ end
 -- (quitforce), so that a script can run the game once per game version; without that file the game goes on.
 --
 -- Needs three files that the script which starts the game (export_units.ps1) puts into LuaUI/Include/ (they are in the folder lua/ next to this file):
---   editor_common.lua   (the unit catalog, the faction / type / tech level rules)
---   bar_rules.lua
+--   unit_catalog.lua    (the unit catalog: faction, type, tech level, the best shot of a unit)
+--   bar_rules.lua       (the tech level rule, loaded by unit_catalog.lua)
 --   led_export.lua      (the export itself, the same code as the buttons of the settings page of the Level Editor)
 -- and this file in LuaUI/Widgets/. What the files contain: SPECIFICATION.md, section 3.
 
@@ -48,7 +48,7 @@ end
 local function run()
 	Spring.CreateDir("LuaUI/Config")
 	Spring.CreateDir(DIR)
-	local Shared = VFS.Include("LuaUI/Include/editor_common.lua", nil, VFS.RAW_FIRST)
+	local Shared = VFS.Include("LuaUI/Include/unit_catalog.lua", nil, VFS.RAW_FIRST)
 	local ex = VFS.Include("LuaUI/Include/led_export.lua", nil, VFS.RAW_FIRST)({
 		Shared = Shared, dir = DIR,
 		say = function(s) Spring.Echo("[Website Unit Export] " .. s) end,
