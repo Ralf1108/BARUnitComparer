@@ -19,6 +19,7 @@ Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.
 - **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
 - **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
 - **+ Scav:** shows the Scavenger copy of every unit next to it.
+- **Versions:** compares game versions: only the units that changed since the base version, the old and the new version side by side, the changed values marked. Every column can show any exported version.
 - **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link (units, view, Ref and + Scav), ready to share.
 
 **Tools** (they get the content out of the installed game)

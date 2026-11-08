@@ -9,23 +9,29 @@ The website of the project: a unit catalog and a comparison of any number of uni
 
 ## 1. Data
 
-The page reads everything from `website/assets/` (all of it is in Git; the full `units-<version>.json` is not published, section 6):
+The page reads everything from `website/assets/` (in Git; the full `units-<version>.json` is not published, section 6, and of a later version not even in Git; base version and differences: `SPECIFICATION.md`, section 3.5):
 
 ```
 website/assets/                                everything the tools make
   counterparts.json                            unit name -> counterpart id, for all versions; groups of beyondallreason.info win, the rest can be corrected by hand (exporter/export_counterparts.py)
   counters.json                                unit name -> the units that counter it, from the counter charts of beyondallreason.info (exporter/export_counters.py)
-  versions.json                                the game versions there are, newest last
-  <version>/
+  versions.json                                the game versions there are, oldest first, with their date; one of them is the base version
+  <base version>/                              the base version (the first one exported): everything
     data/units-<version>.json                  all data of the exporter
     data/units-<version>.reduced.json.gz       what the website shows
+    data/pictures.json                         the fingerprint of every unit's picture (model, textures, hidden pieces, faction)
     images/<unit>.<format>                     the pictures
     images/icons/<file>.png                    the role icons of the game version
+  <other version>/                             every other version: only what differs from the base version
+    data/units-<version>.json                  all data of the exporter (local only, not in Git: .gitignore)
+    data/units-<version>.diff.json.gz          the units whose values or picture differ, the new units, the names of the units that are gone
+    images/<unit>.<format>                     only the pictures that differ from the base
+    images/icons/<file>.png                    only the icons that differ from the base
 ```
 
 A missing AVIF picture: the page tries WebP, PNG and JPEG, and all of them once more a moment later (a failed request is not always a missing file). The reduced file has 55 KB (the full file 15.7 MB).
 
-**Loaded dynamically:** the page contains no unit data. It reads `versions.json` and loads the `.reduced.json.gz` of the chosen version with `fetch` (default the newest; the choice appears as soon as there are two versions). Pictures and icons come from the folder of that version.
+**Loaded dynamically:** the page contains no unit data. It reads `versions.json` and loads with `fetch` the reduced file of the base version and the diff files of all other versions (a few KB each). The units of a version are the base's with the changes of that version (changed and new units, without the ones that are gone). A unit's picture and icon come from the folder of its version if they differ from the base (`ownPicture`, `ownIcon` in the diff file), else from the base's folder. The version shown is chosen at the top (default the newest; the list appears as soon as there are two versions, with the date of each and how many units differ from the base).
 
 `exporter/export_units.ps1` runs `exporter/reduce_units.py` at the end of every export. It can also be run alone (`python exporter/reduce_units.py`): it makes what is missing, `--force` makes it again. If it fails, the export has still worked and the script only warns. Without the game installed everything but the icons is made; the page works without icons.
 
@@ -88,9 +94,9 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 - Units sorted by tech level, then by metal cost. A card has the tech level, the role icon, the picture, the name and the description.
 - A click on a unit marks it for the comparison, a bar at the bottom shows the marked units and leads to the compare page.
 
-## 4. Compare (`#/compare/<unit>,<unit>,...?view=table&scav=1&ref=<unit>`)
+## 4. Compare (`#/compare/<unit>,<unit>@<version>,...?view=table&scav=1&ref=<unit>&versions=1`)
 
-**The link** carries the units in their order and how they are shown, so that a shared link looks the same for the other one: `view` = `table` or `graphic`, `scav=1` if **+ Scav** is on, `ref` = the unit of the reference column (also a Scavenger copy, `corak_scav`). The address is kept up to date with every change (without a new entry in the history of the browser). An older link with only the units shows them without Ref and + Scav, in the view the browser remembers.
+**The link** carries the units in their order and how they are shown, so that a shared link looks the same for the other one: `view` = `table` or `graphic`, `scav=1` if **+ Scav** is on, `ref` = the unit of the reference column (also a Scavenger copy, `corak_scav`), `versions=1` for the version comparison. A column with a game version of its own is `<unit>@<version folder>` (`armpw@test-31450-6562fb1`); without it the column shows the version chosen at the top. The address is kept up to date with every change (without a new entry in the history of the browser). An older link with only the units shows them without Ref and + Scav, in the view the browser remembers.
 
 **Layout:** the heading "Compare" with a row of buttons below it: **Undo**, **Redo**, **Table view** / **Graphic view**, the star (**Favorite**), **+ Scav**, **Clear all units**. Below that the columns on the left and the unit selection at the right edge. Columns and selection fill the height of the window, so that the page needs no scrollbar and the footer stays at the bottom: the pictures of the units shrink (60 to 300 px) when the values would not fit, the selection takes the rest.
 
@@ -117,6 +123,11 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 
 **Search (selection and catalog):** a text finds the words of the name and the description at the start of a word (`pawn` finds Pawn and Pawn Launcher, not `armrespawn`). `<armpw>` (the closing bracket may be left out) finds a part of the code name; the field turns green then. The placeholder tells both.
 
+**Game versions** (only with more than one version in `versions.json`; base version and differences: `SPECIFICATION.md`, section 3.5):
+- Every column has a list of the game versions in its header (each with its date; "base" = the base version, "changed" = the unit differs from the base in that version; only the versions that have the unit). A column with a version of its own keeps it when the version at the top is changed; a Scavenger column of **+ Scav** shows the version of its unit.
+- **Versions** (button in the row at the top) is the version comparison: the unit selection shows only the units that differ from the base in some version (the number on a unit: in how many versions). A click adds two columns: the unit in the base version and in the version in which it differs (the one chosen at the top if it differs there, else the newest one); a unit that the base does not have comes as one column. The values that differ from the same unit in the base version are marked (gold label with a dot, gold background in the table), and the bars and values of every column are coloured against **its own unit in the base version** (red worse, green better, an equal value stays uncoloured), not against the Ref column. The counterparts are not shown in this mode.
+- The catalog marks the units of the version shown that differ from the base ("changed").
+
 **Keyboard:** everything can be reached with Tab; what has the focus gets a gold frame (not after a mouse click). Cards and rows of the catalog are toggle buttons (Enter or Space marks or unmarks the unit, the focus stays on it). The grip of a column moves it with the arrow keys left and right (an Undo step like a drag). Escape closes the favorites. Ctrl+Z / Ctrl+Y: Undo / Redo.
 
 ## 5. Running it
@@ -132,7 +143,7 @@ The server listens only on `127.0.0.1` and serves the folder `website/` (the pag
 
 The site is published from the folder `website/` by the workflow `.github/workflows/pages.yml`: every push to `main` that changes `website/` (or the workflow) publishes it again, "Run workflow" in the Actions tab does it by hand. The address is `https://ralf1108.github.io/BARUnitComparer/`.
 
-- **Tests first:** the job `test` runs `tests/test_data.py` (the rules of `reduce_units.py`; `versions.json`, the reduced files, a picture for every unit with lower case names, `counterparts.json`, `counters.json`) and `tests/website_smoke.mjs` (the page in a headless Chrome: catalog, search, compare, Undo, table, + Scav, Ref, the link, a favorite with + Scav and Ref, the keyboard, pictures, no errors). Only if both pass the site is published. Locally: `python -m unittest discover -s tests -v` and `node tests/website_smoke.mjs` (after `npm install` in `render_unit/`; own port, the favorites of `localhost:8000` stay untouched).
+- **Tests first:** the job `test` runs `tests/test_data.py` (the rules of `reduce_units.py`; `versions.json` (one base version, dates), the reduced file, the diff files (only units that differ; their pictures and icons), a picture for every unit with lower case names, `counterparts.json`, `counters.json`) and `tests/website_smoke.mjs` (the page in a headless Chrome: catalog, search, compare, Undo, table, + Scav, Ref, the link, a favorite with + Scav and Ref, the version comparison, the keyboard, pictures, no errors). Only if both pass the site is published. Locally: `python -m unittest discover -s tests -v` and `node tests/website_smoke.mjs` (after `npm install` in `render_unit/`; own port, the favorites of `localhost:8000` stay untouched).
 - **One time:** in the repository **Settings > Pages > Build and deployment > Source: GitHub Actions**. Until that is done the workflow stops at the step `configure-pages`; after switching it on, "Run workflow" starts it.
 - The workflow publishes `website/` without what the page does not read: the full `units-<version>.json` (15.7 MB per game version) and the local server (`serve.py`, `serve.bat`). The published site has 27 MB and about 2000 files (the limit of Pages is 1 GB).
 - It needs no build: the page is static, its paths are relative (`assets/...`) and its addresses use `#`, so it works in a sub folder as well. This was tested with a plain static server under `/BARUnitComparer/`, with the full JSON removed as the workflow does, and with the exact upper and lower case of all 1663 picture and 329 icon names (Pages is case sensitive, Windows is not; all names are lower case). The deployment itself can only be tested on GitHub.
@@ -145,6 +156,5 @@ The site is published from the folder `website/` by the workflow `.github/workfl
 
 - The BAR developers still have to be asked whether the published pictures are in order (section 6).
 - `counters.json` has only 25 units, as many as the counter charts name; the charts show only Armada and Cortex.
-- Showing the differences between two game versions (`SPECIFICATION.md`, section 3.5) is not built; the data of several versions is already loaded per version (section 1).
 - A 3D view of the model is not built (`SPECIFICATION.md`, section 4.2).
 - `counterparts.json` comes from the names and the unit pages; groups can be larger than wanted (several units of one faction in one group, the exporter lists them). The groups of beyondallreason.info win over corrections by hand (`SPECIFICATION.md`, section 3.2).

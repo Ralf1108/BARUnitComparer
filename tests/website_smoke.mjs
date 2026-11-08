@@ -5,6 +5,7 @@
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import zlib from 'node:zlib';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -92,6 +93,37 @@ try {
   await page.click('[data-a="fav-load"] >> nth=0');
   await page.waitForTimeout(300);
   check(/^#\/compare\/armpw,corak\?/.test(await hash()) && !/scav=1|ref=/.test(await hash()), 'an old favorite loads without + Scav and Ref', await hash());
+
+  // game versions (only with more than one in versions.json): the selection shows the changed units, a click puts the base and the changed version side by side
+  const versions = JSON.parse(fs.readFileSync(path.join(root, 'website', 'assets', 'versions.json'), 'utf8')).versions;
+  const changed = versions.filter(v => v.changed).length;
+  if (versions.length > 1) {
+    await page.goto(base + '#/compare/armpw?view=graphic');
+    await page.waitForSelector('.c-head');
+    await page.click('[data-a="versions"]');
+    check(/versions=1/.test(await hash()), 'Versions: the link has versions=1', await hash());
+    const picks = await page.locator('[data-a="pick-add"]').count();
+    if (changed) {
+      await page.fill('[data-input="pick-search"]', '<a');   // all factions and categories: still only the changed units
+      const n = await page.locator('[data-a="pick-add"]').count();
+      check(n > 0 && (await page.locator('.pick .pick-ver').count()) === n, 'Versions: the selection shows only units that changed', `${n} / ${picks}`);
+      // a unit that the base has too (a new unit comes as one column)
+      const read = v => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(root, 'website', 'assets', v.dir, 'data', v.file))).toString());
+      const baseUnits = read(versions.find(v => v.base)).units, diff = read(versions.find(v => v.changed));
+      const values = u => JSON.stringify(Object.entries(u).filter(([k]) => !['icon', 'ownPicture', 'ownIcon'].includes(k)));
+      const unit = Object.keys(diff.units).find(n => baseUnits[n] && values(diff.units[n]) !== values(baseUnits[n]) && !n.endsWith('_scav'));   // its values changed
+      await page.fill('[data-input="pick-search"]', `<${unit}>`);
+      await page.click(`[data-a="pick-add"][data-v="${unit}"]`);
+      await page.waitForTimeout(300);
+      const cols = await page.$$eval('select.c-ver', s => s.map(x => x.value));
+      check(cols.length >= 3 && new Set(cols.slice(-2)).size === 2, 'Versions: a click adds the base and the changed version', cols.join(', '));
+      check(new RegExp(`${unit}@`).test(await hash()), 'Versions: the link has the versions of the columns', await hash());
+      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0, 'Versions: the changed version is coloured against the base', '');
+      const baseDir = versions.find(v => v.base).dir;   // the last column (the changed version) back to the base version
+      await page.selectOption('select.c-ver >> nth=-1', baseDir);
+      check((await hash()).startsWith(`#/compare/armpw,${unit}@${baseDir},${unit}@${baseDir}?`), 'a column can show another game version', await hash());
+    }
+  }
 
   // keyboard: a column moves with the arrow keys
   await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
