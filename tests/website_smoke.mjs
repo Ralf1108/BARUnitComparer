@@ -2,6 +2,7 @@
 // undo, table view, + Scav, Ref, the link and the keyboard. Exit code 1 if a check fails or the page throws an error.
 //   node tests/website_smoke.mjs            (needs: npm install in render_unit/ for playwright-core; Python; Edge or Chrome, or the environment variable BROWSER)
 // Run by the workflow .github/workflows/pages.yml before the site is published. Uses its own port: the favorites of the normal page (localhost:8000) are not touched.
+// The environment variable BARUNIT_SITE: another website folder (with its own assets/, e.g. to try a chain of game versions).
 import { createRequire } from 'node:module';
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
@@ -18,7 +19,8 @@ if (!browserExe) { console.error('ERROR: no Edge or Chrome found (set BROWSER)')
 
 const port = 20000 + Math.floor(Math.random() * 20000);
 const python = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3');
-const server = spawn(python, [path.join(root, 'website', 'serve.py'), '--port', String(port), '--no-browser'], { stdio: 'ignore' });
+const site = process.env.BARUNIT_SITE || path.join(root, 'website');
+const server = spawn(python, [path.join(site, 'serve.py'), '--port', String(port), '--no-browser'], { stdio: 'ignore' });
 const base = `http://127.0.0.1:${port}/`;
 
 let failed = 0;
@@ -94,8 +96,8 @@ try {
   await page.waitForTimeout(300);
   check(/^#\/compare\/armpw,corak\?/.test(await hash()) && !/scav=1|ref=/.test(await hash()), 'an old favorite loads without + Scav and Ref', await hash());
 
-  // game versions (only with more than one in versions.json): the selection shows the changed units, a click puts the base and the changed version side by side
-  const versions = JSON.parse(fs.readFileSync(path.join(root, 'website', 'assets', 'versions.json'), 'utf8')).versions;
+  // game versions (only with more than one in versions.json): the selection shows the changed units, a click puts the version before and the changed version side by side
+  const versions = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8')).versions;
   const changed = versions.filter(v => v.changed).length;
   if (versions.length > 1) {
     await page.goto(base + '#/compare/armpw?view=graphic');
@@ -107,21 +109,23 @@ try {
       await page.fill('[data-input="pick-search"]', '<a');   // all factions and categories: still only the changed units
       const n = await page.locator('[data-a="pick-add"]').count();
       check(n > 0 && (await page.locator('.pick .pick-ver').count()) === n, 'Versions: the selection shows only units that changed', `${n} / ${picks}`);
-      // a unit that the base has too (a new unit comes as one column)
-      const read = v => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(root, 'website', 'assets', v.dir, 'data', v.file))).toString());
-      const baseUnits = read(versions.find(v => v.base)).units, diff = read(versions.find(v => v.changed));
+      // a unit that the base has too, changed in the first version after the base (a new unit comes as one column)
+      const read = v => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(site, 'assets', v.dir, 'data', v.file))).toString());
+      const baseUnits = read(versions[0]).units, diff = read(versions[1]), later = versions.slice(2).map(v => read(v).units);
       const values = u => JSON.stringify(Object.entries(u).filter(([k]) => !['icon', 'ownPicture', 'ownIcon'].includes(k)));
-      const unit = Object.keys(diff.units).find(n => baseUnits[n] && values(diff.units[n]) !== values(baseUnits[n]) && !n.endsWith('_scav'));   // its values changed
+      const unit = Object.keys(diff.units).find(n => baseUnits[n] && values(diff.units[n]) !== values(baseUnits[n]) && !n.endsWith('_scav')
+        && later.every(units => !units[n]));   // its values changed, and only there: the click compares that version with the base
       await page.fill('[data-input="pick-search"]', `<${unit}>`);
       await page.click(`[data-a="pick-add"][data-v="${unit}"]`);
       await page.waitForTimeout(300);
       const cols = await page.$$eval('select.c-ver', s => s.map(x => x.value));
-      check(cols.length >= 3 && new Set(cols.slice(-2)).size === 2, 'Versions: a click adds the base and the changed version', cols.join(', '));
+      const at = dir => versions.findIndex(v => v.dir === dir);
+      check(cols.length >= 3 && at(cols.at(-2)) === at(cols.at(-1)) - 1, 'Versions: a click adds the changed version and the version before it', cols.join(', '));
       check(new RegExp(`${unit}@`).test(await hash()), 'Versions: the link has the versions of the columns', await hash());
-      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0, 'Versions: the changed version is coloured against the base', '');
+      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0, 'Versions: the changed version is coloured against the version before', '');
       const baseDir = versions.find(v => v.base).dir;   // the last column (the changed version) back to the base version
       await page.selectOption('select.c-ver >> nth=-1', baseDir);
-      check((await hash()).startsWith(`#/compare/armpw,${unit}@${baseDir},${unit}@${baseDir}?`), 'a column can show another game version', await hash());
+      check(new RegExp(`^#/compare/armpw,${unit}@[^,]+,${unit}@${baseDir}\\?`).test(await hash()), 'a column can show another game version', await hash());
     }
   }
 

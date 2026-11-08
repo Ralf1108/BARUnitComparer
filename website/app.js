@@ -57,14 +57,14 @@ function save(key, value) { try { localStorage.setItem('barunit.' + key, value);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const factionName = id => (FACTIONS.find(f => f.id === id) || { name: id }).name;
 const byTechAndCost = (a, b) => state.units[a].tech - state.units[b].tech || state.units[a].metal - state.units[b].metal || state.units[a].name.localeCompare(state.units[b].name);
-// where the picture and the icon of a unit are: in the folder of its version if they differ from the base version (ownPicture, ownIcon), else in the base's folder
-const folderOf = (u, own) => `${DATA}${u && u[own] ? u.at : state.baseDir}/`;
-const pictureTag = (unit, cls = 'pic', u = state.units[unit]) => `<img class="${cls}" loading="lazy" alt="" data-unit="${esc(unit)}" data-dir="${folderOf(u, 'ownPicture')}" src="${folderOf(u, 'ownPicture')}images/${esc(unit)}.${PICTURE_TYPES[0]}">`;
+// where the picture ('pic') and the icon ('iconAt') of a unit are: the folder of the version in which they last changed (loadVersions)
+const folderOf = (u, key) => `${DATA}${(u && u[key]) || state.baseDir}/`;
+const pictureTag = (unit, cls = 'pic', u = state.units[unit]) => `<img class="${cls}" loading="lazy" alt="" data-unit="${esc(unit)}" data-dir="${folderOf(u, 'pic')}" src="${folderOf(u, 'pic')}images/${esc(unit)}.${PICTURE_TYPES[0]}">`;
 // a card or row of the catalog is a toggle button: reachable with Tab, Enter or Space presses it (the keydown handler below)
 const pressable = on => `tabindex="0" role="button" aria-pressed="${on}"`;
 // the grip of a column: dragged with the mouse, or focused and moved with the arrow keys left / right
 const GRIP = '<span class="grip" draggable="true" tabindex="0" role="button" aria-label="Move this column (arrow keys left and right)" title="Drag to move this column left or right (or focus it and use the arrow keys)">&#8942;&#8942;</span>';
-const iconTag = u => u.icon ? `<img class="role" loading="lazy" alt="" src="${folderOf(u, 'ownIcon')}images/icons/${esc(u.icon)}">` : '';
+const iconTag = u => u.icon ? `<img class="role" loading="lazy" alt="" src="${folderOf(u, 'iconAt')}images/icons/${esc(u.icon)}">` : '';
 
 // a missing picture: the next format; after the last one all formats once more a moment later (a failed request is not always a missing file); a missing icon: nothing.
 // Error events do not bubble, so they are caught on the way down.
@@ -96,35 +96,47 @@ async function loadCompressedJson(name) {
   return JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
 }
 
-// The game versions (versions.json, oldest first): the BASE version has all units (assets/<base>/data/*.reduced.json.gz, all pictures in assets/<base>/images/);
-// every other version only what differs from the base (assets/<version>/data/*.diff.json.gz: the changed and the new units, the names of the units that are gone,
-// and only the pictures and icons that differ). All files are loaded at the start (a diff file is a few KB).
+// The game versions (versions.json, oldest first): the BASE version (the first one) has all units (assets/<base>/data/*.reduced.json.gz, all pictures in
+// assets/<base>/images/); every later version only what changed against the version BEFORE it (assets/<version>/data/*.diff.json.gz: the changed and the new units,
+// the names of the units that are gone, and only the pictures and icons that changed). A version in which nothing changed is not listed. All files are loaded at the
+// start (a diff file is a few KB); the units of a version are the base with the changes of every version up to it.
 const versionOf = dir => state.versions.find(v => v.dir === dir);
+const indexOf = dir => state.versions.findIndex(v => v.dir === dir);
+const versionBefore = dir => (state.versions[indexOf(dir) - 1] || {}).dir;
 async function loadVersions() {
-  state.versions = (await loadJson('versions.json')).versions;
-  const base = state.versions.find(v => v.base) || state.versions[0];
-  state.baseDir = base.dir;
-  await Promise.all(state.versions.map(async v => {
-    const data = await loadCompressedJson(`${v.dir}/data/${v.file}`);
-    if (v.dir === base.dir) { state.merged[v.dir] = data.units; return; }
-    for (const u of Object.values(data.units)) u.at = v.dir;   // the folder of its own picture and icon
+  const listed = (await loadJson('versions.json')).versions;
+  const first = Math.max(0, listed.findIndex(v => v.base));
+  state.versions = listed.slice(first);   // nothing older than the base
+  state.baseDir = state.versions[0].dir;
+  const files = await Promise.all(state.versions.map(v => loadCompressedJson(`${v.dir}/data/${v.file}`)));
+  let before = null, icons = {};   // the units of the version before; {icon file: folder} in that version
+  state.versions.forEach((v, i) => {
+    const data = files[i];
+    if (!before) {
+      for (const u of Object.values(data.units)) { u.pic = u.iconAt = v.dir; if (u.icon) icons[u.icon] = v.dir; }
+      before = state.merged[v.dir] = data.units;
+      return;
+    }
+    const all = { ...before }, next = { ...icons };
+    for (const [n, u] of Object.entries(data.units)) {
+      u.pic = u.ownPicture || !before[n] ? v.dir : before[n].pic;   // its picture changed (or it is new): in this version's folder, else where it was
+      u.iconAt = u.ownIcon ? v.dir : icons[u.icon] || state.baseDir;
+      if (u.ownIcon) next[u.icon] = v.dir;
+      all[n] = u;
+    }
+    for (const n of data.removed || []) delete all[n];
     state.diffs[v.dir] = { units: data.units, removed: new Set(data.removed || []) };
-  }));
+    before = state.merged[v.dir] = all;
+    icons = next;
+  });
 }
-// all units of a version: the base with the changes of that version
-function unitsOf(dir = state.versionDir) {
-  if (!state.merged[dir]) {
-    const d = state.diffs[dir], all = { ...state.merged[state.baseDir], ...d.units };
-    for (const n of d.removed) delete all[n];
-    state.merged[dir] = all;
-  }
-  return state.merged[dir];
-}
-// does the unit differ from the base in this version
+// all units of a version
+const unitsOf = (dir = state.versionDir) => state.merged[dir];
+// did the unit change in this version (against the version before)
 const changedIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit]);
-// the versions in which the unit differs from the base
+// the versions in which the unit changed
 const changedVersions = unit => state.versions.filter(v => changedIn(v.dir, unit));
-let changedUnits = null;   // every unit that differs from the base in some version
+let changedUnits = null;   // every unit that changed in some version
 const allChanged = () => changedUnits || (changedUnits = new Set(Object.values(state.diffs).flatMap(d => Object.keys(d.units))));
 function selectVersion(dir) {
   state.versionDir = dir;
@@ -224,7 +236,7 @@ function renderNav() {
     <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   document.getElementById('version').innerHTML = state.versions.length > 1
-    ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the version the others are compared with">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.dir === state.versionDir ? 'selected' : ''}>${esc(versionLabel(v) + note(v))}</option>`).join('')}</select>`
+    ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.dir === state.versionDir ? 'selected' : ''}>${esc(versionLabel(v) + note(v))}</option>`).join('')}</select>`
     : `<span class="v-label">Game version</span> ${esc(versionLabel(versionOf(state.versionDir)))}`;
 }
 
@@ -273,8 +285,8 @@ function renderCatalogUnits() {
       ${changedTag(n)}<div class="name">${esc(u.name)}</div><div class="desc">${esc(u.description)}</div></div>`;
   }).join('')}</div>`;
 }
-// a unit of the version shown that differs from the base version
-const changedTag = n => changedIn(state.versionDir, n) ? `<span class="chg" title="Differs from the base version ${esc(shortVersion(state.baseDir))} (values or picture)">changed</span>` : '';
+// a unit that changed in the version shown (against the version before)
+const changedTag = n => changedIn(state.versionDir, n) ? `<span class="chg" title="Changed against the version before, ${esc(shortVersion(versionBefore(state.versionDir)))} (values or picture)">changed</span>` : '';
 
 function renderTray() {
   const units = chosenUnits(), tray = document.getElementById('tray');
@@ -295,7 +307,7 @@ function matchUnit(n, u, q) {
   return words.startsWith(q) || words.includes(' ' + q) || words.includes('(' + q) || words.includes('-' + q) || words.includes('/' + q);
 }
 
-// the units of the selection: in the version comparison only the units that differ from the base in some version (also the ones that are gone in the version shown)
+// the units of the selection: in the version comparison only the units that changed in some version (also the ones that are gone in the version shown)
 function pickUnits() {
   const p = state.pick, search = p.search.trim().toLowerCase();
   const pool = state.versionsMode ? [...allChanged()] : Object.keys(state.units);
@@ -321,7 +333,7 @@ function renderCompare() {
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${state.versions.length > 1 ? ` <button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Compare game versions: the unit selection shows only the units that differ from the base version ${esc(versionLabel(versionOf(state.baseDir)))}; a click puts the base version and the changed version side by side, the changed values are marked. Every column can show another version (the list in its header).">Versions</button>` : ''} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
+    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${state.versions.length > 1 ? ` <button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Compare game versions: the unit selection shows only the units that changed in some game version; a click puts the version in which the unit changed and the version before it side by side, the changed values are marked. Every column can show another version (the list in its header).">Versions</button>` : ''} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -383,19 +395,20 @@ function versionSelect(c) {
   const own = c.version || state.versionDir;
   if (c.scavOf) return `<span class="c-ver">${esc(shortVersion(own))}</span>`;
   const mark = v => v.dir === state.baseDir ? ' · base' : changedIn(v.dir, c.unit) ? ' · changed' : '';
-  return `<select class="c-ver" data-change="col-version" title="The game version of this column (base: the version the others are compared with; changed: the unit differs from the base in that version)">${
+  return `<select class="c-ver" data-change="col-version" title="The game version of this column (base: the first version; changed: the unit changed in that version against the one before)">${
     state.versions.filter(v => unitsOf(v.dir)[c.unit]).map(v => `<option value="${esc(v.dir)}" ${v.dir === own ? 'selected' : ''}>${esc(versionLabel(v) + mark(v))}</option>`).join('')}</select>`;
 }
 
-// the version comparison: a value is marked if it differs from the same unit in the base version (or, without such a column, in the first column of the unit)
+// the version comparison: a value is marked if it differs from the same unit in the nearest older version that is shown (the anchor of the column)
 let shown = [];   // the columns of the last renderCompare
 const valueOf = (c, key) => key === 'weapons' ? unitOf(c).weapons.join(', ') : unitOf(c)[key];
-const anchorOf = c => shown.find(o => o.unit === c.unit && (o.version || state.versionDir) === state.baseDir) || shown.find(o => o.unit === c.unit);
-const cellChanged = (c, s) => state.versionsMode && valueOf(c, s.key) !== valueOf(anchorOf(c), s.key);
+const verOf = c => indexOf(c.version || state.versionDir);
+const anchorOf = c => shown.filter(o => o.unit === c.unit && verOf(o) < verOf(c)).sort((a, b) => verOf(b) - verOf(a))[0] || null;
+const cellChanged = (c, s) => { const a = state.versionsMode && anchorOf(c); return !!a && valueOf(c, s.key) !== valueOf(a, s.key); };
 const differs = (columns, s) => columns.some(c => cellChanged(c, s));
-// what the bars and values of a column are coloured against: the Ref column; in the version comparison the same unit in the base version (each unit against itself)
+// what the bars and values of a column are coloured against: the Ref column; in the version comparison the same unit in the nearest older version shown (each unit against itself)
 function referenceFor(c, reference) {
-  if (state.versionsMode) { const a = anchorOf(c); return a && a !== c ? unitOf(a) : null; }
+  if (state.versionsMode) { const a = anchorOf(c); return a ? unitOf(a) : null; }
   return reference && !c.ref ? unitOf(reference) : null;
 }
 
@@ -444,11 +457,11 @@ function chooserHtml() {
 
 function pickerHtml() {
   const list = pickUnits();
-  if (!list.length) return `<p class="empty">${state.versionsMode && !allChanged().size ? 'No unit differs from the base version in another game version.' : 'No units here.'}</p>`;
+  if (!list.length) return `<p class="empty">${state.versionsMode && !allChanged().size ? 'No unit changed in a later game version.' : 'No units here.'}</p>`;
   return list.map(n => {
     const u = pickUnit(n), on = state.versionsMode ? state.columns.some(c => c.unit === n) : isShown(n);
     const versions = state.versionsMode ? changedVersions(n) : [];
-    const what = state.versionsMode ? `differs from the base in ${versions.map(v => shortVersion(v.dir)).join(', ')} - ${on ? 'is already in the comparison' : 'add the base version and the changed version'}` : (on ? 'is already in the comparison' : 'add a column');
+    const what = state.versionsMode ? `changed in ${versions.map(v => shortVersion(v.dir)).join(', ')} - ${on ? 'is already in the comparison' : 'add the version before and the changed version'}` : (on ? 'is already in the comparison' : 'add a column');
     return `<button class="pick ${on ? 'chosen' : ''}" data-a="pick-add" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)} - ${esc(what)}"><span class="tier t${u.tech}">T${u.tech}</span>${versions.length ? `<span class="pick-ver">${versions.length}</span>` : ''}${pictureTag(n, '', u)}${esc(u.name)}</button>`;
   }).join('');
 }
@@ -486,7 +499,7 @@ function verdictOf(s, v, ref) {
 }
 
 function statHtml(s, u, max, ref, changed) {
-  const cls = `stat${changed ? ' changed' : ''}`, label = `<label${changed ? ' title="Differs from the base version"' : ''}>${s.label}</label>`;
+  const cls = `stat${changed ? ' changed' : ''}`, label = `<label${changed ? ' title="Changed against the older version"' : ''}>${s.label}</label>`;
   if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons">${esc(u.weapons.join(', '))}</div></div>`;
   const v = u[s.key];
   if (!v) return `<div class="${cls}">${label}<div></div></div>`;
@@ -514,14 +527,15 @@ function step(from, to) {
 
 function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
 
-// the version comparison: a unit from the selection comes as two columns, the base version and the version in which it differs (the game version chosen at the top if
-// it differs there, else the newest one in which it differs). A unit that the base does not have comes once. false: it is there already
+// the version comparison: a unit from the selection comes as two columns, the version in which it changed (the game version chosen at the top if it changed there,
+// else the newest one in which it changed) and the version before it. A unit that is new in that version comes once. false: it is there already
 function addVersions(unit) {
   if (state.columns.some(c => c.unit === unit)) return false;
   const changed = changedVersions(unit);
   const other = changed.some(v => v.dir === state.versionDir) ? state.versionDir : changed.length ? changed[changed.length - 1].dir : state.versionDir;
   remember();
-  const pair = [unitsOf(state.baseDir)[unit] && newColumn(unit, state.baseDir), unitsOf(other)[unit] && other !== state.baseDir && newColumn(unit, other)].filter(Boolean);
+  const before = versionBefore(other);
+  const pair = [before && unitsOf(before)[unit] && newColumn(unit, before), unitsOf(other)[unit] && newColumn(unit, other)].filter(Boolean);
   state.columns.push(...pair);
   return true;
 }
