@@ -270,7 +270,7 @@ def write_versions(out):
             v['changed'] = len(d['units'])
         versions.append(v)
     versions.sort(key=lambda v: natural(v['version']))
-    old.write_text(json.dumps({'versions': versions}, indent=1) + '\n', encoding='utf-8')
+    old.write_text(json.dumps({'versions': versions}, indent=1) + '\n', encoding='utf-8', newline='\n')
 
 
 def main():
