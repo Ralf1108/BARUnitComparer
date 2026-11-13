@@ -14,7 +14,9 @@ Started by "update game versions.bat".
      If the engine differs from the one of the version before, that version is exported again with the new engine first (control) and the diff is made against it.
    - a failure stops the run (nothing is skipped); started again, it goes on at checkedUpTo. Only versions named in broken_versions.json (the game itself does
      not start with them) are skipped, with the reason.
+   (exporter/engines.json is brought up to date first: make_engine_table.py, from the history of the launcher.)
 3. The full export of a version (15 MB) is removed after the version is done (--keep-exports keeps it).
+4. After exported versions: counterparts.json and counters.json are refreshed from beyondallreason.info (export_counterparts.py, export_counters.py; --no-lists skips it).
 A folder that holds another chain (another base) is an error: use a new --out.
 --list: only show what is to be done. --max N: only the first N new versions.
 """
@@ -24,7 +26,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'shared'))
 sys.path.insert(0, str(ROOT / 'exporter'))
-import bar_common, git_history, reduce_units  # noqa: E402
+import bar_common, git_history, make_engine_table, reduce_units  # noqa: E402
 
 RAPID = 'https://repos-cdn.beyondallreason.dev'
 VERSIONS = RAPID + '/byar/versions.gz'
@@ -164,6 +166,18 @@ def drop_unused(out, version):
         shutil.rmtree(folder)
 
 
+def refresh_lists(out):
+    """The counterparts (export_counterparts.py) and the counters (export_counters.py) from beyondallreason.info for the units of the newest version; both read the unit
+    data of website/assets, so only for that folder. A failure (no network, a changed page) is a warning: the rest is done."""
+    if Path(out).resolve() != bar_common.ASSETS.resolve():
+        print('note: counterparts.json and counters.json are only refreshed for website/assets (run exporter/export_counterparts.py and export_counters.py yourself)')
+        return
+    for script in ('export_counterparts.py', 'export_counters.py'):
+        r = subprocess.run([sys.executable, str(ROOT / 'exporter' / script)])
+        if r.returncode != 0:
+            print(f'WARNING: {script} failed (exit code {r.returncode}); run it again later.')
+
+
 def plan(chain, done, repo, prefilter):
     """[(number, version, commit, kind)] of the versions after `done`. kind: 'base' (the first version of the chain when nothing is done), 'values' or 'look'
     (Git shows a change: to be exported), 'none' (no change of the files: only checkedUpTo moves on). Without the prefilter every version is 'values'."""
@@ -189,6 +203,7 @@ def main():
     ap.add_argument('--format', default='avif', help='picture format (as export_and_render_all_units.ps1 -Format)')
     ap.add_argument('--cache', default=str(ROOT / 'cache'), help='the cache of the tools: the clone of the game repository and the engines (default cache/)')
     ap.add_argument('--no-prefilter', action='store_true', help='export every version, also the ones for which Git shows no change of the units or the look')
+    ap.add_argument('--no-lists', action='store_true', help='do not refresh counterparts.json and counters.json from beyondallreason.info at the end')
     ap.add_argument('--keep-exports', action='store_true', help='keep the full export (15 MB) of every version')
     a = ap.parse_args()
     out, cache = Path(a.out), Path(a.cache)
@@ -215,7 +230,9 @@ def main():
         return
     data = bar_common.find_data_dir(a.data)
     prd = pr_downloader(data, a.prd)
-    table = json.loads((ROOT / 'exporter' / 'engines.json').read_text(encoding='utf-8'))
+    table, changed = make_engine_table.refresh(cache / 'chobby.git')   # a new standard engine of the launcher is picked up
+    if changed:
+        print(f'note: exporter/engines.json changed (a new standard engine): {table[-1]["engine"]} from {table[-1]["from"]}')
     names = [v for _, v, _ in chain]
     broken = json.loads((ROOT / 'exporter' / 'broken_versions.json').read_text(encoding='utf-8'))
     for i, (n, version, commit, kind) in enumerate(steps, 1):
@@ -250,6 +267,8 @@ def main():
         if not a.keep_exports:
             (out / bar_common.version_name(version) / 'data' / f'units-{bar_common.version_name(version)}.json').unlink(missing_ok=True)
         drop_unused(out, version)
+    if not a.no_lists and any(s[3] != 'none' for s in steps):   # a version was exported: the newest units may have new counterparts and counters
+        refresh_lists(out)
     print('done: ' + ', '.join(f'{v["version"]} ({v.get("changed", "base")})' for v in json.loads(listing.read_text(encoding='utf-8'))['versions']))
 
 

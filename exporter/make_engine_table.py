@@ -35,11 +35,9 @@ def table(repo, since=START):
     return out
 
 
-def main():
-    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--cache', default=str(ROOT / 'cache' / 'chobby.git'))
-    a = ap.parse_args()
-    repo = Path(a.cache)
+def refresh(cache=None):
+    """Clone or update the launcher repository and write exporter/engines.json. Returns the table; True as second value if the file changed."""
+    repo = Path(cache or ROOT / 'cache' / 'chobby.git')
     if repo.exists():
         git(repo, 'fetch', '--quiet', 'origin', '+HEAD:refs/heads/main')
     else:
@@ -47,8 +45,19 @@ def main():
         if subprocess.run(['git', 'clone', '--bare', '--filter=blob:none', '--single-branch', REPO, str(repo)]).returncode != 0:
             sys.exit('ERROR: the clone of BYAR-Chobby failed.')
     t = table(repo)
-    (ROOT / 'exporter' / 'engines.json').write_text(json.dumps(t, indent=1) + '\n', encoding='utf-8', newline='\n')
-    for e in t:
+    target = ROOT / 'exporter' / 'engines.json'
+    text = json.dumps(t, indent=1) + '\n'
+    changed = not target.exists() or target.read_text(encoding='utf-8') != text
+    if changed:
+        target.write_text(text, encoding='utf-8', newline='\n')
+    return t, changed
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
+    ap.add_argument('--cache', default=str(ROOT / 'cache' / 'chobby.git'))
+    a = ap.parse_args()
+    for e in refresh(a.cache)[0]:
         print(e['from'], e['engine'])
 
 
