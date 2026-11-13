@@ -5,6 +5,7 @@ The website of the project: a unit catalog and a comparison of any number of uni
 | Part | What it is |
 |---|---|
 | `website/index.html`, `style.css`, `app.js` | the page: plain HTML, CSS and JavaScript, no build step |
+| `website/fonts/`, `favicon.svg`, `preview.png` | the font Poppins (self-hosted), the icon of the tab, the picture for link previews (Open Graph tags in `index.html`) |
 | `website/serve.py`, `serve.bat` | small local web server for testing (a page opened from a file cannot load its data) |
 
 ## 1. Data
@@ -140,7 +141,7 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 website\serve.bat                    (or python website/serve.py [--port 8000]; opens http://localhost:8000/)
 ```
 
-The server listens only on `127.0.0.1` and serves the folder `website/` (the page takes its data from `assets/` next to it). It keeps its connections open (HTTP/1.1): one connection per picture used up the buffers of Windows on pages with hundreds of pictures. The font Poppins comes from Google Fonts; without internet the page uses a system font.
+The server listens only on `127.0.0.1` and serves the folder `website/` (the page takes its data from `assets/` next to it). It keeps its connections open (HTTP/1.1): one connection per picture used up the buffers of Windows on pages with hundreds of pictures. The font Poppins is part of the site (`website/fonts/`, latin subset, SIL Open Font License 1.1): the page loads nothing from other servers.
 
 ## 6. Publishing with GitHub Pages
 

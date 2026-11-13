@@ -1,10 +1,23 @@
 # BARUnitComparer
 
+[![Tests and publish](https://github.com/Ralf1108/BARUnitComparer/actions/workflows/pages.yml/badge.svg)](https://github.com/Ralf1108/BARUnitComparer/actions/workflows/pages.yml)
+
 ## 👉 [**Open the website: https://ralf1108.github.io/BARUnitComparer/**](https://ralf1108.github.io/BARUnitComparer/) 👈
 
 Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.info/) (BAR): all units of Armada, Cortex, Legion, Scavengers and Raptors, with pictures and values. An unofficial fan project.
 
 [![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/)
+
+## How it works
+
+```
+installed game ──► exporter ──► unit data (JSON) ──┐
+  (BAR)            (Lua, headless)                  ├──► website/assets/ ──► the website (GitHub Pages)
+               └─► renderer ──► unit pictures ──────┘
+                   (3D models, Python + browser)
+```
+
+You do not need the game to **use** the site: open the link above. You only need the game (and the tools below) to **make new data**, for example for a new game version. The finished data is part of this repository (`website/assets/`).
 
 ## Contents
 
@@ -26,7 +39,13 @@ Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.
 - Exporter: the data of all units as JSON.
 - Renderer: pictures of the units from the game's own 3D models.
 
-## Quick start
+## Try it locally (without the game)
+
+1. Install [Python 3](https://www.python.org/downloads/).
+2. Download this repository (green **Code** button, *Download ZIP*) and unpack it.
+3. Double click `website/serve.bat` (or run `python website/serve.py`). The browser opens `http://localhost:8000/`.
+
+## Make new data (needs the game)
 
 Install BAR and start it once (so that a game has been loaded), then double click:
 
@@ -37,6 +56,17 @@ Install BAR and start it once (so that a game has been loaded), then double clic
 | `website/serve.bat` | starts the local web server and opens the website |
 
 All tools, their parameters and requirements: [TOOLS.md](TOOLS.md).
+
+## Folders
+
+| Folder | Content |
+|---|---|
+| `website/` | the page (HTML, CSS, JavaScript) and its data in `assets/` |
+| `exporter/` | gets the unit data out of the game |
+| `render_unit/` | makes the pictures from the 3D models |
+| `shared/` | code used by several tools |
+| `tests/` | automatic tests (run by GitHub on every push) |
+| `docs/` | technical documents |
 
 ## Documentation
 
