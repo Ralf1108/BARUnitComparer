@@ -132,15 +132,18 @@ async function loadVersions() {
   });
   state.lastUnit = {};   // every unit that ever was there, as in the newest version that has it (the selection of the version comparison also offers units that are gone)
   for (const v of state.versions) Object.assign(state.lastUnit, state.merged[v.dir]);
+  // unit -> its versions (folder names, oldest first): the first one that has it (the base, or the version it is new in) and every one in which it changed
+  state.unitVersions = {};
+  state.versions.forEach((v, i) => { for (const n of Object.keys(i ? state.diffs[v.dir].units : state.merged[v.dir])) (state.unitVersions[n] = state.unitVersions[n] || []).push(v.dir); });
 }
 // all units of a version
 const unitsOf = (dir = state.versionDir) => state.merged[dir];
 // did the unit change in this version (against the version before)
 const changedIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit]);
-// the versions in which the unit changed
-const changedVersions = unit => state.versions.filter(v => changedIn(v.dir, unit));
-let changedUnits = null;   // every unit that changed in some version
-const allChanged = () => changedUnits || (changedUnits = new Set(Object.values(state.diffs).flatMap(d => Object.keys(d.units))));
+const versionsOf = unit => state.unitVersions[unit] || [];   // the versions of a unit (folders, oldest first)
+const hasVersions = unit => versionsOf(unit).length > 1;   // there is another version of it
+const newerVersions = c => versionsOf(c.unit).filter(d => indexOf(d) > verOf(c));   // the versions of a column's unit that are newer than the one the column shows
+const missingVersions = c => newerVersions(c).filter(d => !state.columns.some(o => o.unit === c.unit && (o.version || state.versionDir) === d));   // ... and not shown yet
 function selectVersion(dir) {
   state.versionDir = dir;
   state.units = unitsOf(dir);
@@ -264,6 +267,7 @@ function catalogUnits() {
   return Object.keys(state.units).filter(n => {
     const u = state.units[n];
     if (u.faction !== state.faction || (state.tiers.size && !state.tiers.has(u.tech))) return false;
+    if (state.versionsMode && !hasVersions(n)) return false;   // the button Versions: only units with at least 2 versions
     return search ? matchUnit(n, u, search) : u.category === state.category;
   }).sort((a, b) => byTech(state.units[a], state.units[b]));
 }
@@ -279,6 +283,7 @@ function renderCatalog() {
       <span class="seg"><button data-a="view" data-v="list" class="${state.view === 'list' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM8 1h18v4H8zM0 8h5v4H0zM8 8h18v4H8zM0 15h5v4H0zM8 15h18v4H8z"/></svg>List</button><button data-a="view" data-v="grid" class="${state.view === 'grid' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM7 1h5v4H7zM14 1h5v4h-5zM21 1h5v4h-5zM0 8h5v4H0zM7 8h5v4H7zM14 8h5v4h-5zM21 8h5v4h-5zM0 15h5v4H0zM7 15h5v4H7zM14 15h5v4h-5zM21 15h5v4h-5z"/></svg>Grid</button></span>
       <label class="toggle"><input type="checkbox" data-change="names" ${state.showNames ? 'checked' : ''}><i></i>Show names</label>
       <span class="seg small">${[1, 2, 3].map(t => `<button data-a="tier" data-v="${t}" class="${state.tiers.has(t) ? 'active' : ''}">T${t}</button>`).join('')}</span>
+      ${versionsFilterButton()}
       <input class="search ${isCodeSearch(state.search) ? 'code' : ''}" data-input="catalog-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(state.search)}">
     </div>
     <div id="units"></div></div>`;
@@ -338,7 +343,7 @@ function changeRow(c, from, to) {
   const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
   const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b>${esc(shownOf(c.u, s.key))}</b></span>`);
   if (c.picture) pills.push('<span class="pill" title="The picture changed">Picture</span>');
-  return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic&versions=1" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
+  return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
     ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small></span><span class="chg-kind k-${c.kind}">${c.kind}</span><span class="pills">${pills.join('') || '<span class="pill muted">no value shown</span>'}</span></a>`;
 }
 function changesListHtml() {
@@ -380,7 +385,7 @@ function matchUnit(n, u, q) {
 // the units of the selection: in the version comparison only the units that changed in some version (also the ones that are gone in the version shown)
 function pickUnits() {
   const p = state.pick, search = p.search.trim().toLowerCase();
-  const pool = state.versionsMode ? [...allChanged()] : Object.keys(state.units);
+  const pool = state.versionsMode ? Object.keys(state.unitVersions).filter(hasVersions) : Object.keys(state.units);   // the button Versions: only units with at least 2 versions
   return pool.filter(n => {
     const u = pickUnit(n);
     if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
@@ -399,11 +404,11 @@ function renderCompare() {
   for (const s of STATS) if (s.fill) max[s.key] = Math.max(0, ...columns.map(c => unitOf(c)[s.key]));
   const stats = STATS.filter(s => columns.some(c => s.key === 'weapons' ? unitOf(c).weapons.length : unitOf(c)[s.key]));   // only what a unit has
   // the version comparison: the values that differ between the columns of one unit are marked
-  for (const s of stats) s.differs = state.versionsMode && differs(columns, s);
+  for (const s of stats) s.differs = differs(columns, s);
   const scroll = app.querySelector('.cmp-scroll'), left = scroll ? scroll.scrollLeft : 0;   // the columns are made anew: the sideways position stays
   const list = app.querySelector('.picker'), listTop = list ? list.scrollTop : 0;
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
-    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${state.versions.length > 1 ? ` <button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Compare game versions: the unit selection shows only the units that changed in some game version; a click puts the version in which the unit changed and the version before it side by side, the changed values are marked. Every column can show another version (the list in its header).">Versions</button>` : ''} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
+    <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${versionsFilterButton(true)} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
@@ -475,11 +480,12 @@ let shown = [];   // the columns of the last renderCompare
 const valueOf = (c, key) => key === 'weapons' ? unitOf(c).weapons.join(', ') : unitOf(c)[key];
 const verOf = c => indexOf(c.version || state.versionDir);
 const anchorOf = c => shown.filter(o => o.unit === c.unit && verOf(o) < verOf(c)).sort((a, b) => verOf(b) - verOf(a))[0] || null;
-const cellChanged = (c, s) => { const a = state.versionsMode && anchorOf(c); return !!a && valueOf(c, s.key) !== valueOf(a, s.key); };
+const cellChanged = (c, s) => { const a = anchorOf(c); return !!a && valueOf(c, s.key) !== valueOf(a, s.key); };
 const differs = (columns, s) => columns.some(c => cellChanged(c, s));
 // what the bars and values of a column are coloured against: the Ref column; in the version comparison the same unit in the nearest older version shown (each unit against itself)
 function referenceFor(c, reference) {
-  if (state.versionsMode) { const a = anchorOf(c); return a ? unitOf(a) : null; }
+  const a = anchorOf(c);
+  if (a) return { ...unitOf(a), anchor: true };   // another version of the same unit is shown left of it: against that (equal values stay uncoloured)
   return reference && !c.ref ? unitOf(reference) : null;
 }
 
@@ -488,7 +494,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 // the compact view: one row per value, one column per unit, the same red / green against the reference
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
-    const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
+    const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
     return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
   };
   const cell = (s, c) => {
@@ -509,7 +515,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b>${versionSelect(c)}</div>
-      <div class="c-tools">${GRIP}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
+      <div class="c-tools">${GRIP}${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref, cellChanged(c, s))).join('')}</div>`;
@@ -528,15 +534,27 @@ function chooserHtml() {
 
 function pickerHtml() {
   const list = pickUnits();
-  if (!list.length) return `<p class="empty">${state.versionsMode && !allChanged().size ? 'No unit changed in a later game version.' : 'No units here.'}</p>`;
+  if (!list.length) return `<p class="empty">${state.versionsMode ? 'No unit with more than one version here.' : 'No units here.'}</p>`;
   return list.map(n => {
-    const u = pickUnit(n), on = state.versionsMode ? state.columns.some(c => c.unit === n) : isShown(n);
-    const versions = state.versionsMode ? changedVersions(n) : [];
-    const what = state.versionsMode ? `changed in ${versions.map(v => shortVersion(v.dir)).join(', ')} - ${on ? 'is already in the comparison' : 'add the version before and the changed version'}` : (on ? 'is already in the comparison' : 'add a column');
+    const u = pickUnit(n), on = isShown(n);
+    const versions = state.versionsMode ? versionsOf(n) : [];
+    const what = (on ? 'is already in the comparison' : 'add a column') + (versions.length ? ` - ${versions.length} versions: ${versions.map(shortVersion).join(', ')}` : '');
     return `<button class="pick ${on ? 'chosen' : ''}" data-a="pick-add" data-v="${esc(n)}" title="${esc(u.name)}: ${esc(u.description)} - ${esc(what)}"><span class="tier t${u.tech}">T${u.tech}</span>${versions.length ? `<span class="pick-ver">${versions.length}</span>` : ''}${pictureTag(n, '', u)}${esc(u.name)}</button>`;
   }).join('');
 }
 
+// the button Versions at the top: only the units with at least 2 versions are listed (the catalog and the unit selection of the compare)
+function versionsFilterButton(lead = false) {
+  if (state.versions.length < 2) return '';
+  return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show units that have at least 2 versions (they changed in some game version). Press again to show all units. A unit's own Versions button adds its newer versions as columns.">Versions</button>`;
+}
+// the button Versions of a column: all newer versions of its unit as columns right of it; grey if the unit has no other version, or this is its newest
+function versionsButton(c) {
+  const newer = missingVersions(c).length, any = hasVersions(c.unit), later = newerVersions(c).length;
+  const tip = newer ? 'Versions: add every newer version of this unit as a column right of it (the changed values are marked).'
+    : later ? 'All newer versions of this unit are shown already.' : any ? 'This is the newest version of the unit: no newer version to add.' : 'This unit has only one version (it did not change in any game version).';
+  return `<button class="versions" data-a="col-versions" title="${tip}" ${newer ? '' : 'disabled'}>Versions</button>`;
+}
 function countersButton(c) {
   const has = countersOf(c.unit).length > 0;
   const tip = has ? 'Counters: replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units).';
@@ -555,7 +573,7 @@ function counterpartsOf(unit) {
 }
 
 function unitHtml(c, u) {
-  const eq = c.scavOf || state.versionsMode ? [] : counterpartsOf(c.unit);
+  const eq = c.scavOf ? [] : counterpartsOf(c.unit);
   return `<div class="c-pic">${pictureTag(c.unit, '', u)}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
@@ -565,7 +583,7 @@ function unitHtml(c, u) {
 // against the reference: worse is red, better green; as good is green too, in the version comparison it stays uncoloured (only what changed stands out)
 function verdictOf(s, v, ref) {
   if (!ref) return '';
-  if (state.versionsMode && v === ref[s.key]) return '';
+  if (ref.anchor && v === ref[s.key]) return '';
   return (s.lower ? v > ref[s.key] : v < ref[s.key]) ? ' diff-bad' : ' diff-good';
 }
 
@@ -602,16 +620,15 @@ function step(from, to) {
 
 function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
 
-// the version comparison: a unit from the selection comes as two columns, the version in which it changed (the game version chosen at the top if it changed there,
-// else the newest one in which it changed) and the version before it. A unit that is new in that version comes once. false: it is there already
-function addVersions(unit) {
-  if (state.columns.some(c => c.unit === unit)) return false;
-  const changed = changedVersions(unit);
-  const other = changed.some(v => v.dir === state.versionDir) ? state.versionDir : changed.length ? changed[changed.length - 1].dir : state.versionDir;
+// the button Versions of a column: every newer version of its unit as a column right of it (the ones that are shown already are left out)
+function addNewerVersions(c) {
+  const more = missingVersions(c).map(d => newColumn(c.unit, d));
+  if (!more.length) return false;
   remember();
-  const before = versionBefore(other);
-  const pair = [before && unitsOf(before)[unit] && newColumn(unit, before), unitsOf(other)[unit] && newColumn(unit, other)].filter(Boolean);
-  state.columns.push(...pair);
+  const at = state.columns.indexOf(c);
+  let after = at;   // behind the columns of this unit that follow it already (older to newer)
+  while (state.columns[after + 1] && state.columns[after + 1].unit === c.unit) after++;
+  state.columns.splice(after + 1, 0, ...more);
   return true;
 }
 
@@ -654,10 +671,12 @@ const actions = {
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) {   // the new column is at the right end: show it
-    if (state.versionsMode) { if (!addVersions(v)) return; } else { if (isShown(v)) return; remember(); addUnit(v); }
+    if (isShown(v)) return;
+    remember(); addUnit(v);
     keepAddress(); renderCompare(); showLastColumn(); renderNav();
   },
-  versions() { state.versionsMode = !state.versionsMode; keepAddress(); renderCompare(); },
+  versions() { state.versionsMode = !state.versionsMode; keepAddress(); render(); },
+  'col-versions'(v, el) { if (addNewerVersions(columnOf(el))) { keepAddress(); renderCompare(); renderNav(); } },
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },
   'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
   'fav-save'() {

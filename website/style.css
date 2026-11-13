@@ -127,9 +127,9 @@ img { display: block; }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
 .c-tools .x { margin-left: auto; color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
-.ref, .counters { white-space: nowrap; padding: 5px 11px; border: 1px solid #444; background: #0b0b0b; font-size: 13px; }
-.ref:hover, .counters:hover:not(:disabled) { background: #222; }
-.counters:disabled { color: #555; border-color: #222; cursor: not-allowed; }
+.ref, .counters, .versions { white-space: nowrap; padding: 5px 11px; border: 1px solid #444; background: #0b0b0b; font-size: 13px; }
+.ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
+.counters:disabled, .versions:disabled { color: #555; border-color: #222; cursor: not-allowed; }
 .ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
 .c-factions { display: flex; flex-wrap: wrap; gap: 2px; }
 .c-factions button { padding: 4px 10px; font-size: 14px; font-weight: 300; white-space: nowrap; color: var(--accent-text); background: #0e0e0e; }
@@ -241,7 +241,7 @@ img { display: block; }
   .cmp-body { padding: 8px 12px; }
   .cmp-grid { --colmin: 280px; --gap: 20px; }
   .more { width: 44px; font-size: 34px; }
-  .c-title b { font-size: 22px; } .c-tools { gap: 6px; } .ref, .counters { padding: 4px 9px; font-size: 12px; } .x { width: 30px; height: 30px; font-size: 13px; }
+  .c-title b { font-size: 22px; } .c-tools { gap: 6px; } .ref, .counters, .versions { padding: 4px 9px; font-size: 12px; } .x { width: 30px; height: 30px; font-size: 13px; }
   .c-name { font-size: 20px; } .c-desc { font-size: 14px; } .c-eq { font-size: 11px; } .c-eq button { padding: 1px 7px; }
   .stats { padding-top: 10px; } .stat { grid-template-columns: 94px 1fr; height: 26px; font-size: 12px; } .two .right .stat { grid-template-columns: 1fr 94px; } .weapons { font-size: 13px; }
   .c-factions button, .c-cats button, .c-searchrow .toggle-pick { font-size: 13px; padding: 4px 9px; } .pick { font-size: 12px; }

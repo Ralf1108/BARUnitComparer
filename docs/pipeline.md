@@ -9,3 +9,7 @@ In the root of the repository (starts `export_and_render_all_units.ps1`). It ask
 So a run can be stopped at any time and started again: it goes on where it stopped. Files are written complete or not at all (`<file>.part`, then renamed). A new game version gets its own folder.
 
 Summary at the end: pictures done, made now, there already and failed (failed ones in `website/assets/<version>/images/render_errors.txt`), total size, size per picture, times; then it waits for a key. PowerShell parameters (the `.bat` passes them on): `-Faction <list>` and `-Format <list>` instead of the questions, `-Game "Beyond All Reason <version>"` (another installed version), `-Force` (all three steps again), `-Out <folder>` (instead of `website/assets/`, for tests), `-Data <folder>` (the data folder of the installation, passed on to every tool), `-Limit <n>` (first n units, for tests), `-Yes` (no questions). Rendering all 1663 units takes about 2.5 minutes on an RTX 3070, the export 30 seconds.
+
+## Many versions: `update game versions.bat`
+
+`exporter/update_versions.py` calls this pipeline (`export_and_render_all_units.ps1 -Game <version> -Engine <engine> [-Control <file>]`) for every game version of the year that changed a unit file: the Git prefilter, the package download, the engine of the day, the diff against the version before, the pictures that changed, then `counterparts.json` and `counters.json`. See [versions.md](versions.md).

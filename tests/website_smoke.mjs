@@ -96,49 +96,68 @@ try {
   await page.waitForTimeout(300);
   check(/^#\/compare\/armpw,corak\?/.test(await hash()) && !/scav=1|ref=/.test(await hash()), 'an old favorite loads without + Scav and Ref', await hash());
 
-  // game versions (only with more than one in versions.json): the selection shows the changed units, a click puts the version before and the changed version side by side
+  // game versions (only with more than one in versions.json): the button Versions at the top shows only units with at least 2 versions; the button of a unit adds its newer versions
   const versions = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8')).versions;
-  const changed = versions.filter(v => v.changed).length;
-  if (versions.length >= 12) {   // many versions: the list is grouped by month, and one request brings all diff files
+  if (versions.length >= 12) {   // many versions: the list is grouped by month
     await page.goto(base + '#/catalog/arm/bots');
     await page.waitForSelector('.card');
     const groups = await page.$$eval('select[data-change="version"] optgroup', g => g.map(x => x.label));
     check(groups.length > 1 && /^\d{4}-\d\d \(\d+ versions?\)$/.test(groups[0]), 'the version list is grouped by month', groups.slice(0, 2).join(' | '));
   }
   if (versions.length > 1) {
-    await page.goto(base + '#/compare/armpw?view=graphic');
-    await page.waitForSelector('.c-head');
-    await page.click('[data-a="versions"]');
-    check(/versions=1/.test(await hash()), 'Versions: the link has versions=1', await hash());
-    const picks = await page.locator('[data-a="pick-add"]').count();
-    if (changed) {
-      await page.fill('[data-input="pick-search"]', '<a');   // all factions and categories: still only the changed units
+    // which units have more than one version (from the files: the first version that has a unit, and every one in which it changed)
+    const listing = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8'));
+    const read = v => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(site, 'assets', v.dir, 'data', v.file))).toString());
+    const count = {};
+    for (const [i, v] of listing.versions.entries()) for (const n of Object.keys(read(v).units)) count[n] = (count[n] || 0) + 1;
+    const multi = Object.keys(count).filter(n => count[n] > 1 && !n.endsWith('_scav')), single = Object.keys(count).filter(n => count[n] === 1 && !n.endsWith('_scav'));
+    if (multi.length && single.length) {
+      // the button at the top: a filter, in the catalog and in the selection
+      await page.goto(base + '#/compare/armpw?view=graphic');
+      await page.waitForSelector('.c-head');
+      await page.fill('[data-input="pick-search"]', '<a');   // all factions and categories
+      const all = await page.locator('[data-a="pick-add"]').count();
+      await page.click('.cmp-clear [data-a="versions"]');
+      check(/versions=1/.test(await hash()), 'Versions (top): the link has versions=1', await hash());
       const n = await page.locator('[data-a="pick-add"]').count();
-      check(n > 0 && (await page.locator('.pick .pick-ver').count()) === n, 'Versions: the selection shows only units that changed', `${n} / ${picks}`);
-      // a unit that the base has too, changed in the first version after the base (a new unit comes as one column)
-      const read = v => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(site, 'assets', v.dir, 'data', v.file))).toString());
-      const baseUnits = read(versions[0]).units, diff = read(versions[1]), later = versions.slice(2).map(v => read(v).units);
-      const values = u => JSON.stringify(Object.entries(u).filter(([k]) => !['icon', 'ownPicture', 'ownIcon'].includes(k)));
-      const unit = Object.keys(diff.units).find(n => baseUnits[n] && values(diff.units[n]) !== values(baseUnits[n]) && !n.endsWith('_scav')
-        && later.every(units => !units[n]));   // its values changed, and only there: the click compares that version with the base
-      await page.fill('[data-input="pick-search"]', `<${unit}>`);
-      await page.click(`[data-a="pick-add"][data-v="${unit}"]`);
+      check(n > 0 && n < all && (await page.locator('.pick .pick-ver').count()) === n, 'Versions (top): the selection shows only units with at least 2 versions', `${n} / ${all}`);
+      const counts = await page.$$eval('.pick .pick-ver', e => e.map(x => Number(x.textContent)));
+      check(counts.every(c => c >= 2), 'Versions (top): every unit shown has at least 2 versions', counts.slice(0, 8).join(','));
+      await page.fill('[data-input="pick-search"]', `<${single[0]}>`);
+      check(await page.locator('[data-a="pick-add"]').count() === 0, 'Versions (top): a unit with only one version is not listed', single[0]);
+      await page.goto(base + '#/catalog/arm/bots'); await page.waitForSelector('.card');
+      const catalogFiltered = await page.locator('.card').count();   // the filter is still on in the catalog
+      await page.click('.controls [data-a="versions"]');   // off: all units
+      const catalogAll = await page.locator('.card').count();
+      check(catalogFiltered < catalogAll, 'Versions (top): the catalog shows fewer units than without the filter', `${catalogFiltered} / ${catalogAll}`);
+
+      // the button of a unit: grey without another version; with one it adds every newer version right of the unit
+      await page.goto(base + `#/compare/${single[0]}?view=graphic`);
+      await page.waitForSelector('.c-head');
+      check(await page.locator('.c-head [data-a="col-versions"]').isDisabled(), 'Versions (unit): grey if the unit has no other version', single[0]);
+      const order = await page.$$eval('.c-tools button', b => b.map(x => x.dataset.a).filter(Boolean));
+      check(order.indexOf('col-versions') >= 0 && order.indexOf('col-versions') < order.indexOf('col-counters'), 'Versions (unit): the button is left of Counters', order.join(', '));
+      const unit = multi.find(u => { const first = listing.versions.findIndex(v => (read(v).units || {})[u]); return first >= 0 && first < listing.versions.length - 1 && count[u] > 1; });
+      await page.goto(base + `#/compare/${unit}@${listing.versions.find(v => read(v).units[unit]).dir}?view=graphic`);
+      await page.waitForSelector('.c-head');
+      const before = await page.locator('.c-head').count();
+      check(!(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled()), 'Versions (unit): the button works if the unit has newer versions', unit);
+      await page.click('.c-head [data-a="col-versions"] >> nth=0');
       await page.waitForTimeout(300);
       const cols = await page.$$eval('select.c-ver', s => s.map(x => x.value));
-      const at = dir => versions.findIndex(v => v.dir === dir);
-      check(cols.length >= 3 && at(cols.at(-2)) === at(cols.at(-1)) - 1, 'Versions: a click adds the changed version and the version before it', cols.join(', '));
-      check(new RegExp(`${unit}@`).test(await hash()), 'Versions: the link has the versions of the columns', await hash());
-      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0, 'Versions: the changed version is coloured against the version before', '');
-      if (versions.length > 2) {   // the list of a column is short: the base, the versions in which the unit changed, the one shown (not every version)
-        const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
-        check(options.length < versions.length, 'a column lists only the versions that matter for its unit', `${options.length} of ${versions.length}: ${options.join(', ')}`);
-      }
-      const baseDir = versions.find(v => v.base).dir;   // the last column (the changed version) back to the base version
+      const at = dir => listing.versions.findIndex(v => v.dir === dir);
+      check(cols.length === count[unit] && cols.every((c, i) => i === 0 || at(c) > at(cols[i - 1])), 'Versions (unit): every version of the unit is a column, oldest left', `${cols.length} / ${count[unit]}: ${cols.join(', ')}`);
+      check(before === 1 && (await page.locator('.c-head [data-a="col-versions"]').last().isDisabled()), 'Versions (unit): the newest column has the button grey', '');
+      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the changed values are marked', '');
+      const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
+      check(options.length <= count[unit] + 1, 'a column lists only the versions that matter for its unit', `${options.length}: ${options.join(', ')}`);
       const beforeChange = await hash();
-      await page.selectOption('select.c-ver >> nth=-1', baseDir);
-      check(new RegExp(`^#/compare/armpw,${unit}@[^,]+,${unit}@${baseDir}\\?`).test(await hash()), 'a column can show another game version', await hash());
+      await page.selectOption('select.c-ver >> nth=-1', listing.versions[0].dir);
+      check((await hash()) !== beforeChange, 'a column can show another game version', await hash());
       await page.click('[data-a="undo"]');
       check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);
+      await page.click('[data-a="undo"]');
+      check(await page.locator('.c-head').count() === 1, 'Undo takes the added versions back', await page.locator('.c-head').count());
     }
   }
 
@@ -162,7 +181,7 @@ try {
     const first = page.locator('.chg-row.f-arm, .chg-row.f-cor, .chg-row.f-leg').first();
     await first.click();
     await page.waitForSelector('.c-head');
-    check(/^#\/compare\/[^?]+\?.*versions=1/.test(await hash()), 'Changes: a click opens the unit compare with the versions', await hash());
+    check(/^#\/compare\/[^?]*@[^?]+\?/.test(await hash()), 'Changes: a click opens the unit compare with the versions', await hash());
   }
 
   // keyboard: a column moves with the arrow keys

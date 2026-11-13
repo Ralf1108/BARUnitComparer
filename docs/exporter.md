@@ -1,6 +1,6 @@
 # The exporter (`exporter/`)
 
-Counts in this document (units, sizes) are those of `test-31820`, the first base version; they change with the next base.
+Counts in this document (units, sizes) are those of `test-31820` (1663 units); the base of the year, `test-29183`, has 1678 units, the newest, `test-31943`, 1663. The exporter runs with the engine of the day of a version (`-Engine`, [versions.md](versions.md)).
 
 The data comes from the **running normal game** (not from the Level Editor): it gives exactly the numbers the game uses after it has processed its unit files and game options. One game start per game version.
 
