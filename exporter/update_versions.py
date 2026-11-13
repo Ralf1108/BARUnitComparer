@@ -12,7 +12,8 @@ Started by "update game versions.bat".
    - otherwise: the package comes with pr-downloader (only the missing files, into the data folder), the engine of its date (engines.json) into cache/engines,
      then export_and_render_all_units.ps1: export with that engine, the diff against the version before (reduce_units.py), the pictures that changed.
      If the engine differs from the one of the version before, that version is exported again with the new engine first (control) and the diff is made against it.
-   - a failure stops the run (nothing is skipped); started again, it goes on at checkedUpTo.
+   - a failure stops the run (nothing is skipped); started again, it goes on at checkedUpTo. Only versions named in broken_versions.json (the game itself does
+     not start with them) are skipped, with the reason.
 3. The full export of a version (15 MB) is removed after the version is done (--keep-exports keeps it).
 A folder that holds another chain (another base) is an error: use a new --out.
 --list: only show what is to be done. --max N: only the first N new versions.
@@ -135,6 +136,18 @@ def run_script(args):
     return subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *map(str, args)]).returncode
 
 
+def game_error():
+    """Why the game did not start, if its log (the work folder of export_units.ps1) says: the line 'forced quit with exception' (a broken game version), else ''."""
+    log = Path(os.environ.get('TEMP', '.')) / 'unit_export' / 'data' / 'infolog.txt'
+    try:
+        for line in log.read_text(encoding='utf-8', errors='replace').splitlines():
+            if 'forced quit with exception' in line:
+                return line.split('forced quit with exception', 1)[1].strip()[:400]
+    except OSError:
+        pass
+    return ''
+
+
 def listed_engine(out):
     """The engine of the newest version in versions.json that names one ('' if none)."""
     f = Path(out) / 'versions.json'
@@ -204,9 +217,14 @@ def main():
     prd = pr_downloader(data, a.prd)
     table = json.loads((ROOT / 'exporter' / 'engines.json').read_text(encoding='utf-8'))
     names = [v for _, v, _ in chain]
+    broken = json.loads((ROOT / 'exporter' / 'broken_versions.json').read_text(encoding='utf-8'))
     for i, (n, version, commit, kind) in enumerate(steps, 1):
         print(f'[{i}/{len(steps)}] {version} ({dates[commit]}, {kind})', flush=True)
         if kind == 'none':
+            move_checked(out, version)
+            continue
+        if version in broken:   # a version in which the game itself does not start: nothing to export; the next version is compared with the one before it
+            print(f'  {version} is known as broken, skipped: {broken[version]}')
             move_checked(out, version)
             continue
         game = 'Beyond All Reason ' + version
@@ -226,7 +244,9 @@ def main():
                     sys.exit(f'ERROR: the control export of {prev} with the engine {engine.name} failed; the versions from {version} on are not done. Start again to go on.')
             args += ['-Control', control]
         if run_script(args) != 0:
-            sys.exit(f'ERROR: export_and_render_all_units.ps1 failed for {version}; the versions after it are not done. Start again to go on.')
+            why = game_error()
+            sys.exit(f'ERROR: export_and_render_all_units.ps1 failed for {version}; the versions after it are not done. Start again to go on.'
+                     + (f'\nThe game itself does not load this version: {why}\nIf that is a mistake in the game, name the version in exporter/broken_versions.json.' if why else ''))
         if not a.keep_exports:
             (out / bar_common.version_name(version) / 'data' / f'units-{bar_common.version_name(version)}.json').unlink(missing_ok=True)
         drop_unused(out, version)

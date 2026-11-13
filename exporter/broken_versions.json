@@ -1,0 +1,5 @@
+{
+ "test-29940-ddf35e1": "the game does not start: gamedata/unitdefs_post.lua -> unitbasedefs/raptor_unitdefs_post.lua:11: attempt to index global 'customparams' (a nil value); fixed in a later version",
+ "test-30553-43e7e40": "the game does not start: modoptions.lua:2446: '}' expected (to close '{' at line 31) near 'for' (the engine then crashes); fixed in a later version",
+ "test-31732-ef5dc31": "the game does not start: gamedata/scavengers/weapondef_post.lua:3: bad argument #1 to 'gsub' (string expected, got nil); fixed in a later version"
+}

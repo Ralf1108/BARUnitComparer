@@ -98,6 +98,9 @@ def find_base(out):
     return full[0].parent.parent if full else None
 
 
+HISTORY = 'history.json.gz'   # next to versions.json: the diff files of all versions in one file
+
+
 def diff_file(folder):
     return next((folder / 'data').glob('units-*.diff.json.gz'), None)
 
@@ -292,12 +295,14 @@ def write_versions(out, checked):
     known = {v['version']: v.get('date', '') for v in json.loads(old.read_text(encoding='utf-8'))['versions']} if old.exists() else {}
     base = find_base(out)
     files = [next((base / 'data').glob('units-*.reduced.json.gz'))] + [d for d in map(diff_file, out.iterdir()) if d] if base else []
-    versions = []
+    versions, diffs = [], {}
     for file in files:
         folder = file.parent.parent
         if natural(folder.name) < natural(base.name):
             continue   # older than the base: not part of the chain
         d = read_gz(file)
+        if folder != base:
+            diffs[folder.name] = d
         v = {'version': d['gameVersion'], 'dir': folder.name, 'file': file.name, 'date': known.get(d['gameVersion']) or commit_date(d['gameVersion'])}
         if folder == base:
             v['base'] = True
@@ -311,7 +316,9 @@ def write_versions(out, checked):
             v['engine'] = d['engine']
         versions.append(v)
     versions.sort(key=lambda v: natural(v['version']))
-    text = json.dumps({'versions': versions, 'checkedUpTo': checked}, indent=1) + '\n'
+    # all diff files in ONE file: the page loads it with one request instead of one per version (the files of the versions stay, they are the source)
+    write_whole(out / HISTORY, compress(json.dumps({'format': 1, 'diffs': {v['dir']: diffs[v['dir']] for v in versions if v['dir'] in diffs}}, ensure_ascii=False, separators=(',', ':')).encode('utf-8')))
+    text = json.dumps({'versions': versions, 'history': HISTORY, 'checkedUpTo': checked}, indent=1) + '\n'
     old.write_text(text, encoding='utf-8', newline='\n')
 
 

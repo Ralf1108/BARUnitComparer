@@ -77,6 +77,17 @@ class Assets(unittest.TestCase):
                 cls.data[v['dir']] = json.load(f)
         cls.base = next(v['dir'] for v in cls.versions if v.get('base'))
 
+    def test_history_is_all_diff_files(self):
+        listing = json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8'))
+        later = [v for v in self.versions if not v.get('base')]
+        if not listing.get('history'):
+            return   # the older way (tests/make_chain_site.py): one diff file per version
+        with gzip.open(ASSETS / listing['history'], 'rt', encoding='utf-8') as f:
+            history = json.load(f)['diffs']
+        self.assertEqual(list(history), [v['dir'] for v in later], 'the diff files of all versions after the base, in order')
+        for v in later:
+            self.assertEqual(history[v['dir']], self.data[v['dir']], f'{v["dir"]}: history.json.gz differs from its diff file: run exporter/reduce_units.py')
+
     def test_versions(self):
         self.assertTrue(self.versions, 'versions.json lists no version')
         self.assertTrue(self.versions[0].get('base') and sum(1 for v in self.versions if v.get('base')) == 1, 'exactly one base version, the first one')

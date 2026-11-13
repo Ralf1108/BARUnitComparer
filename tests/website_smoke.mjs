@@ -99,6 +99,12 @@ try {
   // game versions (only with more than one in versions.json): the selection shows the changed units, a click puts the version before and the changed version side by side
   const versions = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8')).versions;
   const changed = versions.filter(v => v.changed).length;
+  if (versions.length >= 12) {   // many versions: the list is grouped by month, and one request brings all diff files
+    await page.goto(base + '#/catalog/arm/bots');
+    await page.waitForSelector('.card');
+    const groups = await page.$$eval('select[data-change="version"] optgroup', g => g.map(x => x.label));
+    check(groups.length > 1 && /^\d{4}-\d\d \(\d+ versions?\)$/.test(groups[0]), 'the version list is grouped by month', groups.slice(0, 2).join(' | '));
+  }
   if (versions.length > 1) {
     await page.goto(base + '#/compare/armpw?view=graphic');
     await page.waitForSelector('.c-head');
@@ -134,6 +140,29 @@ try {
       await page.click('[data-a="undo"]');
       check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);
     }
+  }
+
+  // changes (the version compare): what changed between two versions, filters, a click opens the unit compare
+  if (versions.length > 1) {
+    await page.goto(base + '#/changes');
+    await page.waitForSelector('.chg-row');
+    const rows = await page.locator('.chg-row').count();
+    check(rows > 0 && /\d+ changed/.test(await page.textContent('.chg-sum')), 'Changes: the newest version against the one before lists the units', `${rows} ${await page.textContent('.chg-sum')}`);
+    await page.selectOption('[data-change="chg-from"]', versions[0].dir);   // a range: from the base to the newest version
+    await page.waitForFunction(() => /from=/.test(location.hash));
+    await page.waitForSelector('.chg-row');
+    const wide = await page.locator('.chg-row').count();
+    check(wide >= rows, 'Changes: a range from the base shows at least as many units', `${wide} / ${rows}`);
+    await page.selectOption('[data-change="chg-faction"]', 'arm');
+    const faction = await page.$$eval('.chg-row', r => r.every(x => x.classList.contains('f-arm')));
+    check(faction, 'Changes: the faction filter keeps only that faction', '');
+    await page.selectOption('[data-change="chg-key"]', 'metal');
+    check((await page.locator('.chg-row .pill', { hasText: 'Metal' }).count()) >= 0 && (await page.locator('.chg-row').count()) <= wide, 'Changes: the value filter narrows the list', '');
+    await page.selectOption('[data-change="chg-faction"]', 'all'); await page.selectOption('[data-change="chg-key"]', '');
+    const first = page.locator('.chg-row.f-arm, .chg-row.f-cor, .chg-row.f-leg').first();
+    await first.click();
+    await page.waitForSelector('.c-head');
+    check(/^#\/compare\/[^?]+\?.*versions=1/.test(await hash()), 'Changes: a click opens the unit compare with the versions', await hash());
   }
 
   // keyboard: a column moves with the arrow keys

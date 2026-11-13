@@ -34,7 +34,7 @@ const STATS = [
 const app = document.getElementById('app');
 const state = {
   units: {}, counterpart: {}, versions: [], version: '', versionDir: '', baseDir: '', diffs: {}, merged: {}, versionsMode: false,
-  page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
+  changes: { faction: 'all', key: '', search: '' }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
   columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
@@ -103,11 +103,13 @@ const versionOf = dir => state.versions.find(v => v.dir === dir);
 const indexOf = dir => state.versions.findIndex(v => v.dir === dir);
 const versionBefore = dir => (state.versions[indexOf(dir) - 1] || {}).dir;
 async function loadVersions() {
-  const listed = (await loadJson('versions.json')).versions;
+  const listing = await loadJson('versions.json'), listed = listing.versions;
   const first = Math.max(0, listed.findIndex(v => v.base));
   state.versions = listed.slice(first);   // nothing older than the base
   state.baseDir = state.versions[0].dir;
-  const files = await Promise.all(state.versions.map(v => loadCompressedJson(`${v.dir}/data/${v.file}`)));
+  // the base file and, in ONE file (history.json.gz), the diff files of all later versions; without it (an older versions.json) one file per version
+  const history = listing.history ? (await loadCompressedJson(listing.history)).diffs : null;
+  const files = await Promise.all(state.versions.map((v, i) => history && i ? history[v.dir] : loadCompressedJson(`${v.dir}/data/${v.file}`)));
   let before = null, icons = {};   // the units of the version before; {icon file: folder} in that version
   state.versions.forEach((v, i) => {
     const data = files[i];
@@ -145,6 +147,14 @@ function selectVersion(dir) {
   state.version = versionOf(dir).version;
 }
 // "test-31836-b250a16" -> "test-31836" and the date
+// the options of the version list: oldest first, grouped by month ("2026-03 (5 versions)") as soon as there are many versions
+function versionOptions(note, selected = state.versionDir) {
+  const option = v => `<option value="${esc(v.dir)}" ${v.dir === selected ? 'selected' : ''}>${esc(versionLabel(v) + note(v))}</option>`;
+  if (state.versions.length < 12) return state.versions.map(option).join('');
+  const months = new Map();
+  for (const v of state.versions) { const m = (v.date || '').slice(0, 7) || 'no date'; if (!months.has(m)) months.set(m, []); months.get(m).push(v); }
+  return [...months].map(([m, list]) => `<optgroup label="${esc(m)} (${list.length} version${list.length > 1 ? 's' : ''})">${list.map(option).join('')}</optgroup>`).join('');
+}
 const versionLabel = v => `${v.version.replace(/-[0-9a-f]{7,}$/, '')}${v.date ? ` · ${v.date}` : ''}`;
 
 async function start() {
@@ -169,7 +179,13 @@ async function start() {
 function route() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
   const [page, a, b] = path.split('/'), params = new URLSearchParams(query);
-  if (page === 'compare') {
+  if (page === 'changes' && state.versions.length > 1) {
+    state.page = 'changes';
+    const last = state.versions[state.versions.length - 1].dir;
+    state.changesTo = versionOf(a) ? a : last;
+    state.changesFrom = versionOf(params.get('from')) ? params.get('from') : versionBefore(state.changesTo);
+    if (indexOf(state.changesFrom) >= indexOf(state.changesTo)) state.changesFrom = versionBefore(state.changesTo);
+  } else if (page === 'compare') {
     state.page = 'compare';
     const wanted = [...new Set((a || '').split(',').filter(t => columnFromToken(t)))];
     if (wanted.length && wanted.join() !== chosenUnits().join()) state.columns = wanted.map(columnFromToken);
@@ -215,7 +231,7 @@ function keepAddress() { if (state.page === 'compare') history.replaceState(null
 // ------------------------------------------------------------------ frame
 function render() {
   renderNav();
-  if (state.page === 'compare') renderCompare(); else renderCatalog();
+  if (state.page === 'compare') renderCompare(); else if (state.page === 'changes') renderChanges(); else renderCatalog();
   renderTray();
 }
 
@@ -234,10 +250,11 @@ function favPanelHtml() {
 function renderNav() {
   document.getElementById('nav-links').innerHTML = `<a href="#/catalog/${state.faction}/${state.category}" class="${state.page === 'catalog' ? 'active' : ''}">Catalog</a>
     <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
+    ${state.versions.length > 1 ? `<a href="#/changes" class="${state.page === 'changes' ? 'active' : ''}" title="What changed in the game: the units that changed between two game versions">Changes</a>` : ''}
     <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   document.getElementById('version').innerHTML = state.versions.length > 1
-    ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${state.versions.map(v => `<option value="${esc(v.dir)}" ${v.dir === state.versionDir ? 'selected' : ''}>${esc(versionLabel(v) + note(v))}</option>`).join('')}</select>`
+    ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${versionOptions(note)}</select>`
     : `<span class="v-label">Game version</span> ${esc(versionLabel(versionOf(state.versionDir)))}`;
 }
 
@@ -294,6 +311,58 @@ function renderTray() {
   if (state.page !== 'catalog' || !units.length) { tray.innerHTML = ''; return; }
   tray.innerHTML = `<div class="tray"><div class="thumbs">${state.columns.slice(-12).map(c => pictureTag(c.unit, '', unitOf(c))).join('')}</div>
     <span>${units.length} unit${units.length > 1 ? 's' : ''}</span><button class="btn" data-a="clear">Clear</button><a class="btn go" href="${compareLink()}">Compare</a></div>`;
+}
+
+// ------------------------------------------------------------------ changes: what changed between two game versions (the version compare)
+// the values that are compared (the numbers as they are, the weapons as text) and what else can change
+const CHANGE_KEYS = [...STATS, { key: 'tech', label: 'Tech' }, { key: 'name', label: 'Name' }, { key: 'description', label: 'Description' }];
+const rawOf = (u, key) => key === 'weapons' ? (u.weapons || []).join(', ') : u[key];
+const shownOf = (u, key) => { const s = STATS.find(o => o.key === key), v = rawOf(u, key); return v === undefined || v === '' ? '–' : s && s.show ? s.show(v) : String(v); };
+// every unit that differs between two versions of the chain: new, gone, or changed (values listed, picture); a unit that changed twice shows the total
+function rangeChanges(from, to) {
+  const A = unitsOf(from), B = unitsOf(to), out = [];
+  for (const n of new Set([...Object.keys(A), ...Object.keys(B)])) {
+    const a = A[n], b = B[n];
+    if (!a) out.push({ unit: n, kind: 'new', u: b, fields: [] });
+    else if (!b) out.push({ unit: n, kind: 'gone', u: a, fields: [] });
+    else {
+      const fields = CHANGE_KEYS.filter(s => rawOf(a, s.key) !== rawOf(b, s.key));
+      if (fields.length || a.pic !== b.pic) out.push({ unit: n, kind: 'changed', u: b, a, fields, picture: a.pic !== b.pic });
+    }
+  }
+  const order = { changed: 0, new: 1, gone: 2 };
+  return out.sort((x, y) => order[x.kind] - order[y.kind] || byTech(x.u, y.u));
+}
+const changesLink = (to, from) => `#/changes/${to}?from=${from}`;
+function changeRow(c, from, to) {
+  const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
+  const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b>${esc(shownOf(c.u, s.key))}</b></span>`);
+  if (c.picture) pills.push('<span class="pill" title="The picture changed">Picture</span>');
+  return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic&versions=1" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
+    ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small></span><span class="chg-kind k-${c.kind}">${c.kind}</span><span class="pills">${pills.join('') || '<span class="pill muted">no value shown</span>'}</span></a>`;
+}
+function changesListHtml() {
+  const { faction, key, search } = state.changes, q = search.trim().toLowerCase();
+  const list = rangeChanges(state.changesFrom, state.changesTo).filter(c => (faction === 'all' || c.u.faction === faction)
+    && (!key || c.fields.some(s => s.key === key)) && (!q || matchUnit(c.unit, c.u, q)));
+  const count = kind => list.filter(c => c.kind === kind).length;
+  const range = state.versions.slice(indexOf(state.changesFrom) + 1, indexOf(state.changesTo) + 1);
+  const engine = range.flatMap(v => Object.keys(v.engineOnly || {}).map(n => `${n} (${shortVersion(v.dir)}: ${v.engine || 'other engine'})`));
+  return `<p class="chg-sum"><b>${count('changed')}</b> changed · <b>${count('new')}</b> new · <b>${count('gone')}</b> gone, in ${range.length} version${range.length === 1 ? '' : 's'} with changes</p>
+    ${engine.length ? `<p class="chg-note" title="Values that differ only because the engine of the game was changed: not a change of the game, not listed above">Engine only, not a change of the game: ${esc(engine.join(', '))}</p>` : ''}
+    <div class="chg-list">${list.map(c => changeRow(c, state.changesFrom, state.changesTo)).join('') || '<p class="empty">Nothing changed here.</p>'}</div>`;
+}
+function renderChanges() {
+  document.title = 'Changes - BAR Unit Comparer';
+  const c = state.changes;
+  const select = (kind, label, options) => `<label>${label} <select data-change="${kind}">${options}</select></label>`;
+  app.innerHTML = `<div class="changes"><div class="title"><h1>Changes</h1></div>
+    <p class="chg-intro">What changed in the game between two versions: a version against the version before it, or any two versions (a unit that changed twice shows the total). A click opens the unit in the unit compare.</p>
+    <div class="controls">${select('chg-from', 'From', versionOptions(v => v.base ? ' (base)' : '', state.changesFrom))}${select('chg-to', 'To', versionOptions(v => v.base ? ' (base)' : ` (${v.changed} changed)`, state.changesTo))}
+      <label>Units <select data-change="chg-faction"><option value="all">All</option>${FACTIONS.map(f => `<option value="${f.id}" ${c.faction === f.id ? 'selected' : ''}>${f.name}</option>`).join('')}</select></label>
+      <label>Value <select data-change="chg-key"><option value="">Any</option>${CHANGE_KEYS.map(s => `<option value="${s.key}" ${c.key === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+      <input class="search" data-input="chg-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(c.search)}"></div>
+    <div id="chg-body">${changesListHtml()}</div></div>`;
 }
 
 // ------------------------------------------------------------------ compare
@@ -696,6 +765,7 @@ document.addEventListener('input', e => {
   const kind = e.target.dataset.input;
   if (kind === 'catalog-search' || kind === 'pick-search') e.target.classList.toggle('code', isCodeSearch(e.target.value));
   if (kind === 'catalog-search') { state.search = e.target.value; renderCatalogUnits(); }
+  if (kind === 'chg-search') { state.changes.search = e.target.value; e.target.classList.toggle('code', isCodeSearch(e.target.value)); document.getElementById('chg-body').innerHTML = changesListHtml(); }
   if (kind === 'pick-search') {   // only the list is made anew: the input keeps the focus
     state.pick.search = e.target.value;
     app.querySelector('.picker').innerHTML = pickerHtml();
@@ -707,6 +777,11 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', async e => {
   const kind = e.target.dataset.change;
+  if (kind === 'chg-from' || kind === 'chg-to') {   // another range: the address carries it
+    const from = kind === 'chg-from' ? e.target.value : state.changesFrom, to = kind === 'chg-to' ? e.target.value : state.changesTo;
+    location.hash = changesLink(to, indexOf(from) < indexOf(to) ? from : versionBefore(to));
+  }
+  if (kind === 'chg-faction' || kind === 'chg-key') { state.changes[kind === 'chg-faction' ? 'faction' : 'key'] = e.target.value; document.getElementById('chg-body').innerHTML = changesListHtml(); }
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
   if (kind === 'version') {
     remember();

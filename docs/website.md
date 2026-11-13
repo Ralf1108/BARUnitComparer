@@ -35,7 +35,7 @@ A missing AVIF picture: the page tries WebP, PNG and JPEG, and all of them once 
 
 **Loaded dynamically:** the page contains no unit data. It reads `versions.json` and loads with `fetch` the reduced file of the base version and the diff files of all later versions (a few KB each). The units of a version are the base's with the changes of every version up to it, in order (changed and new units, without the ones that are gone). A unit's picture and icon come from the folder of the version in which they last changed (`ownPicture`, `ownIcon` in the diff file), else from the base's folder. The version shown is chosen at the top (default the newest; the list appears as soon as there are two versions, with the date of each and how many units changed in it).
 
-**Planned ([plan-versions-2026.md](plan-versions-2026.md); not built yet):** with the versions of a whole year (about 150 diff files) the page reads the diff files of all versions from **one file** `history.json.gz` (the reduced file of the base stays separate; the pictures stay in the folders of their versions), and the list of game versions is **grouped by month** (`<optgroup>`, for example "2026-03", with the number of versions in it). `versions.json` then has the field `checkedUpTo` (the newest version looked at, the status of the exporter; the page ignores it) and, per version, `engine`; the list `unchanged` is replaced by `checkedUpTo` (built). A page for the **version compare** (what changed in which version, a range from one version to another) comes with it, described in the same document.
+**The year of versions (built; [plan-versions-2026.md](plan-versions-2026.md)):** the page reads the diff files of all versions from **one file** `assets/history.json.gz` (`versions.json` names it: `history`; made by `reduce_units.py`; the reduced file of the base stays separate, the pictures stay in the folders of their versions). Without that field (an older `versions.json`) it reads one diff file per version. The list of game versions is **grouped by month** (`<optgroup>`, for example "2026-03 (5 versions)") from 12 versions on. `versions.json` has `checkedUpTo` (the newest version looked at, the status of the exporter; the page ignores it) and, per version, `engine` (and `engineOnly` where values differ only because of the engine). The page **Changes** is described in section 4b.
 
 `exporter/export_units.ps1` runs `exporter/reduce_units.py` at the end of every export. It can also be run alone (`python exporter/reduce_units.py`): it makes what is missing, `--force` makes it again. If it fails, the export has still worked and the script only warns. Without the game installed everything but the icons is made; the page works without icons.
 
@@ -133,6 +133,17 @@ As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75
 - The catalog marks the units that changed in the version shown against the version before ("changed").
 
 **Keyboard:** everything can be reached with Tab; what has the focus gets a gold frame (not after a mouse click). Cards and rows of the catalog are toggle buttons (Enter or Space marks or unmarks the unit, the focus stays on it). The grip of a column moves it with the arrow keys left and right (an Undo step like a drag). Escape closes the favorites. Ctrl+Z / Ctrl+Y: Undo / Redo.
+
+## 4b. Changes (`#/changes/<to version>?from=<version>`)
+
+The version compare: the question is "what changed in the game", not "how do these units differ". The nav has the link **Changes** (only with more than one version).
+
+- **From / To:** two selects with all versions (grouped by month, newest last). The default is the newest version against the one before it; any range works (the units of the To version against the units of the From version, both known from the chain: a unit that changed twice shows the total). The address carries the range.
+- **The list:** every unit that is **changed** (the values as `old → new`: metal, energy, build time, build power, energy make, hitpoints, radar, speed, weapons, DPS, range, tech, name, description; a changed picture), **new** or **gone**, sorted by kind, tech level, cost. Each row has the picture, the name, the code name and the faction colour. A line above counts changed, new and gone units and the versions with changes in the range.
+- **Filters:** units (all or one faction, also Scavengers and Raptors), value (only the units in which that value changed), search (a text, or `<codename>`).
+- **Engine only:** values that differ only because the engine of the game was changed in a version of the range (`engineOnly` in `versions.json`, for example the build time of `armcomboss`) are named in a note, not listed as changes.
+- **A click on a row** opens the unit compare with the From version and the To version of the unit side by side (`#/compare/<unit>@<from>,<unit>@<to>?view=graphic&versions=1`); a new unit comes once (in the To version), a gone one in the From version.
+- Code: `rangeChanges`, `changeRow`, `changesListHtml`, `renderChanges` in `website/app.js`; tested in `tests/website_smoke.mjs` ("Changes: ...").
 
 ## 5. Running it
 

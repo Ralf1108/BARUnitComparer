@@ -297,3 +297,24 @@ span.c-ver { border: 0; background: none; }
 .stat.changed label::before { content: "\25CF  "; font-size: 9px; vertical-align: 2px; }
 .cmp-table th.changed { color: var(--gold); }
 .cmp-table td.changed { background: #2a210d; }
+
+/* the page "Changes": what changed between two game versions */
+.changes { max-width: 1100px; margin: 0 auto; padding: 0 16px 40px; }
+.chg-intro, .chg-sum, .chg-note { color: var(--muted); font-size: 13px; margin: 8px 24px; }
+.chg-sum b { color: var(--text); }
+.chg-note { color: var(--gold); }
+.controls label { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+.controls select { background: #0b0b0b; color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; max-width: 240px; }
+.chg-list { display: flex; flex-direction: column; gap: 6px; padding: 8px 0; }
+.chg-row { display: grid; grid-template-columns: 56px 190px 70px 1fr; align-items: center; gap: 12px; padding: 6px 12px; background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--accent-line, var(--line)); color: var(--text); text-decoration: none; }
+.chg-row:hover, .chg-row:focus-visible { background: var(--panel); outline: none; border-color: #555; }
+.chg-row .pic { width: 56px; height: 56px; object-fit: contain; }
+.chg-name { display: flex; flex-direction: column; min-width: 0; }
+.chg-name b { color: var(--accent-text, var(--text)); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chg-name small { color: var(--muted); font-size: 11px; }
+.chg-kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.k-changed { color: var(--gold); } .k-new { color: #7bd88f; } .k-gone { color: #e0776b; }
+.pills { display: flex; flex-wrap: wrap; gap: 4px 6px; }
+.pill { font-size: 12px; background: #1a1a1a; border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; white-space: nowrap; }
+.pill s { color: var(--muted); } .pill b { color: var(--gold); font-weight: 500; } .pill.muted { color: var(--muted); }
+@media (max-width: 700px) { .chg-row { grid-template-columns: 48px 1fr; } .chg-kind { display: none; } .pills { grid-column: 1 / -1; } }

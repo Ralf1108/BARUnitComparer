@@ -78,6 +78,9 @@ class Chain(Patched):
         self.assertEqual([(v['version'], v.get('base'), v.get('changed'), v.get('removed')) for v in listing['versions']],
                          [(V1, True, None, None), (V2, None, 3, 1), (V4, None, 1, None)])
         self.assertEqual(listing['checkedUpTo'], V4)
+        history = ru.read_gz(self.out / listing['history'])['diffs']   # all diff files in one
+        self.assertEqual(list(history), [V2, V4])
+        self.assertEqual(history[V2], self.read(V2, 'diff'))
         self.assertNotIn('unchanged', listing)
         self.assertTrue(all(v['date'] == '2026-01-02' for v in listing['versions']))
         self.assertEqual(sorted(self.read(V1, 'reduced')['units']), ['a', 'b', 'c'])

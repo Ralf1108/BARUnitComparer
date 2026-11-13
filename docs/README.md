@@ -7,7 +7,7 @@ A project that shows the units of Beyond All Reason next to each other. These do
 | [website.md](website.md) | the website: the data it reads (`website/assets/`), catalog, compare, game versions, publishing with GitHub Pages |
 | [exporter.md](exporter.md) | the exporter (`exporter/`): data of all units from the running game, `units-<version>.json`, `counterparts.json`, the start script |
 | [versions.md](versions.md) | several game versions: the base version and the changes step by step (built) |
-| [plan-versions-2026.md](plan-versions-2026.md) | the plan for every version of the year from 2026-01-01, and the version compare page (decided, not built) |
+| [plan-versions-2026.md](plan-versions-2026.md) | the plan for every version of the year from 2026-01-01, and the version compare page (built; the plan is the reasoning) |
 | [renderer.md](renderer.md) | the pictures of the units rendered from the game's 3D models (`render_unit/`) |
 | [pipeline.md](pipeline.md) | everything in one go: `export and render all units.bat` |
 | [game-files.md](game-files.md) | the game's files: data folder and pool, the S3O format, textures, in-game pictures |
@@ -26,7 +26,7 @@ A project that shows the units of Beyond All Reason next to each other. These do
 
 ## Next steps and open points
 
-- **Build the plan of [plan-versions-2026.md](plan-versions-2026.md)** (the versions of the year from 2026-01-01 on, step by step, with the prefilter, the engine per version, `history.json.gz`, the grouping by month). Open there: where the downloaded engines lie (data folder of the installation or an own cache folder), and which entry of a commit of the launcher configuration is the standard engine.
+- **Year of versions:** built (the export from 2026-01-01 to test-31943, `history.json.gz`, the month grouping, the page Changes). To keep it current: `update game versions.bat` (the newest versions), `exporter/make_engine_table.py` when a new engine becomes the standard, `exporter/broken_versions.json` for game versions that do not start. Open: the look-only versions are exported like any other (the game start could be saved); the control export is repeated after a version without a change under a new engine.
 - Ask the BAR developers whether the published pictures and the site are in order ([licence.md](licence.md)).
 - Correct `website/assets/counterparts.json` by hand.
 - Choose the final picture format and quality for the website (AVIF 70 is the default so far).
