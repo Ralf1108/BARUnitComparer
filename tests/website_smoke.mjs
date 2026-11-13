@@ -168,6 +168,17 @@ try {
     await page.waitForSelector('.chg-row');
     const rows = await page.locator('.chg-row').count();
     check(rows > 0 && /\d+ changed/.test(await page.textContent('.chg-sum')), 'Changes: the newest version against the one before lists the units', `${rows} ${await page.textContent('.chg-sum')}`);
+    // a change that is only visual (the picture is new, no value differs) has a golden frame: the rows without a changed value but with a picture
+    const visual = await page.locator('.chg-row.visual').count();
+    const pictureOnly = await page.$$eval('.chg-row', r => r.filter(x => x.querySelector('.k-changed') && x.querySelector('.pill.visual')).length);
+    const valueRows = await page.$$eval('.chg-row.visual', r => r.filter(x => x.querySelector('.pill b')).length);
+    check(visual === pictureOnly && valueRows === 0, 'Changes: a visual-only change gets the golden frame, a change of values does not', `${visual} / ${pictureOnly} / ${valueRows}`);
+    if (visual > 0) {
+      await page.locator('.chg-row.visual').first().click();
+      await page.waitForSelector('.c-head');
+      check(await page.locator('.c-pic.visual').count() >= 1, 'a visual-only change: the picture of the compare column is framed in gold', '');
+      await page.goBack(); await page.waitForSelector('.chg-row');
+    }
     await page.selectOption('[data-change="chg-from"]', versions[0].dir);   // a range: from the base to the newest version
     await page.waitForFunction(() => /from=/.test(location.hash));
     await page.waitForSelector('.chg-row');
