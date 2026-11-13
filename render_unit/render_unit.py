@@ -1,4 +1,4 @@
-"""render_unit.py: pictures of Beyond All Reason units, rendered from the game's own model files (SPECIFICATION.md, section 5).
+"""render_unit.py: pictures of Beyond All Reason units, rendered from the game's own model files (docs/renderer.md).
 
     python render_unit.py [--out DIR] [--units FILE] [--format png|bmp|jpeg|avif|webp|all] [--data DIR] [--game NAME] [--work DIR] [--size 400]
                           [--tex-size 2048] [--team R,G,B] [--browser EXE] [--param key=value ...] [-v] <unit> [<unit> ...]    (or @file with one unit name per line)
@@ -9,7 +9,7 @@ semi-transparent), the wanted formats are made from it; the encoding is a separa
 
 With two or more formats it then measures the quality of each against the lossless picture (PSNR and SSIM, needs scipy; --no-quality-check switches it off).
 
-What it does: reads the model (.s3o or .dae) and the textures of the unit from the game's pool (SPECIFICATION.md, section 2), converts the textures of a faction once
+What it does: reads the model (.s3o or .dae) and the textures of the unit from the game's pool (docs/game-files.md), converts the textures of a faction once
 (cached in --work), leaves out the pieces that the unit's script hides when the unit is created, and lets the browser (renderer/index.html, three.js) render all
 units in one session. The team colour parts get the colour of the faction: Armada blue, Cortex red, Legion green, Scavengers purple, Raptors black (--team: one colour for all).
 Default: only the unit names; the model is looked for by the name of the unit (objects3d/units/<unit>.s3o, Scavenger copies use the model of their unit).
@@ -51,6 +51,16 @@ def load_units(given, game):
         print(f'WARNING: {path.name} is of game version {units.get("gameVersion")}, not {version}', flush=True)
     print(f'unit data: {path}', flush=True)
     return units['units']
+
+
+def faction_for(unit, u):
+    """The faction of a unit: from the unit data if there is an entry, else by the name."""
+    return u['editor']['faction'] if u else faction_of(unit)
+
+
+def normal_name_of(tex1, normal_name=None):
+    """The normal map: the one the model format names (Collada), else the colour texture with `_color` -> `_normal`."""
+    return normal_name or f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'
 
 
 # ---------------------------------------------------------------- pieces that the script of the unit hides
@@ -137,9 +147,8 @@ def picture_fingerprints(pool, info, units):
             out[unit] = None
             continue
         model, _, _, tex1, tex2, normal_name, script = found
-        normal_name = normal_name or f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'   # the same rule as prepare_base
-        files = [model, f'unittextures/{tex1}', f'unittextures/{tex2}', normal_name]
-        faction = u['editor']['faction'] if u else faction_of(unit)
+        files = [model, f'unittextures/{tex1}', f'unittextures/{tex2}', normal_name_of(tex1, normal_name)]
+        faction = faction_for(unit, u)
         hidden, _ = hidden_pieces(pool, script)   # of the script only what the picture shows: another script that hides the same pieces gives the same picture
         out[unit] = hashlib.md5('|'.join([faction, ','.join(sorted(hidden))] + [f'{f}={pool.entries.get(f, "-")}' for f in files]).encode()).hexdigest()
     return out
@@ -189,7 +198,7 @@ def prepare_base(pool, tex1, tex2, base, tex_size, game, normal_name=None):
     save_png(shader, base / 'shader.png')
     one = np.ones((size, size), np.float32)
     save_png(np.dstack([one, shader[..., 2], shader[..., 1], one]), base / 'orm.png')   # three.js: green = roughness, blue = metalness
-    normal_name = normal_name or f'unittextures/{re.sub(r"_color(?=\.)", "_normal", tex1)}'   # the model format can name it (Collada); else `_color` -> `_normal`
+    normal_name = normal_name_of(tex1, normal_name)
     if normal_name != name1 and pool.has(normal_name):
         normal = load_dds(pool, normal_name, size)
         save_png(np.dstack([normal[..., :3], one]), base / 'normal.png')
@@ -219,6 +228,24 @@ FORMATS = ('png', 'bmp', 'jpeg', 'avif', 'webp')   # 'all' = these five; jpg = j
 EXTENSION = {'jpeg': 'jpg'}
 
 
+def save_as(im, f, dst, opt):
+    """Saves the picture (RGBA) in format `f` to `dst` (a path or a file object); opt has jpeg_quality, jpeg_subsampling, avif_quality, avif_speed, webp_quality, webp_method
+    (an argparse result, or compare_quality.py's settings)."""
+    if f == 'png':
+        im.save(dst, format='PNG', optimize=True)
+    elif f in ('bmp', 'jpeg'):   # no usable transparency: the picture is put on a white background
+        flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
+        flat.alpha_composite(im)
+        if f == 'bmp':
+            flat.convert('RGB').save(dst, format='BMP')
+        else:
+            flat.convert('RGB').save(dst, format='JPEG', quality=opt.jpeg_quality, subsampling=opt.jpeg_subsampling, optimize=True)
+    elif f == 'avif':
+        im.save(dst, format='AVIF', quality=opt.avif_quality, speed=opt.avif_speed)
+    elif f == 'webp':
+        im.save(dst, format='WEBP', quality=opt.webp_quality, method=opt.webp_method)
+
+
 def encode(src, dst_base, formats, opt):
     """Writes the rendered picture (lossless PNG with alpha) in the wanted formats next to dst_base (without extension). Returns {format: file size}."""
     im = Image.open(src).convert('RGBA')
@@ -226,19 +253,7 @@ def encode(src, dst_base, formats, opt):
     for f in formats:
         final = Path(f'{dst_base}.{EXTENSION.get(f, f)}')
         dst = final.with_name(final.name + '.part')   # written under another name and renamed when complete: an aborted run leaves no half picture
-        if f == 'png':
-            im.save(dst, format='PNG', optimize=True)
-        elif f in ('bmp', 'jpeg'):   # no usable transparency: the picture is put on a white background
-            flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
-            flat.alpha_composite(im)
-            if f == 'bmp':
-                flat.convert('RGB').save(dst, format='BMP')
-            else:
-                flat.convert('RGB').save(dst, format='JPEG', quality=opt.jpeg_quality, subsampling=opt.jpeg_subsampling, optimize=True)
-        elif f == 'avif':
-            im.save(dst, format='AVIF', quality=opt.avif_quality, speed=opt.avif_speed)
-        elif f == 'webp':
-            im.save(dst, format='WEBP', quality=opt.webp_quality, method=opt.webp_method)
+        save_as(im, f, dst, opt)
         os.replace(dst, final)
         sizes[f] = final.stat().st_size
     return sizes
@@ -323,7 +338,7 @@ def ensure_node_modules():
         sys.exit('ERROR: npm install failed. Is Node.js installed?')
 
 
-def main():
+def parse_args():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0], fromfile_prefix_chars='@')
     ap.add_argument('units', nargs='+', help='unit names (armllt, legnavyscout, ...); @file: a file with one name per line')
     ap.add_argument('--out', default='', help='folder for the pictures (default: website/assets/<game version>/images of the repository)')
@@ -349,29 +364,20 @@ def main():
     ap.add_argument('--browser', default='', help='Microsoft Edge or Google Chrome (default: looked for)')
     ap.add_argument('--param', action='append', default=[], metavar='key=value', help='a value of the renderer, e.g. sun=2.5 or az=300 (see renderer/index.html)')
     ap.add_argument('-v', '--verbose', action='store_true', help='say which pieces are left out and which team colour is used')
-    a = ap.parse_args()
-    work = Path(a.work)
-    clock = [time.time()]
-    def lap(what):   # with -v: how long each phase took
-        if a.verbose:
-            print(f'  [{time.time() - clock[0]:5.1f} s] {what}', flush=True)
-        clock[0] = time.time()
-    one_team = tuple(int(x) for x in a.team.split(',')) if a.team else None
-    formats = list(FORMATS) if a.format.strip().lower() == 'all' else list(dict.fromkeys('jpeg' if f.strip().lower() == 'jpg' else f.strip().lower() for f in a.format.split(',') if f.strip()))
+    return ap.parse_args()
+
+
+def wanted_formats(text):
+    formats = list(FORMATS) if text.strip().lower() == 'all' else list(dict.fromkeys('jpeg' if f.strip().lower() == 'jpg' else f.strip().lower() for f in text.split(',') if f.strip()))
     for f in formats:
         if f not in FORMATS:
             sys.exit(f'ERROR: unknown format "{f}" (png, bmp, jpeg, avif, webp or all)')
-    (work / 'render').mkdir(parents=True, exist_ok=True)
+    return formats
 
-    data_dir = find_data_dir(a.data)
-    sdp, game = find_game(data_dir, a.game)
-    print(f'game: {game}', flush=True)
-    out = Path(a.out) if a.out else HERE.parent / 'website' / 'assets' / version_name(game) / 'images'
-    pool = Pool(data_dir, sdp)
-    info = load_units(a.units_file, game)
-    (work / 'models').mkdir(parents=True, exist_ok=True)
-    out.mkdir(parents=True, exist_ok=True)
 
+def collect_jobs(a, pool, info, out, formats, work, one_team):
+    """One job per unit that is to be rendered: the model and the query for the page. Returns (jobs, texture sets {base folder: (tex1, tex2, normal)}, team colours
+    {(base, team folder): colour}, problems, units without a supported model format, number skipped)."""
     jobs, problems, bases, teams, unsupported = [], [], {}, {}, []
     skipped = 0
     for unit in dict.fromkeys(u.strip().lower() for u in a.units if u.strip()):
@@ -388,7 +394,7 @@ def main():
             problems.append(f'{unit}: {found}')
             continue
         model, data, fmt, tex1, tex2, normal_name, script = found
-        faction = u['editor']['faction'] if u else faction_of(unit)
+        faction = faction_for(unit, u)
         team = one_team or TEAM_COLORS.get(faction, TEAM_COLORS['leg'])
         hidden, script_used = hidden_pieces(pool, script)
         if a.verbose:
@@ -400,51 +406,85 @@ def main():
         (work / 'models' / f'{unit}.{fmt.EXTENSION}').write_bytes(data)
         query = (f'model=/work/models/{unit}.{fmt.EXTENSION}&base=/work/tex/{base.name}&tex=/work/tex/{base.name}/{team_dir.name}&size={a.size}'
                  + (f'&hide={",".join(sorted(hidden))}' if hidden else '') + ''.join('&' + p for p in a.param))
-        jobs.append({'out': str(work / 'render' / f'{unit}.png'), 'query': query})   # the lossless picture of the browser; the wanted formats are made from it
+        # 'out': the lossless picture of the browser (the wanted formats are made from it); 'textures': what the unit is sorted by (render.mjs only reads out and query)
+        jobs.append({'out': str(work / 'render' / f'{unit}.png'), 'query': query, 'textures': [base.name, team_dir.name]})
+    return jobs, bases, teams, problems, unsupported, skipped
 
-    if skipped:
-        print(f'{skipped} unit(s) skipped: their pictures are there already', flush=True)
-    lap('units, models, scripts read')
-    # the textures: every texture set once (the work of the sets is independent, so several at the same time), then the team colours
-    n = max(1, a.jobs)
-    with concurrent.futures.ThreadPoolExecutor(n) as ex:
+
+def prepare_textures(a, pool, game, bases, teams):
+    """Every texture set once (the sets are independent, so several at the same time), then the team colours."""
+    with concurrent.futures.ThreadPoolExecutor(max(1, a.jobs)) as ex:
         for f in [ex.submit(prepare_base, pool, t1, t2, b, a.tex_size, game, nm) for b, (t1, t2, nm) in bases.items()]:
             f.result()
         for f in [ex.submit(prepare_team, b, d, tm) for (b, d), tm in teams.items()]:
             f.result()
 
-    lap('textures prepared')
-    failed = 0
-    if jobs:
-        ensure_node_modules()
-        node = shutil.which('node')
-        if not node:
-            sys.exit('ERROR: Node.js not found.')
-        browser = find_browser(a.browser)
-        # the rendering: `--jobs` browsers at the same time, each takes every n-th picture (software rendering uses the processor, not the graphics card)
-        # the units of one texture set next to each other (the page keeps their textures), in n contiguous parts of about the same size
-        jobs.sort(key=lambda j: re.search(r'base=([^&]*)&tex=([^&]*)', j['query']).groups())
-        k = min(n, len(jobs))
-        slices = [jobs[len(jobs) * i // k: len(jobs) * (i + 1) // k] for i in range(k)]
-        for j in jobs:
-            Path(j['out']).unlink(missing_ok=True)   # no picture of an earlier run is taken for this one
-        procs = []
-        for i, part in enumerate(slices):
-            (work / f'jobs_{i}.json').write_text(json.dumps(part))
-            procs.append(subprocess.Popen([node, str(HERE / 'renderer' / 'render.mjs'), str(work / f'jobs_{i}.json'), str(work), browser, 'software' if a.software else 'gpu'], cwd=HERE))
-        failed = sum(1 for pr in procs if pr.wait() != 0)
-    lap('rendered in the browsers')
-    table, pairs = [], []
+
+def run_browsers(a, jobs, work):
+    """`--jobs` browsers at the same time, each takes a contiguous part of the jobs (software rendering uses the processor, not the graphics card). Returns how many failed."""
+    ensure_node_modules()
+    node = shutil.which('node')
+    if not node:
+        sys.exit('ERROR: Node.js not found.')
+    browser = find_browser(a.browser)
+    n = max(1, a.jobs)
+    jobs.sort(key=lambda j: j['textures'])   # the units of one texture set next to each other (the page keeps their textures), in n parts of about the same size
+    k = min(n, len(jobs))
+    slices = [jobs[len(jobs) * i // k: len(jobs) * (i + 1) // k] for i in range(k)]
+    for j in jobs:
+        Path(j['out']).unlink(missing_ok=True)   # no picture of an earlier run is taken for this one
+    procs = []
+    for i, part in enumerate(slices):
+        (work / f'jobs_{i}.json').write_text(json.dumps(part))
+        procs.append(subprocess.Popen([node, str(HERE / 'renderer' / 'render.mjs'), str(work / f'jobs_{i}.json'), str(work), browser, 'software' if a.software else 'gpu'], cwd=HERE))
+    return sum(1 for pr in procs if pr.wait() != 0)
+
+
+def encode_all(a, jobs, out, formats):
+    """The wanted formats of every picture that was rendered (AVIF is slow: several processes). Returns [(unit, {format: size})] and the pairs for the quality check."""
     done = [Path(j['out']) for j in jobs if Path(j['out']).exists()]
-    if len(done) > 2 and n > 1:   # the encoding (AVIF is slow) in several processes
-        with concurrent.futures.ProcessPoolExecutor(n) as ex:
+    if len(done) > 2 and a.jobs > 1:
+        with concurrent.futures.ProcessPoolExecutor(a.jobs) as ex:
             sizes = list(ex.map(encode, done, [out / s.stem for s in done], [formats] * len(done), [a] * len(done)))
     else:
         sizes = [encode(s, out / s.stem, formats, a) for s in done]
+    table = [(src.stem, size) for src, size in zip(done, sizes)]
+    pairs = [(src, {f: out / f'{src.stem}.{EXTENSION.get(f, f)}' for f in formats}) for src in done]
+    return table, pairs
+
+
+def main():
+    a = parse_args()
+    work = Path(a.work)
+    clock = [time.time()]
+
+    def lap(what):   # with -v: how long each phase took
+        if a.verbose:
+            print(f'  [{time.time() - clock[0]:5.1f} s] {what}', flush=True)
+        clock[0] = time.time()
+
+    one_team = tuple(int(x) for x in a.team.split(',')) if a.team else None
+    formats = wanted_formats(a.format)
+    (work / 'render').mkdir(parents=True, exist_ok=True)
+    data_dir = find_data_dir(a.data)
+    sdp, game = find_game(data_dir, a.game)
+    print(f'game: {game}', flush=True)
+    out = Path(a.out) if a.out else HERE.parent / 'website' / 'assets' / version_name(game) / 'images'
+    pool = Pool(data_dir, sdp)
+    info = load_units(a.units_file, game)
+    (work / 'models').mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
+
+    jobs, bases, teams, problems, unsupported, skipped = collect_jobs(a, pool, info, out, formats, work, one_team)
+    if skipped:
+        print(f'{skipped} unit(s) skipped: their pictures are there already', flush=True)
+    lap('units, models, scripts read')
+    prepare_textures(a, pool, game, bases, teams)
+    lap('textures prepared')
+    failed = run_browsers(a, jobs, work) if jobs else 0
+    lap('rendered in the browsers')
+    table, pairs = encode_all(a, jobs, out, formats)
     lap('encoded')
-    for src, size in zip(done, sizes):
-        table.append((src.stem, size))
-        pairs.append((src, {f: out / f'{src.stem}.{EXTENSION.get(f, f)}' for f in formats}))
     if table:
         print('\nfile sizes (bytes):')
         print('  ' + 'unit'.ljust(40) + ''.join(f.rjust(10) for f in formats))

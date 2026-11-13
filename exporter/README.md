@@ -1,6 +1,6 @@
 # Exporter
 
-Writes the data of all units of the installed Beyond All Reason as JSON. The data is taken from the **running game** (after it has processed its unit files and game options), so it is exactly what the game uses. The format of the files is described in [SPECIFICATION.md](../SPECIFICATION.md), section 3.
+Writes the data of all units of the installed Beyond All Reason as JSON. The data is taken from the **running game** (after it has processed its unit files and game options), so it is exactly what the game uses. The format of the files is described in [docs/exporter.md](../docs/exporter.md).
 
 ## How it works
 
@@ -8,7 +8,7 @@ Writes the data of all units of the installed Beyond All Reason as JSON. The dat
 
 ```
 export_units.bat                      (double click, default values; parameters can be added)
-powershell -File export_units.ps1 [-Out <folder>] [-Data <folder>] [-Work <folder>] [-WaitSec 300] [-Map "<name>"] [-Game "<name and version>"] [-Engine "<folder>"]
+powershell -File export_units.ps1 [-Out <folder>] [-Data <folder>] [-Work <folder>] [-WaitSec 300] [-Map "<name>"] [-Game "<name and version>"] [-Engine "<folder>"] [-Headless]
 ```
 
 ## Parameters
@@ -21,7 +21,8 @@ powershell -File export_units.ps1 [-Out <folder>] [-Data <folder>] [-Work <folde
 | `-WaitSec` | 300 | How long to wait for the export before the game is ended (the first start of a version can take a while) |
 | `-Map` | `Hooked 1.1.1`, else the first installed map | Map to load. Any map will do, only the units are read; a small one loads fast |
 | `-Game` | the installed one | Game as the engine names it, e.g. `Beyond All Reason test-31820-45ea098` (to export an older installed version) |
-| `-Engine` | the newest | Name of the engine folder in `<Data>\engine` (an old game version may need the engine of its time) |
+| `-Engine` | the newest | Name of the engine folder in `<Data>\engine` (`windows64\<version>` for one that `pr-downloader` unpacked); an old game version may need the engine of its time |
+| `-Headless` | off | Start `spring-headless.exe`: no window and no dialog box, a bit faster, the same data |
 | `-PrintGame` | off | Only prints the game that would be exported and ends |
 
 Game and map are checked in the engine's archive cache before the start (otherwise the engine would wait at a message box). Exit code 1 and `ERROR: ...` on stderr if the export failed; nothing is copied then.
@@ -32,8 +33,8 @@ Game and map are checked in the engine's archive cache before the start (otherwi
 |---|---|
 | `<version>/data/units-<version>.json` | One line per unit: `game` (all fields of the unit definition) and `editor` (faction, group, tech level, names, model, weapons with all fields and damage per armor class, what it builds, main shot figures) |
 | `counterparts.json` | Unit name -> counterpart id. Units with the same id belong together. One file for all game versions; meant to be corrected by hand |
-| `<version>/data/units-<version>.diff.json.gz` | A later game version: only the units that changed against the version before it (values, picture or icon), the new ones and the names of the gone ones; nothing changed: no file (SPECIFICATION.md, section 3.5) |
-| `<version>/data/units-<version>.reduced.json.gz` | Only the values the website shows, plus the new property `category`; also `<version>/images/icons/` (the role icons of the game) and `versions.json`. Made by `reduce_units.py`, which also runs alone and makes only what is missing: `python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--force]`. Needs Python, for the smallest file with `zopfli` (`pip install zopfli`); if it fails the export has still worked and the script warns |
+| `<version>/data/units-<version>.diff.json.gz` | A later game version: only the units that changed against the version before it (values, picture or icon), the new ones and the names of the gone ones; nothing changed: no file ([docs/versions.md](../docs/versions.md)) |
+| `<version>/data/units-<version>.reduced.json.gz` | Only the values the website shows, plus the new property `category`; also `<version>/images/icons/` (the role icons of the game) and `versions.json`. Made by `reduce_units.py`, which also runs alone and makes only what is missing: `python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--redo VERSION] [--force]`. Needs Python, for the smallest file with `zopfli` (`pip install zopfli`); if it fails the export has still worked and the script warns |
 
 The export does not depend on a list of fields: everything the engine knows about a unit and a weapon is written, so new fields of a newer version appear by themselves.
 
@@ -41,14 +42,14 @@ The export does not depend on a list of fields: everything the engine knows abou
 
 - Game option `forceallunits=1`: without it there are no Scavenger and Raptor units (656 instead of 1663 units). `experimentallegionfaction=1` turns the Legion on.
 - Engine setting `UserWidgetMemoryLimits = 0` for this one game instance: BAR would stop the widget otherwise (the export builds about 15 MB of text).
-- The three Lua files from `lua/` and the widget are copied into the sandbox, not into the installation.
+- The three Lua files from `lua/` and the widget are copied into the sandbox, not into the installation. The sandbox also gets `LuaUI/Config/BYAR.lua` (the widget list), because the widget handler of older game versions does not start a new user widget by itself.
 
 ## Files
 
 | File | |
 |---|---|
 | `export_units.ps1`, `export_units.bat` | start script and double-click starter |
-| `reduce_units.py` | the reduced data for the website |
+| `reduce_units.py`, `unit_rules.py` | the reduced data for the website (`unit_rules.py`: the rules that make the values of a unit, `reduce_units.py`: the files, the chain of versions, `versions.json`) |
 | `update_versions.py` (`update game versions.bat` in the main folder) | the new game versions from the BAR package server: downloads each one with pr-downloader, then `export_and_render_all_units.ps1 -Game` (export, diff against the version before, the changed pictures). `python exporter/update_versions.py [--list] [--max N] [--out DIR] [--data DIR] [--format avif]` |
 | `export_counterparts.py`, `export_counterparts.bat` | separate from the game export: updates `website/assets/counterparts.json` (`python exporter/export_counterparts.py [--out FILE] [--threads N] [--no-web]`). Starts from the file that is there (corrected by hand), gives new units the id from their name (armllt, corllt, legllt -> llt) and then reads the unit pages of beyondallreason.info (about 640 pages, a minute): the units that a page names as `counterpart` are put in one group, which gets one id. Scavenger copies get the id of their unit. Groups with two units of one faction are listed as a note |
 | `export_counters.py`, `export_counters.bat` | separate from the game export: fetches the counter charts of Armada and Cortex from beyondallreason.info and writes `website/assets/counters.json` (`python exporter/export_counters.py [--out FILE]`). The file maps a unit codename to the codenames of the units that counter it: `{"counters": {"corak": ["armwar", "armllt", "armbeamer"], ...}}`. The website's **Counters** button uses it. Codenames that the newest unit data does not know are reported |

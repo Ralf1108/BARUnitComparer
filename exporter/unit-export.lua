@@ -10,7 +10,7 @@ function widget:GetInfo()
 	}
 end
 
--- Unit export for the unit comparison website (SPECIFICATION.md, section 3): a widget for a plain Beyond All Reason game (no Level Editor).
+-- Unit export for the unit comparison website (docs/exporter.md): a widget for a plain Beyond All Reason game (no Level Editor).
 -- It runs once, a moment after the game has started, and writes
 --   LuaUI/Config/WebsiteExport/units-<game version>.json   all units with their values, the version of Beyond All Reason in the file name and in the file
 --   LuaUI/Config/WebsiteExport/counterparts.json              the counterpart id of every unit (kept if it is there already, only new units are added)
@@ -22,7 +22,7 @@ end
 --   unit_catalog.lua    (the unit catalog: faction, type, tech level, the best shot of a unit)
 --   bar_rules.lua       (the tech level rule, loaded by unit_catalog.lua)
 --   led_export.lua      (the export itself, the same code as the buttons of the settings page of the Level Editor)
--- and this file in LuaUI/Widgets/. What the files contain: SPECIFICATION.md, section 3.
+-- and this file in LuaUI/Widgets/. What the files contain: docs/exporter.md.
 
 local DIR = "LuaUI/Config/WebsiteExport/"
 local startFrame = 5 -- the game frame at which the export runs (everything is loaded)

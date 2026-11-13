@@ -1,0 +1,42 @@
+# The tests (tests/): the data files, the rules and the chain of game versions of the tools, their helpers, and a smoke test of the page in a headless Chrome.
+# Runs for every pull request and every push to a branch other than main; for main it is called by pages.yml, which publishes the site only if the tests pass.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches-ignore: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      BROWSER: /usr/bin/google-chrome   # the runner has Python 3.12, Node.js and Google Chrome
+    steps:
+      - uses: actions/checkout@v7
+
+      # playwright-core comes from render_unit/package-lock.json
+      - name: Install playwright-core
+        run: npm ci --no-audit --no-fund
+        working-directory: render_unit
+
+      # the tests of the renderer's helpers (the script parser, the icon table) need numpy and Pillow; without them those tests are skipped
+      - name: Install numpy and Pillow
+        run: python3 -m pip install numpy pillow
+
+      - name: Data files, rules, chain of versions and helpers
+        run: python3 -m unittest discover -s tests -v
+
+      - name: Smoke test of the page
+        run: node tests/website_smoke.mjs
+
+      # the real data has only the base version for now: a copy of the site with a made-up chain of versions tries the version code of the page and of the data tests
+      - name: A chain of game versions
+        run: |
+          python3 tests/make_chain_site.py "$RUNNER_TEMP/chain"
+          BARUNIT_ASSETS="$RUNNER_TEMP/chain/assets" python3 -m unittest discover -s tests -v
+          BARUNIT_SITE="$RUNNER_TEMP/chain" node tests/website_smoke.mjs

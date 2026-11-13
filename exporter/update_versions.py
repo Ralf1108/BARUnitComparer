@@ -1,4 +1,4 @@
-"""update_versions.py: the new game versions of Beyond All Reason into the website (SPECIFICATION.md, section 3.5). Started by "update game versions.bat".
+"""update_versions.py: the new game versions of Beyond All Reason into the website (docs/versions.md). Started by "update game versions.bat".
 
     python exporter/update_versions.py [--list] [--max N] [--out DIR] [--data DIR] [--format avif]
 
@@ -10,7 +10,7 @@
    changed gets no files and is not shown; it is only named in versions.json (unchanged).
 --list: only show the new versions. --max N: only the first N new ones (the oldest).
 """
-import argparse, gzip, json, os, re, shutil, subprocess, sys, urllib.request
+import argparse, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -24,18 +24,19 @@ PRD_ENV = {'PRD_RAPID_REPO_MASTER': RAPID + '/repos.gz', 'PRD_RAPID_USE_STREAMER
 NAME = re.compile(r'^Beyond All Reason (test-(\d+)-[0-9a-f]+)$', re.I)
 
 
-def server_versions():
-    """[(number, version, game name)] of every package built from a commit (byar:git:<hash>), oldest first."""
-    request = urllib.request.Request(VERSIONS, headers={'User-Agent': 'BARUnitComparer'})
-    with urllib.request.urlopen(request, timeout=120) as r:
-        lines = gzip.decompress(r.read()).decode('utf-8', errors='replace').splitlines()
+def parse_versions(fields):
+    """[(number, version, game name)] of every package built from a commit (byar:git:<hash>), oldest first (fields: bar_common.rapid_lines)."""
     found = {}
-    for line in lines:
-        f = line.strip().split(',')
-        m = len(f) >= 4 and f[0].startswith('byar:git:') and NAME.match(f[3])
+    for f in fields:
+        m = f[0].startswith('byar:git:') and NAME.match(f[3])
         if m:
             found[int(m.group(2))] = (int(m.group(2)), m.group(1), 'Beyond All Reason ' + m.group(1))
     return [found[n] for n in sorted(found)]
+
+
+def server_versions():
+    """The versions on the package server of BAR."""
+    return parse_versions(bar_common.rapid_lines(bar_common.http_get(VERSIONS, timeout=120)))
 
 
 def newest_done(out):
@@ -96,7 +97,7 @@ def main():
         print(f'[{i}/{len(new)}] {version}', flush=True)
         download(prd, data, game)
         args = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'export_and_render_all_units.ps1'),
-                '-Game', game, '-Yes', '-Faction', 'all', '-Format', a.format, '-Out', str(out)]
+                '-Game', game, '-Yes', '-Faction', 'all', '-Format', a.format, '-Out', str(out), '-Data', str(data)]
         r = subprocess.run(args)
         if r.returncode != 0:
             sys.exit(f'ERROR: export_and_render_all_units.ps1 failed for {version} (exit code {r.returncode}); the versions after it are not done. Start again to go on.')

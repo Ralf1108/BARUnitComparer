@@ -1,4 +1,4 @@
-// S3O models for the renderer (SPECIFICATION.md, section 4.1). index.html loads this module for a model whose file name ends with .s3o (import('./s3o_loader.js')); the
+// S3O models for the renderer (docs/game-files.md). index.html loads this module for a model whose file name ends with .s3o (import('./s3o_loader.js')); the
 // Collada models have dae_loader.js. Both give the same: loadModel(url, hidden) -> THREE.BufferGeometry with position, normal, uv and an index, all pieces in ONE geometry,
 // Y up, the front of the unit at +z. `hidden`: the names (lower case) of the pieces whose own triangles are left out (their children are drawn all the same).
 import * as THREE from 'three';

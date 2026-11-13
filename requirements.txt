@@ -1,0 +1,6 @@
+# Python packages of the tools (pip install -r requirements.txt). Python 3.12 or newer.
+# The exporter, update_versions.py and the website need none of them except zopfli (smaller data files; without it a plain gzip is written).
+numpy        # render_unit: textures, quality check
+Pillow       # render_unit: pictures, formats (a recent one with AVIF support)
+scipy        # render_unit: the quality check (SSIM); optional
+zopfli       # reduce_units.py: the smallest gzip files; optional

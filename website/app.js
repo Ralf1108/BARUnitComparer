@@ -1,4 +1,4 @@
-// The website: unit catalog and comparison (SPECIFICATION_WEBSITE.md). Plain JavaScript without a build step; the data comes from assets/ (exporter/reduce_units.py).
+// The website: unit catalog and comparison (docs/website.md). Plain JavaScript without a build step; the data comes from assets/ (exporter/reduce_units.py).
 'use strict';
 
 const DATA = 'assets/';
@@ -56,7 +56,7 @@ function load(key, fallback) { try { return localStorage.getItem('barunit.' + ke
 function save(key, value) { try { localStorage.setItem('barunit.' + key, value); } catch { /* no storage: the setting lasts until the page is reloaded */ } }
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const factionName = id => (FACTIONS.find(f => f.id === id) || { name: id }).name;
-const byTechAndCost = (a, b) => state.units[a].tech - state.units[b].tech || state.units[a].metal - state.units[b].metal || state.units[a].name.localeCompare(state.units[b].name);
+const byTech = (a, b) => a.tech - b.tech || a.metal - b.metal || a.name.localeCompare(b.name);   // two units: by tech level, then metal cost, then name
 // where the picture ('pic') and the icon ('iconAt') of a unit are: the folder of the version in which they last changed (loadVersions)
 const folderOf = (u, key) => `${DATA}${(u && u[key]) || state.baseDir}/`;
 const pictureTag = (unit, cls = 'pic', u = state.units[unit]) => `<img class="${cls}" loading="lazy" alt="" data-unit="${esc(unit)}" data-dir="${folderOf(u, 'pic')}" src="${folderOf(u, 'pic')}images/${esc(unit)}.${PICTURE_TYPES[0]}">`;
@@ -81,17 +81,16 @@ document.addEventListener('error', e => {
 }, true);
 
 // ------------------------------------------------------------------ data
-async function loadJson(name) {
+async function fetchAsset(name) {
   const r = await fetch(DATA + name, { cache: 'no-cache' });
   if (!r.ok) throw new Error(`${name}: ${r.status}`);
-  return r.json();
+  return r;
 }
+const loadJson = async name => (await fetchAsset(name)).json();
 
 // The file is gzip: the page unpacks it itself, so that it works on every host. A server that sends it with Content-Encoding: gzip has it unpacked by the browser already.
 async function loadCompressedJson(name) {
-  const r = await fetch(DATA + name, { cache: 'no-cache' });
-  if (!r.ok) throw new Error(`${name}: ${r.status}`);
-  const bytes = await r.arrayBuffer();
+  const bytes = await (await fetchAsset(name)).arrayBuffer();
   try { return JSON.parse(new TextDecoder().decode(bytes)); } catch { /* not unpacked yet */ }
   return JSON.parse(await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'))).text());
 }
@@ -129,6 +128,8 @@ async function loadVersions() {
     before = state.merged[v.dir] = all;
     icons = next;
   });
+  state.lastUnit = {};   // every unit that ever was there, as in the newest version that has it (the selection of the version comparison also offers units that are gone)
+  for (const v of state.versions) Object.assign(state.lastUnit, state.merged[v.dir]);
 }
 // all units of a version
 const unitsOf = (dir = state.versionDir) => state.merged[dir];
@@ -247,7 +248,7 @@ function catalogUnits() {
     const u = state.units[n];
     if (u.faction !== state.faction || (state.tiers.size && !state.tiers.has(u.tech))) return false;
     return search ? matchUnit(n, u, search) : u.category === state.category;
-  }).sort(byTechAndCost);
+  }).sort((a, b) => byTech(state.units[a], state.units[b]));
 }
 
 function renderCatalog() {
@@ -315,10 +316,10 @@ function pickUnits() {
     const u = pickUnit(n);
     if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
     return u.faction === p.faction && u.category === p.category;
-  }).sort((a, b) => pickUnit(a).tech - pickUnit(b).tech || pickUnit(a).metal - pickUnit(b).metal || pickUnit(a).name.localeCompare(pickUnit(b).name));
+  }).sort((a, b) => byTech(pickUnit(a), pickUnit(b)));
 }
 // a unit of the selection: as in the version shown; a unit that this version does not have, as in the newest version that has it
-const pickUnit = n => state.units[n] || [...state.versions].reverse().map(v => unitsOf(v.dir)[n]).find(Boolean);
+const pickUnit = n => state.units[n] || state.lastUnit[n];
 
 function renderCompare() {
   document.title = 'Compare - BAR Unit Comparer';
@@ -395,8 +396,9 @@ function versionSelect(c) {
   const own = c.version || state.versionDir;
   if (c.scavOf) return `<span class="c-ver">${esc(shortVersion(own))}</span>`;
   const mark = v => v.dir === state.baseDir ? ' · base' : changedIn(v.dir, c.unit) ? ' · changed' : '';
-  return `<select class="c-ver" data-change="col-version" title="The game version of this column (base: the first version; changed: the unit changed in that version against the one before)">${
-    state.versions.filter(v => unitsOf(v.dir)[c.unit]).map(v => `<option value="${esc(v.dir)}" ${v.dir === own ? 'selected' : ''}>${esc(versionLabel(v) + mark(v))}</option>`).join('')}</select>`;
+  // not every version (there can be about 150): the base, the versions in which this unit changed, and the one the column shows now
+  return `<select class="c-ver" data-change="col-version" title="The game version of this column: the base (the first version), the versions in which the unit changed against the one before, and the one shown now">${
+    state.versions.filter(v => unitsOf(v.dir)[c.unit] && (v.dir === state.baseDir || v.dir === own || changedIn(v.dir, c.unit))).map(v => `<option value="${esc(v.dir)}" ${v.dir === own ? 'selected' : ''}>${esc(versionLabel(v) + mark(v))}</option>`).join('')}</select>`;
 }
 
 // the version comparison: a value is marked if it differs from the same unit in the nearest older version that is shown (the anchor of the column)
@@ -517,11 +519,15 @@ function toggleUnit(unit) {
 const isShown = unit => state.columns.some(c => !c.version && (c.unit === unit || (state.scav && c.unit + '_scav' === unit)));
 // undo / redo of the columns: every change of the set or the order of the columns first puts the old list on the stack
 const undoStack = [], redoStack = [];
-function remember() { undoStack.push(state.columns.slice()); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
+// the stack holds COPIES of the columns: a column can change (its game version), and the old state must stay as it was
+const snapshot = () => state.columns.map(c => ({ ...c }));
+function remember() { undoStack.push(snapshot()); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
 function step(from, to) {
   if (!from.length) return;
-  to.push(state.columns.slice());
+  const ref = refUnit();   // Ref is no step: it stays as it is
+  to.push(snapshot());
   state.columns = from.pop().filter(c => unitOf(c));   // a unit that the game version chosen since then does not have
+  for (const c of displayColumns()) c.ref = tokenOf(c) === ref;
   keepAddress(); render();
 }
 
@@ -557,6 +563,8 @@ function displayColumns() {
 }
 const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[data-col]').dataset.col));
 
+const showLastColumn = () => { const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; };   // the new column is at the right end
+
 const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
@@ -578,7 +586,7 @@ const actions = {
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) {   // the new column is at the right end: show it
     if (state.versionsMode) { if (!addVersions(v)) return; } else { if (isShown(v)) return; remember(); addUnit(v); }
-    keepAddress(); renderCompare(); const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; renderNav();
+    keepAddress(); renderCompare(); showLastColumn(); renderNav();
   },
   versions() { state.versionsMode = !state.versionsMode; keepAddress(); renderCompare(); },
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },
@@ -606,8 +614,7 @@ const actions = {
   'add-counterparts'(v, el) {
     remember();
     for (const n of counterpartsOf(columnOf(el).unit)) addUnit(n);
-    keepAddress(); renderCompare(); renderNav();
-    const s = app.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth;
+    keepAddress(); renderCompare(); renderNav(); showLastColumn();
   },
   'add-unit'(v) { remember(); addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { remember(); const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
@@ -702,6 +709,7 @@ document.addEventListener('change', async e => {
   const kind = e.target.dataset.change;
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
   if (kind === 'version') {
+    remember();
     selectVersion(e.target.value);
     state.columns = state.columns.filter(c => unitOf(c));   // a unit that this version does not have
     keepAddress(); render();

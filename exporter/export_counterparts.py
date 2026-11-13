@@ -41,6 +41,26 @@ def default_id(name):
     return base
 
 
+def make_groups(found):
+    """{unit: [the units its page names]} -> the groups, each a sorted list of two or more units; groups that share a unit are joined."""
+    parent = {}
+
+    def root(x):
+        parent.setdefault(x, x)
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+    for name, others in found.items():
+        root(name)
+        for o in others:
+            parent[root(o)] = root(name)
+    groups = defaultdict(list)
+    for x in list(parent):
+        groups[root(x)].append(x)
+    return [sorted(g) for g in groups.values() if len(g) > 1]
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n')[0])
     ap.add_argument('--out', default=str(ROOT / 'website' / 'assets' / 'counterparts.json'))
@@ -70,20 +90,7 @@ def main():
                 if n % 100 == 0:
                     print(f'  {n} / {len(pages)}')
 
-        parent = {}
-        def root(x):
-            parent.setdefault(x, x)
-            while parent[x] != x:
-                parent[x] = parent[parent[x]]
-                x = parent[x]
-            return x
-        for name, others in found.items():
-            for o in others:
-                parent[root(o)] = root(name)
-        groups = defaultdict(list)
-        for x in list(parent):
-            groups[root(x)].append(x)
-        groups = [sorted(g) for g in groups.values() if len(g) > 1]
+        groups = make_groups(found)
 
         member = {u for g in groups for u in g}
         taken = {ids[u] for u in units if u not in member and not u.endswith('_scav')}

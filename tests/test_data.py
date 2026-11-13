@@ -1,8 +1,9 @@
-"""Tests of the website's data: the rules of exporter/reduce_units.py (SPECIFICATION_WEBSITE.md, section 1) and the files in website/assets/ that the page reads.
+"""Tests of the website's data: the rules of exporter/unit_rules.py (docs/website.md) and the files in website/assets/ that the page reads.
 
     python -m unittest discover -s tests -v
 
-Needs no game installation (the icons are not made here). The environment variable BARUNIT_ASSETS: another assets folder (a test of the exporter). Run by the workflow .github/workflows/pages.yml before the site is published.
+Needs no game installation (the icons are not made here). The environment variable BARUNIT_ASSETS: another assets folder (a test of the exporter, or the chain of tests/make_chain_site.py).
+Run by the workflow .github/workflows/tests.yml (before the site is published, and for every pull request); the chain tests are in test_chain.py, the helpers in test_tools.py.
 """
 import gzip, json, os, sys, unittest
 from pathlib import Path
@@ -11,7 +12,8 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = Path(os.environ.get('BARUNIT_ASSETS') or ROOT / 'website' / 'assets')
 sys.path.insert(0, str(ROOT / 'exporter'))
 sys.path.insert(0, str(ROOT / 'shared'))
-import reduce_units as ru  # noqa: E402
+import unit_rules as ru  # noqa: E402   (category, dps, texts, reduce_unit, natural)
+import reduce_units  # noqa: E402   (the chain: compare)
 import bar_common  # noqa: E402
 
 FIELDS = {'name', 'description', 'faction', 'category', 'tech', 'metal', 'energy', 'buildTime', 'buildPower', 'energyMake', 'hitpoints', 'radar', 'speed', 'weapons', 'dps', 'range'}
@@ -53,9 +55,9 @@ class Rules(unittest.TestCase):
     def test_compare_with_version_before(self):
         base = {'a': {'metal': 1, 'icon': 'x.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'gone': {'metal': 1}}
         units = {'a': {'metal': 2, 'icon': 'y.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'new': {'metal': 1}}
-        changed, pictures = ru.compare(units, {'b': '2', 'lootboxnano_t1': '2'}, base, {'b': '1', 'lootboxnano_t1': '1'})
+        changed, pictures = reduce_units.compare(units, {'b': '2', 'lootboxnano_t1': '2'}, base, {'b': '1', 'lootboxnano_t1': '1'})
         self.assertEqual((changed, pictures), ({'a', 'b', 'new'}, {'b', 'new'}))   # the loot boxes get a model by chance: no change
-        self.assertEqual(ru.compare({'b': {'metal': 1}}, {}, {'b': {'metal': 1}}, {'b': '1'}), (set(), set()))   # without fingerprints only the values count
+        self.assertEqual(reduce_units.compare({'b': {'metal': 1}}, {}, {'b': {'metal': 1}}, {'b': '1'}), (set(), set()))   # without fingerprints only the values count
 
     def test_shared_rules(self):
         self.assertEqual([bar_common.faction_of(u) for u in ('armpw', 'corak_scav', 'raptor_land_x', 'legcom')], ['arm', 'scv', 'rap', 'leg'])
@@ -136,7 +138,7 @@ class Assets(unittest.TestCase):
             self.assertEqual([f for f in files if f != f.lower()], [], 'upper case in picture names')
             wanted = data['units'] if folder == self.base else [n for n, u in data['units'].items() if u.get('ownPicture')]
             missing = [n for n in wanted if not any(f'{n}.{ext}' in files for ext in ('avif', 'webp', 'png', 'jpg'))]
-            self.assertLessEqual(len(missing), 5, f'{folder}: units without a picture: {missing[:20]}')
+            self.assertEqual(missing, [], f'{folder}: units without a picture')
 
     def test_counterparts_and_counters(self):
         newest = bar_common.newest_units(ASSETS)

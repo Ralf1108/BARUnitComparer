@@ -1,4 +1,4 @@
-// Smoke test of the website (SPECIFICATION_WEBSITE.md): starts website/serve.py, opens the page in a headless Edge or Chrome and goes through catalog, compare,
+// Smoke test of the website (docs/website.md): starts website/serve.py, opens the page in a headless Edge or Chrome and goes through catalog, compare,
 // undo, table view, + Scav, Ref, the link and the keyboard. Exit code 1 if a check fails or the page throws an error.
 //   node tests/website_smoke.mjs            (needs: npm install in render_unit/ for playwright-core; Python; Edge or Chrome, or the environment variable BROWSER)
 // Run by the workflow .github/workflows/pages.yml before the site is published. Uses its own port: the favorites of the normal page (localhost:8000) are not touched.
@@ -123,9 +123,16 @@ try {
       check(cols.length >= 3 && at(cols.at(-2)) === at(cols.at(-1)) - 1, 'Versions: a click adds the changed version and the version before it', cols.join(', '));
       check(new RegExp(`${unit}@`).test(await hash()), 'Versions: the link has the versions of the columns', await hash());
       check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0, 'Versions: the changed version is coloured against the version before', '');
+      if (versions.length > 2) {   // the list of a column is short: the base, the versions in which the unit changed, the one shown (not every version)
+        const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
+        check(options.length < versions.length, 'a column lists only the versions that matter for its unit', `${options.length} of ${versions.length}: ${options.join(', ')}`);
+      }
       const baseDir = versions.find(v => v.base).dir;   // the last column (the changed version) back to the base version
+      const beforeChange = await hash();
       await page.selectOption('select.c-ver >> nth=-1', baseDir);
       check(new RegExp(`^#/compare/armpw,${unit}@[^,]+,${unit}@${baseDir}\\?`).test(await hash()), 'a column can show another game version', await hash());
+      await page.click('[data-a="undo"]');
+      check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);
     }
   }
 

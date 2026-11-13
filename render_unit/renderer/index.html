@@ -3,7 +3,7 @@
 <script type="importmap">{"imports":{"three":"/node_modules/three/build/three.module.js","three/addons/":"/node_modules/three/examples/jsm/"}}</script>
 </head><body>
 <script type="module">
-// Pictures of units (SPECIFICATION.md, section 5): renderer, material, light, shadow and camera; the models come from s3o_loader.js / dae_loader.js. The page is opened ONCE (?size=<px>) and stays open: renderer, environment, lights and the compiled shaders are
+// Pictures of units (docs/renderer.md): renderer, material, light, shadow and camera; the models come from s3o_loader.js / dae_loader.js. The page is opened ONCE (?size=<px>) and stays open: renderer, environment, lights and the compiled shaders are
 // made once, then render.mjs calls window.renderUnit(query) for every unit, with the query model=<s3o>&base=<folder>&tex=<folder with albedo/emissive/orm/normal.png>
 // [&hide=<pieces>]; every other value below can be overridden in that query too (e.g. &sun=2.5), the defaults are the tuned look.
 import * as THREE from 'three';

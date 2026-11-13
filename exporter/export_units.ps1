@@ -1,4 +1,4 @@
-# Unit export for the unit comparison website (SPECIFICATION.md, section 3): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
+# Unit export for the unit comparison website (docs/exporter.md): starts the installed Beyond All Reason ONCE in its own sandbox folder, lets the widget
 # unit-export.lua write the data of all units, and copies the result to -Out:
 #   <Out>\<version>\data\units-<version>.json   all units with their values (the version of the game is in the name and in the file)
 #   <Out>\counterparts.json                     the counterpart ids, for all versions (an existing file is given to the game first: its ids are kept, only new units are added)
@@ -10,9 +10,11 @@
 # -PrintGame: only prints the game that would be exported ("Beyond All Reason <version>") and ends, without starting anything.
 # -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places (shared\data_dirs.txt).
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
-# -Engine: the engine to start, the name of its folder in <Data>\engine; default: the newest. An old game version may need the engine of its time.
+# -Engine: the engine to start, the name of its folder in <Data>\engine ("windows64\2025.06.12" for one that pr-downloader unpacked); default: the newest. Every game version is meant
+# for the engine of its time (docs/plan-versions-2026.md).
+# -Headless: starts spring-headless.exe: no window and no dialog box, a bit faster; the same data. (The sandbox always gets LuaUI\Config\BYAR.lua, so that older games start the widget.)
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
-# installed as a package first, see SPECIFICATION.md, section 3.5 "Several game versions").
+# installed as a package first, see docs/versions.md).
 # Exit code 1 and a message on stderr if the export failed; nothing is copied to -Out then.
 param(
     [string]$Out = (Join-Path (Split-Path $PSScriptRoot -Parent) 'website\assets'),
@@ -22,7 +24,8 @@ param(
     [string]$Map = '',
     [string]$Game = '',
     [string]$Engine = '',
-    [switch]$PrintGame
+    [switch]$PrintGame,
+    [switch]$Headless
 )
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
@@ -31,27 +34,6 @@ $here = $PSScriptRoot
 function Fail($text) {
     [Console]::Error.WriteLine("ERROR: $text")
     exit 1
-}
-
-function Read-RapidVersions($file) {
-    Add-Type -AssemblyName System.IO.Compression
-    $fs = [IO.File]::OpenRead($file)
-    $gz = New-Object IO.Compression.GZipStream($fs, [IO.Compression.CompressionMode]::Decompress)
-    $sr = New-Object IO.StreamReader($gz)
-    $text = $sr.ReadToEnd(); $sr.Close(); $fs.Close()
-    return $text
-}
-
-# Is the package of this game in the data folder (a rapid list names it and its .sdp is in packages)? A package just downloaded (exporter\update_versions.py)
-# is not in the archive cache yet: the engine adds it when it starts.
-function Test-RapidPackage($data, $name) {
-    foreach ($file in @(Get-ChildItem (Join-Path $data 'rapid') -Recurse -Filter 'versions.gz' -ErrorAction SilentlyContinue)) {
-        foreach ($line in ((Read-RapidVersions $file.FullName) -split "`n")) {
-            $f = $line.Trim().Split(',')
-            if ($f.Count -ge 4 -and $f[3] -eq $name -and (Test-Path (Join-Path $data ('packages\' + $f[1] + '.sdp')))) { return $true }
-        }
-    }
-    return $false
 }
 
 # Version of the installed official game (byar:test, otherwise byar:stable; the first one whose package is installed), as the engine names it
@@ -75,15 +57,15 @@ function Get-GameVersion($data) {
     return $game
 }
 
-# The newest installed engine (the folder with spring.exe whose name has the highest version number)
-function Get-Engine($data, $wanted) {
+# The newest installed engine (the folder with spring.exe, or spring-headless.exe, whose name has the highest version number)
+function Get-Engine($data, $wanted, $exeName) {
     if ($wanted) {
         $dir = Get-Item (Join-Path $data "engine\$wanted") -ErrorAction SilentlyContinue
-        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName 'spring.exe'))) { Fail "Engine '$wanted' not found in $data\engine (installed: $((Get-ChildItem (Join-Path $data 'engine') -Directory | ForEach-Object Name) -join ', '))." }
+        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName $exeName))) { Fail "Engine '$wanted' not found in $data\engine (installed: $((Get-ChildItem (Join-Path $data 'engine') -Directory | ForEach-Object Name) -join ', '))." }
         return $dir
     }
     $byVersion = { [regex]::Replace($_.Name, '\d+', [Text.RegularExpressions.MatchEvaluator] { param($m) $m.Value.PadLeft(10, '0') }) }
-    $engineDir = Get-ChildItem (Join-Path $data 'engine') -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName 'spring.exe') } | Sort-Object $byVersion | Select-Object -Last 1
+    $engineDir = Get-ChildItem (Join-Path $data 'engine') -Directory -ErrorAction SilentlyContinue | Where-Object { Test-Path (Join-Path $_.FullName $exeName) } | Sort-Object $byVersion | Select-Object -Last 1
     if (-not $engineDir) { throw 'No engine found in data\engine. Please start BAR once so the launcher installs it.' }
     return $engineDir
 }
@@ -95,7 +77,8 @@ public class WinUx { [DllImport("user32.dll")] public static extern bool SetWind
 '@
 
 try { $Data = Find-DataDir $Data } catch { Fail $_.Exception.Message }
-$exe = (Get-Engine $Data $Engine).FullName + '\spring.exe'
+$exeName = if ($Headless) { 'spring-headless.exe' } else { 'spring.exe' }
+$exe = (Get-Engine $Data $Engine $exeName).FullName + '\' + $exeName
 if (-not $Game) { $Game = Get-GameVersion $Data }
 if ($PrintGame) { $Game; exit 0 }
 
@@ -140,9 +123,13 @@ Copy-Item $archiveCache "$d\cache\"
 Copy-Item (Join-Path $here 'unit-export.lua') "$d\LuaUI\Widgets\"
 Copy-Item (Join-Path $here 'lua\*.lua') "$d\LuaUI\Include\"
 Set-Content (Join-Path $we 'quit.txt') 'quit'   # the widget ends the game when it is through
+# Older versions of the game start a user widget only if the widget list of the game (LuaUI\Config\BYAR.lua: order > 0) names it (a new one stays off there, a newer game
+# turns it on itself): so the list is written with the widget in it
+[IO.File]::WriteAllText("$d\LuaUI\Config\BYAR.lua", "return {`n`torder = { [`"Website Unit Export`"] = 12345 },`n`tdata = {},`n`tallowUserWidgets = true,`n}`n", (New-Object Text.UTF8Encoding $false))
 if (Test-Path (Join-Path $Out 'counterparts.json')) { Copy-Item (Join-Path $Out 'counterparts.json') $we }   # the ids that were corrected by hand stay
 
 # one human player, one AI, the game option forceallunits=1 (without it the Scavenger and Raptor units do not exist)
+$hostPort = Get-Random -Minimum 20000 -Maximum 40000   # the game is its own host: another port per start, so that two exports at the same time do not meet
 $script = @"
 [game]
 {
@@ -155,7 +142,7 @@ $script = @"
 	[modoptions] { deathmode=neverend; experimentallegionfaction=1; forceallunits=1; }
 	ishost=1;
 	hostip=127.0.0.1;
-	hostport=18455;
+	hostport=$hostPort;
 	myplayername=Player;
 	gametype=$Game;
 	mapname=$Map;
@@ -216,8 +203,9 @@ $reduced = [bool](Get-Command python -ErrorAction SilentlyContinue)
 if ($reduced) {
     try {
         $ErrorActionPreference = 'Continue'   # a line of Python on stderr (a note, a warning) is no reason to stop here
-        foreach ($file in $exported) {   # a new export replaces the reduced file of that version
-            & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --force 2>&1 | ForEach-Object { "$_" }
+        foreach ($file in $exported) {   # a new export replaces the result of that version only (--redo), not the whole chain
+            $version = Split-Path (Split-Path $file -Parent | Split-Path -Parent) -Leaf
+            & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --redo $version 2>&1 | ForEach-Object { "$_" }
             if ($LASTEXITCODE -ne 0) { $reduced = $false }
         }
     } catch { "$_"; $reduced = $false }

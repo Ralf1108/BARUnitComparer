@@ -19,7 +19,7 @@ Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.
 - **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
 - **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
 - **+ Scav:** shows the Scavenger copy of every unit next to it.
-- **Versions:** compares game versions: only the units that changed, the version before and the changed version side by side, the changed values marked. Every column can show any exported version. A version in which no unit changed is not shown.
+- **Versions:** (planned: every version of the year from 2026-01-01, see [docs/plan-versions-2026.md](docs/plan-versions-2026.md)) compares game versions: only the units that changed, the version before and the changed version side by side, the changed values marked. Every column can show any exported version. A version in which no unit changed is not shown.
 - **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link (units, view, Ref and + Scav), ready to share.
 
 **Tools** (they get the content out of the installed game)
@@ -42,9 +42,8 @@ All tools, their parameters and requirements: [TOOLS.md](TOOLS.md).
 
 - [TOOLS.md](TOOLS.md): exporter, renderer, counterparts and counters, requirements
 - [exporter/README.md](exporter/README.md), [render_unit/README.md](render_unit/README.md): parameters and output files
-- [SPECIFICATION_WEBSITE.md](SPECIFICATION_WEBSITE.md): the website
-- [SPECIFICATION.md](SPECIFICATION.md): the complete description of the tools: data formats, game file formats, decisions
+- [docs/README.md](docs/README.md): the index of the technical documents: [the website](docs/website.md), [the exporter](docs/exporter.md), [game versions](docs/versions.md) and [the plan for the year](docs/plan-versions-2026.md), [the renderer](docs/renderer.md), [the game's files and formats](docs/game-files.md)
 
 ## Licence
 
-The code of this repository is under the [MIT licence](LICENSE). The game data, models and textures of Beyond All Reason have their own licences (mostly CC BY-NC-ND 4.0, see section 7 of the specification). The unit data, the rendered pictures and the icons in `website/assets/` are derived from them: this is an unofficial fan project, the pictures are published with the site, and they are taken down on request of the BAR developers.
+The code of this repository is under the [MIT licence](LICENSE). The game data, models and textures of Beyond All Reason have their own licences (mostly CC BY-NC-ND 4.0, see [docs/licence.md](docs/licence.md)). The unit data, the rendered pictures and the icons in `website/assets/` are derived from them: this is an unofficial fan project, the pictures are published with the site, and they are taken down on request of the BAR developers.

@@ -1,59 +1,14 @@
-# Compiled Lua sources
-luac.out
-
-# luarocks build files
-*.src.rock
-*.zip
-*.tar.gz
-
-# Object files
-*.o
-*.os
-*.ko
-*.obj
-*.elf
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
-*.def
-*.exp
-
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
-
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
-
-
-# Output of exporter/export_units.ps1 (the exported JSON files are not part of the repository for now)
-exporter/out/
-
-# render_unit: node modules and rendered pictures
-render_unit/node_modules/
-render_unit/out/
+# Python
 __pycache__/
 
-# website/assets/ is in Git (an overwritten or deleted result can be restored from there); only what is temporary stays out
+# render_unit: node modules (npm install in render_unit/)
+render_unit/node_modules/
+
+# website/assets/ is in Git (an overwritten or deleted result can be restored from there); only what is temporary stays out:
+# files that are written complete or not at all (<file>.part) and the list of pictures that failed
 website/assets/**/*.part
-website/assets/.render_state.json
 render_errors.txt
 
-# the full export of a later game version stays local: in Git are only its diff file (units-<version>.diff.json.gz) and the pictures that differ from the base version;
-# the full export of the base version is the one exception (reduce_units.py compares with its reduced file, the full file is the source of it)
+# The full export of EVERY game version (units-<version>.json, about 15 MB) stays local, the base version's too: what is in Git is the reduced file of the base
+# and the diff file of each later version (docs/versions.md). The page does not read the full file, and nothing here needs it but a render of the Raptor pictures.
 website/assets/*/data/units-*.json
-!website/assets/test-31820-45ea098/data/units-test-31820-45ea098.json

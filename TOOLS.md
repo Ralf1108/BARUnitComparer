@@ -5,6 +5,7 @@ The website (see the [README](README.md)) shows data and pictures that these too
 ## Contents
 
 - [Export and render everything](#export-and-render-everything)
+- [New game versions](#new-game-versions)
 - [Exporter](#exporter)
 - [Counterparts and counters](#counterparts-and-counters)
 - [Unit pictures (render_unit)](#unit-pictures-render_unit)
@@ -13,6 +14,10 @@ The website (see the [README](README.md)) shows data and pictures that these too
 ## Export and render everything
 
 `export and render all units.bat` asks for the factions (all, or one or more of Armada, Cortex, Legion, Scavengers, Raptors) and the picture format (AVIF, WebP, JPEG, PNG, BMP or all) and then does three steps, each only if its result is missing: the export, the reduced data of the website and the pictures of the units without a picture, all per game version in `website/assets/<version>/data/` and `website/assets/<version>/images/`. It shows the progress live (counter, last unit, size so far, elapsed time, remaining time with the seconds per picture) and ends with a summary. An aborted run can simply be started again.
+
+## New game versions
+
+`update game versions.bat` (`exporter/update_versions.py`) looks on the BAR package server for game versions newer than the newest one done, downloads each one with the `pr-downloader` of the BAR installation, exports it and keeps only what changed against the version before it: the diff file, the pictures that changed. A version in which no unit changed gets no files. `--list` only shows the new versions, `--max N` takes only the first N, `--data` names the data folder. An aborted run can be started again. How it works: [docs/versions.md](docs/versions.md).
 
 ## Exporter
 
@@ -50,7 +55,7 @@ Renders a picture of a unit from the game's own 3D model and textures, in the lo
 ## Requirements
 
 - Windows with a BAR installation (the launcher's data folder; found automatically, or give it with the environment variable `BAR_DATA`).
-- Exporter: Windows PowerShell (part of Windows).
-- Python 3.12 or newer (the scripts use its syntax).
+- Exporter: Windows PowerShell (part of Windows). New game versions: the `pr-downloader` of the BAR installation (`<BAR>/bin`).
+- Python 3.12 or newer (the scripts use its syntax). The packages: `pip install -r requirements.txt`.
 - Website: `zopfli` for the data (`pip install zopfli`; without it the file is a little larger), Python for the local web server, a current browser (AVIF).
 - Pictures: Python with `numpy`, `Pillow` and (for the quality check) `scipy`; Node.js; Microsoft Edge or Google Chrome. The first run installs three.js and playwright-core with npm.

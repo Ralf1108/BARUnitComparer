@@ -1,4 +1,4 @@
-# Everything for one game version, every step only if its result is missing (SPECIFICATION.md, section 6). Started by "export and render all units.bat".
+# Everything for one game version, every step only if its result is missing (docs/pipeline.md). Started by "export and render all units.bat".
 #   1. export       website\assets\<version>\data\units-<version>.json           (exporter\export_units.ps1, starts the game)
 #   2. reduce       website\assets\<version>\data\units-<version>.reduced.json.gz   (exporter\reduce_units.py) of the base version (the first one exported);
 #                   every later version gets units-<version>.diff.json.gz: only what changed against the version before it (nothing changed: no file, the
@@ -7,12 +7,14 @@
 #                   of a later version only the units whose picture changed (reduce_units.py --pictures)
 # So an aborted run can be started again and goes on. The output of the scripts is not shown, only the progress.
 # Parameters: -Faction <all | arm | cor | leg | scv | rap, several separated by commas> renders only the units of these factions (the export is always complete);
-# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. -Game "Beyond All Reason <version>": another installed version (default: the installed one). -Force: all three steps again, even if the results are there. For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
-param([string]$Faction = '', [string]$Format = '', [string]$Game = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '')
+# -Format <avif | webp | jpeg | png | bmp | all (= all five), several separated by commas> (default avif); without the parameters the script asks. -Game "Beyond All Reason <version>": another installed version (default: the installed one). -Force: all three steps again, even if the results are there. -Out <folder>: instead of website\assets\ (for tests). -Data <folder>: the data folder of the BAR installation (default: BAR_DATA, else the usual places). For tests: -Limit <n> renders only the first n units; -Yes skips the questions at the start.
+param([string]$Faction = '', [string]$Format = '', [string]$Game = '', [int]$Limit = 0, [switch]$Yes, [switch]$Force, [string]$Out = '', [string]$Data = '')
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
 . (Join-Path $root 'shared\BarCommon.ps1')   # Get-Faction, Get-VersionName, Get-PictureExtension (the same rules as the Python tools)
-$out = if ($Out) { $Out } else { Join-Path $root 'website\assets' }   # -Out: another folder for the pictures (for tests: never the real website\assets\)
+if (-not $Out) { $Out = Join-Path $root 'website\assets' }   # -Out: another folder for the results (for tests: never the real website\assets\)
+$dataArgs = if ($Data) { @('-Data', $Data) } else { @() }   # the data folder of the installation, passed on to every tool (an empty value is not passed at all)
+$pyDataArgs = if ($Data) { @('--data', $Data) } else { @() }
 $chunk = 80   # units per call of render_unit.py: every call starts its browsers (--jobs of them, 4 by default) once; the counter is updated after each call
 $errors = New-Object System.Collections.Generic.List[string]
 $unsupported = New-Object System.Collections.Generic.List[string]   # units whose model format is not supported (render_unit.py: S3O, Collada): no picture, not an error
@@ -48,18 +50,19 @@ $formatText = ($formats -join ', ').ToUpper()
 
 # which game version, and what is there already (without starting the game)
 $exporter = Join-Path $root 'exporter\export_units.ps1'
-$printed = if ($Game) { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame -Game $Game } else { & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame }
+$gameArgs = if ($Game) { @('-Game', $Game) } else { @() }
+$printed = & powershell -NoProfile -ExecutionPolicy Bypass -File $exporter -PrintGame @gameArgs @dataArgs
 if ($LASTEXITCODE -ne 0 -or -not $printed) { Fail 'The game version could not be found (see above).' }
 $gameName = @($printed)[-1].Trim()
 $version = Get-VersionName $gameName   # the same rule as the file name of the export
-$dataDir = Join-Path (Join-Path $out $version) 'data'
-$versionDir = Join-Path (Join-Path $out $version) 'images'   # the pictures
+$dataDir = Join-Path (Join-Path $Out $version) 'data'
+$versionDir = Join-Path (Join-Path $Out $version) 'images'   # the pictures
 $unitsFile = Join-Path $dataDir "units-$version.json"
 $reducedFile = Join-Path $dataDir "units-$version.reduced.json.gz"
 $diffFile = Join-Path $dataDir "units-$version.diff.json.gz"   # a later version: only what changed against the version before
 function Test-Reduced { (Test-Path $reducedFile) -or (Test-Path $diffFile) }
 function Test-Unchanged {   # compared with the version before, nothing changed (versions.json: unchanged)
-    $listing = Join-Path $out 'versions.json'
+    $listing = Join-Path $Out 'versions.json'
     (Test-Path $listing) -and (@((Get-Content $listing -Raw | ConvertFrom-Json).unchanged) -contains $version)
 }
 function Reduced-Name { Split-Path $(if (Test-Path $reducedFile) { $reducedFile } else { $diffFile }) -Leaf }
@@ -85,19 +88,19 @@ Write-Host '== 1/3  Unit data from Beyond All Reason ==' -ForegroundColor Cyan
 if (-not $needExport) { Write-Host "   $(Split-Path $unitsFile -Leaf) is there already, the export is skipped" -ForegroundColor Green } else {
 $log = Join-Path $env:TEMP 'export_units_log.txt'
 $errLog = Join-Path $env:TEMP 'export_units_errors.txt'
-$p = Start-Process powershell -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$root\exporter\export_units.ps1`"", '-Out', "`"$out`"", '-Game', "`"$gameName`"") `
+$exportArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$root\exporter\export_units.ps1`"", '-Out', "`"$Out`"", '-Game', "`"$gameName`"")
+if ($Data) { $exportArgs += @('-Data', "`"$Data`"") }   # Start-Process joins the arguments into one text: a path with blanks needs its quotes
+$p = Start-Process powershell -ArgumentList $exportArgs `
     -RedirectStandardOutput $log -RedirectStandardError $errLog -WindowStyle Hidden -PassThru
 $null = $p.Handle   # keeps the handle, otherwise the exit code of the process is empty afterwards (Windows PowerShell 5.1)
 $seen = @{}
-while (-not $p.HasExited) {
-    Start-Sleep -Milliseconds 700
-    foreach ($line in @(Get-Content $log -ErrorAction SilentlyContinue)) {   # only the steps of the script, not its whole output
+function Show-Steps {   # only the steps of the export script ([1/4] ...), not its whole output, each once
+    foreach ($line in @(Get-Content $log -ErrorAction SilentlyContinue)) {
         if ($line -match '^\[\d/4\]' -and -not $seen.ContainsKey($line)) { $seen[$line] = 1; Write-Host "   $line" }
     }
 }
-foreach ($line in @(Get-Content $log -ErrorAction SilentlyContinue)) {
-    if ($line -match '^\[\d/4\]' -and -not $seen.ContainsKey($line)) { $seen[$line] = 1; Write-Host "   $line" }
-}
+while (-not $p.HasExited) { Start-Sleep -Milliseconds 700; Show-Steps }
+Show-Steps
 $p.WaitForExit()   # without it the exit code of a process started without -Wait can be empty
 if ($p.ExitCode -ne 0) {
     $why = (@(Get-Content $errLog -ErrorAction SilentlyContinue) + @(Get-Content $log -Tail 5 -ErrorAction SilentlyContinue)) -join "`n"
@@ -116,7 +119,7 @@ if ((Test-Reduced) -or (Test-Unchanged)) {
     if (Test-Reduced) { Write-Host "   $(Reduced-Name) $(if ($needExport) { 'made with the export' } else { 'is there already, skipped' })" -ForegroundColor Green }
 } else {
     $reduceLog = Join-Path $env:TEMP 'reduce_units_log.txt'
-    try { & python (Join-Path $root 'exporter\reduce_units.py') --units $unitsFile --out $out *> $reduceLog } catch { }
+    try { & python (Join-Path $root 'exporter\reduce_units.py') --units $unitsFile --out $Out @pyDataArgs --redo $version *> $reduceLog } catch { }
     if (Test-Reduced) { Write-Host "   $(Reduced-Name) made" -ForegroundColor Green }
     elseif (Test-Unchanged) { }
     else { Write-Host "   The reduced data could not be made, see $reduceLog. The pictures are made all the same." -ForegroundColor Yellow }
@@ -131,8 +134,8 @@ if ((Test-Unchanged) -and -not (Test-Reduced)) {
 # ---------------------------------------------------------------- 3. the pictures
 $names = New-Object System.Collections.Generic.List[string]
 $pictureUnits = @()
-if (Test-Reduced) { $pictureUnits = @(& python (Join-Path $root 'exporter\reduce_units.py') --pictures (Join-Path $out $version)) }   # the base: all units; a later version: only the ones whose picture differs
-else { foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { $pictureUnits += $Matches[1] } } }   # without the reduced data: all units (one unit per line, SPECIFICATION.md, section 3.1)
+if (Test-Reduced) { $pictureUnits = @(& python (Join-Path $root 'exporter\reduce_units.py') --pictures (Join-Path $Out $version)) }   # the base: all units; a later version: only the ones whose picture differs
+else { foreach ($line in [IO.File]::ReadLines($units.FullName)) { if ($line -match '^"([^"]+)":\{"game"') { $pictureUnits += $Matches[1] } } }   # without the reduced data: all units (one unit per line, docs/exporter.md)
 foreach ($u in $pictureUnits) { if ($u -and (-not $wanted.Count -or $wanted -contains (Get-Faction $u))) { $names.Add($u) } }
 if ($Limit -gt 0 -and $names.Count -gt $Limit) { $names.RemoveRange($Limit, $names.Count - $Limit) }
 if ($names.Count -eq 0 -and (Test-Path $diffFile)) { Write-Host ''; Write-Host "No picture of $version changed against the version before: nothing to render." -ForegroundColor Green; exit 0 }
@@ -166,7 +169,7 @@ $shown = [math]::Floor($skipped / 20)   # the line is rewritten every 20 picture
 for ($i = 0; $i -lt $todo.Count; $i += $chunk) {
     $batch = $todo.GetRange($i, [math]::Min($chunk, $todo.Count - $i))
     $chunkStart = Get-Date
-    $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$versionDir`"", '--game', "`"$gameName`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $batch
+    $renderArgs = @('"' + (Join-Path $root 'render_unit\render_unit.py') + '"', '--out', "`"$versionDir`"", '--game', "`"$gameName`"", '--work', "`"$work`"", '--units', "`"$($units.FullName)`"", '--format', ($formats -join ','), '--no-quality-check') + $pyDataArgs + $batch
     $p = Start-Process python -ArgumentList $renderArgs -RedirectStandardOutput $renderLog -RedirectStandardError "$renderLog.err" -WindowStyle Hidden -PassThru
     $null = $p.Handle
     $mine = New-Object System.Collections.Generic.HashSet[string]; foreach ($u in $batch) { [void]$mine.Add("$u.png") }

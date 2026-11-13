@@ -1,4 +1,4 @@
-# BarCommon.ps1: what the PowerShell scripts share (SPECIFICATION.md, section 2); dot-sourced:  . (Join-Path <repository> 'shared\BarCommon.ps1')
+# BarCommon.ps1: what the PowerShell scripts share (docs/game-files.md); dot-sourced:  . (Join-Path <repository> 'shared\BarCommon.ps1')
 # The same rules for Python: bar_common.py next to this file. The usual places of the data folder: data_dirs.txt (read by both).
 
 $BarCommonDir = $PSScriptRoot   # this folder (when dot-sourced, $PSScriptRoot inside a function would be the caller's)
@@ -23,4 +23,26 @@ function Find-DataDir($given) {
     $candidates = @($given, $env:BAR_DATA) + @($usual) | Where-Object { $_ }
     foreach ($c in $candidates) { if (Test-DataDir $c) { return (Resolve-Path $c).Path } }
     throw "No BAR data folder found (it needs the folders packages and pool). Give it with -Data or the environment variable BAR_DATA. Looked in: $($candidates -join ', ')"
+}
+
+# The text of a rapid package list (versions.gz of the data folder: gzip, one `tag,md5,depends,name` per line)
+function Read-RapidVersions($file) {
+    Add-Type -AssemblyName System.IO.Compression
+    $fs = [IO.File]::OpenRead($file)
+    $gz = New-Object IO.Compression.GZipStream($fs, [IO.Compression.CompressionMode]::Decompress)
+    $sr = New-Object IO.StreamReader($gz)
+    $text = $sr.ReadToEnd(); $sr.Close(); $fs.Close()
+    return $text
+}
+
+# Is the package of this game in the data folder (a rapid list names it and its .sdp is in packages)? A package just downloaded (exporter\update_versions.py)
+# is not in the archive cache yet: the engine adds it when it starts.
+function Test-RapidPackage($data, $name) {
+    foreach ($file in @(Get-ChildItem (Join-Path $data 'rapid') -Recurse -Filter 'versions.gz' -ErrorAction SilentlyContinue)) {
+        foreach ($line in ((Read-RapidVersions $file.FullName) -split "`n")) {
+            $f = $line.Trim().Split(',')
+            if ($f.Count -ge 4 -and $f[3] -eq $name -and (Test-Path (Join-Path $data ('packages\' + $f[1] + '.sdp')))) { return $true }
+        }
+    }
+    return $false
 }

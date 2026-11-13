@@ -1,7 +1,7 @@
-# Publishes the folder website/ with GitHub Pages (SPECIFICATION_WEBSITE.md, section 6).
+# Publishes the folder website/ with GitHub Pages (docs/website.md, section "Publishing with GitHub Pages").
 # One time in the repository: Settings > Pages > Build and deployment > Source: GitHub Actions.
-# After that every push to main that changes website/ publishes the site again; "Run workflow" in the Actions tab does it by hand.
-# The tests run first (tests/): the data files and a smoke test of the page in a headless Chrome; if one fails, nothing is published.
+# After that every push to main that changes the site, the tools or the tests publishes the site again; "Run workflow" in the Actions tab does it by hand.
+# The tests run first (tests.yml: the data files, the tools' rules and helpers, a smoke test of the page in a headless Chrome); if one fails, nothing is published.
 name: Publish the website
 
 on:
@@ -11,8 +11,11 @@ on:
       - 'website/**'
       - 'tests/**'
       - 'shared/**'
-      - 'exporter/reduce_units.py'
+      - 'exporter/**'
+      - 'render_unit/**'
+      - 'requirements.txt'
       - '.github/workflows/pages.yml'
+      - '.github/workflows/tests.yml'
   workflow_dispatch:
 
 permissions:
@@ -26,22 +29,7 @@ concurrency:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      # the runner has Python 3.12, Node.js and Google Chrome; playwright-core comes from render_unit/package-lock.json
-      - name: Install playwright-core
-        run: npm ci --no-audit --no-fund
-        working-directory: render_unit
-
-      - name: Data files and the rules of reduce_units.py
-        run: python3 -m unittest discover -s tests -v
-
-      - name: Smoke test of the page
-        run: node tests/website_smoke.mjs
-        env:
-          BROWSER: /usr/bin/google-chrome
+    uses: ./.github/workflows/tests.yml
 
   deploy:
     needs: test

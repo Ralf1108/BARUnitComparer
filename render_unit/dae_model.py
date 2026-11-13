@@ -1,4 +1,4 @@
-"""dae_model.py: Collada (.dae) models of Beyond All Reason units (render_unit.py, SPECIFICATION.md section 5).
+"""dae_model.py: Collada (.dae) models of Beyond All Reason units (render_unit.py, docs/game-files.md and docs/renderer.md).
 
 Of the 1663 units one has a Collada model instead of an S3O (the format modules: s3o_model.py, this file) (`objects3d/raptors/raptorartillery.dae`). Its parts, the browser side: renderer/dae_loader.js (the geometry).
 This file is the game side: a .dae has no texture names in a header like an S3O has; the textures come from the Lua file next to the model in the game
@@ -7,7 +7,6 @@ This file is the game side: a .dae has no texture names in a header like an S3O 
 """
 import re
 
-FORMAT_NAME = 'Collada'
 EXTENSION = 'dae'
 
 

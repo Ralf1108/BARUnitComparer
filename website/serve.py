@@ -1,4 +1,4 @@
-"""serve.py: small local web server to test the website (SPECIFICATION_WEBSITE.md, section 5). A page opened from a file cannot load its data.
+"""serve.py: small local web server to test the website (docs/website.md, section 5). A page opened from a file cannot load its data.
 
     python website/serve.py [--port 8000] [--no-browser]
 

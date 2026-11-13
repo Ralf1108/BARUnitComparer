@@ -1,9 +1,10 @@
-"""reduce_units.py: the data of the website from the exporter's files (SPECIFICATION_WEBSITE.md, section 1; SPECIFICATION.md, section 3.5). export_units.ps1 runs it after every export.
+"""reduce_units.py: the data of the website from the exporter's files (docs/website.md, docs/versions.md). export_units.ps1 runs it after every export.
 
-    python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--force]
+    python exporter/reduce_units.py [--units FILE] [--out DIR] [--data DIR] [--redo VERSION ...] [--force]
     python exporter/reduce_units.py --pictures <out>/<version>     the units whose picture belongs into that version's images/ folder, one per line
 
-Reads every <out>/<version>/data/units-<version>.json and writes what is not there yet (--force: everything again), the versions in order (by the numbers in the name):
+Reads every <out>/<version>/data/units-<version>.json and writes what is not there yet (--redo <folder name>: that version again, e.g. after its export was made again;
+--force: everything again), the versions in order (by the numbers in the name):
   the BASE version (the first one exported: the one that has a units-<version>.reduced.json.gz):
     <out>/<version>/data/units-<version>.reduced.json.gz   only the values the page shows, plus the new property `category`, as gzip at its maximum (pip install zopfli)
     <out>/<version>/data/pictures.json                    the fingerprint of every unit's picture (render_unit.picture_fingerprints: model, textures, hidden pieces, faction)
@@ -18,6 +19,7 @@ and in any case <out>/versions.json: the base and every version with a diff file
 repository), and the versions in which nothing changed. A version older than the base is left out.
 --data: data folder of BAR (default as in shared/bar_common.py); without the game installed there are no icons and no picture fingerprints (the pictures count as unchanged).
 --out: default website/assets/; nothing else in that folder is touched.
+--units: this units-<version>.json has to exist (it is only checked; every version that has an export and no result yet is done).
 """
 import argparse, gzip, json, re, sys
 from pathlib import Path
@@ -25,64 +27,12 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'shared'))
 import bar_common  # noqa: E402  (the game's files, shared with render_unit.py)
+from unit_rules import category, dps, natural, reduce_unit, texts  # noqa: E402,F401  (the rules; also reachable as reduce_units.<name>)
 
-CATEGORY_OF_GROUP = {'bot': 'bots', 'vehicle': 'vehicles', 'air': 'air', 'ships': 'sea', 'hover': 'hover', 'turrets': 'defense'}
 # The Scavenger loot boxes get one of two models by chance at every start of the game (unitbasedefs/lootboxes/lootboxnano.lua: math.random(1, 2)): another model
 # of one of them is no change of the game, so their pictures are not compared
 RANDOM_MODEL = re.compile(r'^lootbox')
 COMMITS = 'https://api.github.com/repos/beyond-all-reason/Beyond-All-Reason/commits/'
-
-
-def category(game, editor):
-    if game.get('isFactory'):
-        return 'factories'
-    if editor.get('filler'):
-        return 'defense'
-    return CATEGORY_OF_GROUP.get(editor.get('group'), 'buildings')
-
-
-def dps(weapons):
-    """Damage per second of all weapons that deal damage continuously (SPECIFICATION_WEBSITE.md, section 1)."""
-    total = 0.0
-    for w in weapons:
-        if (w.get('customParams') or {}).get('bogus') or w.get('isShield') or w.get('type') == 'Shield' or w.get('interceptor') or w.get('paralyzer') or w.get('stockpile') or w.get('manualFire'):
-            continue
-        damages = w.get('damages') or {}
-        reload = w.get('reload') or 0
-        if reload > 0:
-            total += max(damages.get('default') or 0, damages.get('vtol') or 0) * (w.get('projectiles') or 1) * (w.get('salvoSize') or 1) / reload
-    return total
-
-
-def texts(unit_name, editor):
-    """Name and description. Some units have no translation in the game: the text is then only a key (`units.names.armprowl`). The description is the name then if it is a real
-    text (armprowl: "Prowler"), otherwise the name of the unit."""
-    name, description = editor.get('humanName') or '', editor.get('description') or ''
-    name_missing, description_missing = name.startswith('units.'), description.startswith('units.')
-    if name_missing:
-        name, description = (description, '') if description and not description_missing else (unit_name, '')
-    elif description_missing:
-        description = ''
-    return name, description
-
-
-def reduce_unit(unit_name, unit):
-    game, editor = unit['game'], unit['editor']
-    weapons = editor.get('weapons') or []
-    name, description = texts(unit_name, editor)
-    types = list(dict.fromkeys(w['type'] for w in weapons if w.get('type') and not (w.get('customParams') or {}).get('bogus')))
-    energy_make = max(0, (game.get('energyMake') or 0) - (game.get('energyUpkeep') or 0)) + (game.get('windGenerator') or 0) + (game.get('tidalGenerator') or 0)
-    return {
-        'name': name, 'description': description, 'faction': editor.get('faction'), 'category': category(game, editor),
-        'tech': editor.get('tech') or 1, 'metal': game.get('metalCost') or 0, 'energy': game.get('energyCost') or 0, 'buildTime': round((game.get('buildTime') or 0) / 100, 1),
-        'buildPower': game.get('buildSpeed') or 0, 'energyMake': round(energy_make, 1), 'hitpoints': round(game.get('health') or 0, 1), 'radar': game.get('radarDistance') or 0,
-        'speed': round(game.get('speed') or 0, 1), 'weapons': types, 'dps': round(dps(weapons), 1), 'range': game.get('maxWeaponRange') or 0,
-    }
-
-
-def natural(text):
-    """Sort key with the numbers in the text as numbers: test-31450 before test-31820."""
-    return [int(p) if p.isdigit() else p for p in re.split(r'(\d+)', text)]
 
 
 # ---------------------------------------------------------------- the game: icons, picture fingerprints
@@ -187,7 +137,8 @@ class Chain:
 
 def compare(units, prints, before_units, before_prints):
     """(the units whose values or picture differ from the version before, new units included; the units whose picture differs, new units included).
-    The icon counts only if both versions have one (without the game installed there are no icons)."""
+    The icon counts only if both versions have one (without the game installed there are no icons); the pictures are compared only if both versions have fingerprints.
+    A unit that had no picture before and has one now counts as changed."""
     plain = lambda u: {k: v for k, v in u.items() if k != 'icon'}
     changed, pictures = set(), set()
     for name, u in units.items():
@@ -199,7 +150,7 @@ def compare(units, prints, before_units, before_prints):
         if plain(u) != plain(b) or (u.get('icon') and b.get('icon') and u['icon'] != b['icon']):
             changed.add(name)
         old, new = before_prints.get(name), prints.get(name)
-        if old and new and old != new and not RANDOM_MODEL.match(name):
+        if prints and before_prints and new and old != new and not RANDOM_MODEL.match(name):   # also a unit that had no picture before
             changed.add(name)
             pictures.add(name)
     return changed, pictures
@@ -249,6 +200,8 @@ def write_diff(f, folder, chain, data_dir):
     target = folder / 'data' / f'{f.stem}.diff.json.gz'
     if not chain.prints or not prints:
         print(f'note: the pictures are not compared (no fingerprints of {"the version before" if not chain.prints else "this version"}), only the values')
+    if not prints and (folder / 'data' / 'pictures.json').exists():
+        sys.exit(f'ERROR: the game {version} is not installed, so its pictures cannot be compared, and {folder.name} has pictures.json already: it would be lost. Install the game version (the download of exporter/update_versions.py) or remove the file on purpose.')
     changed, pictures = compare(units, prints, chain.units, chain.prints)
     new_icons = {}   # icon files that the version before does not have like this; every unit with one of them counts as changed
     if pool:
@@ -336,12 +289,20 @@ def write_versions(out, unchanged):
     old.write_text(text, encoding='utf-8', newline='\n')
 
 
+def check_before(chain, folder, existing):
+    """A diff file is made against one version (`before`): applied to another one it would give wrong units, so that is an error."""
+    before = read_gz(existing).get('before')
+    if before != chain.version:
+        sys.exit(f'ERROR: {existing.name} was made against {before}, but the version before it is now {chain.version}. Make it again: reduce_units.py --redo {folder.name} (or --force for all).')
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
     ap.add_argument('--units', default='', help='this units-<version>.json has to be there (all versions not done yet are done, in order)')
     ap.add_argument('--out', default=str(ROOT / 'website' / 'assets'), help='the out folder (default website/assets/)')
     ap.add_argument('--data', default='', help='data folder of the BAR installation (for the icons and the picture fingerprints)')
     ap.add_argument('--force', action='store_true', help='make the base file and every diff file again, even if they are there')
+    ap.add_argument('--redo', action='append', default=[], metavar='VERSION', help='make only this version (its folder name) again; repeat for several. A later version that depends on it is not changed: use --force for that')
     ap.add_argument('--pictures', default='', metavar='FOLDER', help='only print the units whose picture belongs into FOLDER/images (FOLDER: <out>/<version>)')
     a = ap.parse_args()
     if a.pictures:
@@ -355,7 +316,8 @@ def main():
     if not exports and not base:
         sys.exit(f'ERROR: no units-<version>.json in {out}. Run the exporter first (exporter/export_units.bat).')
     out.mkdir(parents=True, exist_ok=True)
-    if base is None or (a.force and base in exports):   # the first version exported is the base
+    redo = set(a.redo)
+    if base is None or ((a.force or base.name in redo) and base in exports):   # the first version exported is the base
         base = base or min(exports, key=lambda p: natural(p.name))
         write_base(exports[base], base, a.data)
     unchanged = unchanged_versions(out)
@@ -365,12 +327,16 @@ def main():
     chain = Chain(base)
     for folder in sorted((p for p in folders if natural(p.name) > natural(base.name)), key=lambda p: natural(p.name)):
         existing = diff_file(folder)
-        if not a.force and (existing or folder.name in unchanged):
+        again = a.force or folder.name in redo
+        if existing and not again:
+            check_before(chain, folder, existing)
+        if not again and (existing or folder.name in unchanged):
             if existing:
                 chain.apply(folder, read_gz(existing))
             print(f'{folder.name}: done already ({"diff file" if existing else "nothing changed"}), skipped')
             continue
         if folder not in exports:   # only the diff file (the full export is not in Git)
+            check_before(chain, folder, existing)
             chain.apply(folder, read_gz(existing))
             print(f'note: {folder.name}: no units-<version>.json, the diff file is kept as it is')
             continue

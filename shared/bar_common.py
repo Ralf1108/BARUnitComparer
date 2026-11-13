@@ -1,10 +1,10 @@
-"""bar_common.py: what the Python tools share (SPECIFICATION.md, section 2). The same rules for PowerShell: BarCommon.ps1 next to this file.
+"""bar_common.py: what the Python tools share (docs/game-files.md). The same rules for PowerShell: BarCommon.ps1 next to this file.
 
     import sys; sys.path.insert(0, str(<repository> / 'shared')); import bar_common
 
 - find_data_dir, find_game, Pool: the game's files (data folder, the package of the game, the pool)
 - faction_of, version_name: the faction of a unit by its name, the game version as it is used in file and folder names
-- fetch, newest_units: beyondallreason.info and the unit data of the newest exported game version
+- http_get, rapid_lines, fetch, newest_units: web requests, the package lists of the BAR server, beyondallreason.info and the unit data of the newest exported game version
 """
 import gzip, json, os, re, sys, urllib.request
 from pathlib import Path
@@ -58,17 +58,26 @@ def find_data_dir(given=''):
              + ', '.join(str(c) for c in candidates if c))
 
 
+def rapid_lines(raw):
+    """The lines of a rapid package list (versions.gz of the BAR server or of the data folder: gzip, one `tag,md5,depends,name` per line) as split fields, [[tag, md5, depends, name], ...]."""
+    out = []
+    for line in gzip.decompress(raw).decode('utf-8', errors='replace').splitlines():
+        f = line.strip().split(',')
+        if len(f) >= 4:
+            out.append(f)
+    return out
+
+
 def rapid_package(data, name):
     """The package (.sdp) of the game `name` from the rapid lists of the data folder (rapid/<server>/<repo>/versions.gz: tag,md5,depends,name), if it is in packages/;
     else None. A package that was just downloaded (exporter/update_versions.py) is not in the archive cache yet: the engine adds it when it starts."""
     for listing in Path(data, 'rapid').glob('*/*/versions.gz'):
         try:
-            lines = gzip.decompress(listing.read_bytes()).decode('utf-8', errors='replace').splitlines()
-        except OSError:
+            fields = rapid_lines(listing.read_bytes())
+        except (OSError, EOFError):
             continue
-        for line in lines:
-            f = line.strip().split(',')
-            if len(f) >= 4 and f[3] == name and Path(data, 'packages', f[1] + '.sdp').exists():
+        for f in fields:
+            if f[3] == name and Path(data, 'packages', f[1] + '.sdp').exists():
                 return Path(data, 'packages', f[1] + '.sdp')
     return None
 
@@ -103,7 +112,8 @@ class Pool:
     """The files of one package: .sdp = gzip stream of [1 byte name length][name][16 bytes md5][4 bytes crc][4 bytes size], the file is in pool/<md5[:2]>/<md5[2:]>.gz."""
     def __init__(self, data, sdp):
         self.data = Path(data)
-        raw = gzip.open(sdp, 'rb').read()
+        with gzip.open(sdp, 'rb') as f:
+            raw = f.read()
         self.entries, i = {}, 0
         while i < len(raw):
             n = raw[i]
@@ -115,7 +125,8 @@ class Pool:
 
     def read(self, name):
         h = self.entries[name]
-        return gzip.open(self.data / 'pool' / h[:2] / (h[2:] + '.gz'), 'rb').read()
+        with gzip.open(self.data / 'pool' / h[:2] / (h[2:] + '.gz'), 'rb') as f:
+            return f.read()
 
     def find_model(self, unit):
         """Without the unit data: objects3d/units/<unit>.s3o; a Scavenger copy (<unit>_scav) uses the model of its unit."""
@@ -142,14 +153,18 @@ def newest_units(assets=ASSETS):
     return names
 
 
-def fetch(url, tries=3):
-    """A page of beyondallreason.info as text; a failed request is tried again (it is not always a missing page)."""
+def http_get(url, tries=3, timeout=60):
+    """The bytes of a web address (generic client name as User-Agent); a failed request is tried again (it is not always a missing page)."""
     last = None
     for _ in range(tries):
         try:
-            request = urllib.request.Request(url, headers={'User-Agent': 'BARUnitComparer'})
-            with urllib.request.urlopen(request, timeout=60) as r:
-                return r.read().decode('utf-8')
+            with urllib.request.urlopen(urllib.request.Request(url, headers={'User-Agent': 'BARUnitComparer'}), timeout=timeout) as r:
+                return r.read()
         except Exception as e:
             last = e
     raise RuntimeError(f'{url}: {last}')
+
+
+def fetch(url, tries=3):
+    """A page of beyondallreason.info as text."""
+    return http_get(url, tries).decode('utf-8')

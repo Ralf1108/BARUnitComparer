@@ -1,4 +1,4 @@
-/* The look follows the unit and compare pages of beyondallreason.info (SPECIFICATION_WEBSITE.md). */
+/* The look follows the unit and compare pages of beyondallreason.info (docs/website.md). */
 :root {
   --bg: #000; --card: #070707; --panel: #161616; --line: #262626; --text: #f2f2f2; --muted: #8d8d8d; --gold: #f0b95a;
   --arm: rgb(90, 140, 235); --cor: rgb(235, 85, 75); --leg: rgb(130, 218, 105); --scv: rgb(175, 105, 225); --rap: rgb(20, 20, 20);

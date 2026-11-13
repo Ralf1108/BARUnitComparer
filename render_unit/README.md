@@ -1,6 +1,6 @@
 # render_unit
 
-Renders pictures of Beyond All Reason units from the game's own 3D models, in the look of the pictures on beyondallreason.info (400 x 400 pixels, shadow, soft light). The details of the look, the formats and the measurements are in [SPECIFICATION.md](../SPECIFICATION.md), section 5.
+Renders pictures of Beyond All Reason units from the game's own 3D models, in the look of the pictures on beyondallreason.info (400 x 400 pixels, shadow, soft light). The details of the look, the formats and the measurements are in [docs/renderer.md](../docs/renderer.md).
 
 ```
 python render_unit.py [options] <unit> [<unit> ...]        (or @file: one unit name per line)

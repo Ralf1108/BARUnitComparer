@@ -1,11 +1,10 @@
-"""s3o_model.py: S3O models of Beyond All Reason units (render_unit.py, SPECIFICATION.md sections 4.1 and 5). The browser side is renderer/s3o_loader.js.
+"""s3o_model.py: S3O models of Beyond All Reason units (render_unit.py, docs/game-files.md and docs/renderer.md). The browser side is renderer/s3o_loader.js.
 
 Every model format of render_unit.py is a module with the same three things: EXTENSION (of the model file in the work folder), recognizes(model, data) and
 textures(pool, model, data, normal_hint) -> (colour texture, second texture, normal map or None); see dae_model.py for the other format.
 """
 import struct
 
-FORMAT_NAME = 'S3O'
 EXTENSION = 's3o'
 
 

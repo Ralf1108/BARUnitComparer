@@ -1,4 +1,4 @@
-"""compare_quality.py: how much quality do the picture formats lose against the lossless PNG? (SPECIFICATION.md, section 5)
+"""compare_quality.py: how much quality do the picture formats lose against the lossless PNG? (docs/renderer.md)
 
     python compare_quality.py [--work DIR] [--size 400] [--units FILE] <unit> [<unit> ...]
 
@@ -10,7 +10,8 @@ the difference to the lossless picture:
 Pictures with transparency are compared as they would look on a white and on a dark page (composite), the worse value counts; JPEG has no transparency and is
 compared on white (as it is written). The size is the mean file size over all units.
 """
-import argparse, io, sys, tempfile
+import argparse, io, subprocess, sys, tempfile
+from types import SimpleNamespace
 from pathlib import Path
 
 import numpy as np
@@ -25,17 +26,11 @@ SETTINGS = ([('png', {})]
 
 
 def encode(im, fmt, p):
+    """The picture in the format and setting `p` as bytes (the same encoder as render_unit.py)."""
     buf = io.BytesIO()
-    if fmt == 'png':
-        im.save(buf, 'PNG', optimize=True)
-    elif fmt == 'jpeg':
-        flat = Image.new('RGBA', im.size, (255, 255, 255, 255))
-        flat.alpha_composite(im)
-        flat.convert('RGB').save(buf, 'JPEG', quality=p['q'], subsampling=p['s'], optimize=True)
-    elif fmt == 'webp':
-        im.save(buf, 'WEBP', quality=p['q'], method=4)
-    elif fmt == 'avif':
-        im.save(buf, 'AVIF', quality=p['q'], speed=6)
+    q = p.get('q')
+    opt = SimpleNamespace(jpeg_quality=q, jpeg_subsampling=p.get('s'), avif_quality=q, avif_speed=6, webp_quality=q, webp_method=4)
+    ru.save_as(im, fmt, buf, opt)
     return buf.getvalue()
 
 
@@ -49,7 +44,6 @@ def main():
     cmd = [sys.executable, str(ru.HERE / 'render_unit.py'), '--work', a.work, '--size', a.size, '--out', str(Path(a.work) / 'quality_png'), '--format', 'png']
     if a.units_file:
         cmd += ['--units', a.units_file]
-    import subprocess
     if subprocess.run(cmd + a.units).returncode:
         sys.exit(1)
     pics = [Image.open(Path(a.work) / 'render' / f'{u}.png').convert('RGBA') for u in a.units]
@@ -61,14 +55,11 @@ def main():
             data = encode(im, fmt, p)
             dec = Image.open(io.BytesIO(data)).convert('RGBA')
             res['size'].append(len(data))
-            worst_psnr, worst_ssim = 99.0, 1.0
-            for bg in ((255, 255, 255), (30, 30, 30)) if fmt in ('png', 'webp', 'avif') else ((255, 255, 255),):
-                ref, got = ru.composite(im, bg), ru.composite(dec, bg)
-                worst_psnr, worst_ssim = min(worst_psnr, ru.psnr(ref, got)), min(worst_ssim, ru.ssim(ref, got))
-            res['psnr'].append(worst_psnr)
-            res['ssim'].append(worst_ssim)
+            psnr, ssim, alpha = ru.measure(im, dec, fmt in ('png', 'webp', 'avif'))   # the same measure as the quality check of render_unit.py
+            res['psnr'].append(psnr)
+            res['ssim'].append(ssim)
             if fmt in ('webp', 'avif'):
-                res['a'].append(ru.psnr(np.asarray(im)[..., 3].astype(float), np.asarray(dec)[..., 3].astype(float)))
+                res['a'].append(alpha)
         label = fmt + ''.join(f' {k}={v}' for k, v in p.items())
         rows.append((label, np.mean(res['size']), np.mean(res['psnr']), np.mean(res['ssim']), np.mean(res['a']) if res['a'] else None))
 
