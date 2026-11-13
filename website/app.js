@@ -144,6 +144,9 @@ async function loadVersions() {
 const unitsOf = (dir = state.versionDir) => state.merged[dir];
 // did only the look of the unit change in this version (against the version before)?
 const visualIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit] && state.diffs[dir].units[unit].visualOnly);
+// the golden frame: the look of the unit as it is in the game version `dir` came from a change in which only the look changed (the newest version of the unit that is not newer than `dir`)
+const visualVersion = (dir, unit) => { const at = versionsOf(unit).filter(d => indexOf(d) <= indexOf(dir)).pop(); return at && visualIn(at, unit) ? at : null; };
+const visualTip = (dir, unit) => { const at = visualVersion(dir, unit); return at ? `Only the look changed in ${shortVersion(at)}: the picture is new, all values are the same as in the version before it.` : ''; };
 const VISUAL_TIP = 'Only the look changed in this version: the picture is new, all values are the same as before.';
 // did the unit change in this version (against the version before)
 const changedIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit]);
@@ -307,14 +310,14 @@ function renderCatalogUnits() {
   if (state.view === 'list') {
     box.innerHTML = `<div class="list"><div class="row head"><span>Tech</span><span></span><span></span><span>Name</span><span class="opt">Description</span><span class="num opt">Metal</span><span class="num opt">Energy</span><span class="num opt">Hitpoints</span><span class="num">DPS</span></div>${list.map(n => {
       const u = state.units[n];
-      return `<div class="row ${chosen.has(n) ? 'selected' : ''}${visualIn(state.versionDir, n) ? ' visual' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(chosen.has(n))} title="${chosen.has(n) ? 'In the comparison: press to take it out' : 'Add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u) || '<span></span>'}${pictureTag(n)}
+      return `<div class="row ${chosen.has(n) ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(chosen.has(n))} title="${chosen.has(n) ? 'In the comparison: press to take it out' : 'Add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u) || '<span></span>'}${pictureTag(n)}
         <span>${esc(u.name)} ${changedTag(n)}</span><span class="desc">${esc(u.description)}</span><span class="num opt">${whole(u.metal)}</span><span class="num opt">${whole(u.energy)}</span><span class="num opt">${whole(u.hitpoints)}</span><span class="num">${u.dps ? whole(u.dps) : ''}</span></div>`;
     }).join('')}</div>`;
     return;
   }
   box.innerHTML = `<div class="grid ${state.showNames ? '' : 'hide-names'}">${list.map(n => {
     const u = state.units[n], on = chosen.has(n);
-    return `<div class="card ${on ? 'selected' : ''}${visualIn(state.versionDir, n) ? ' visual' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(on)} title="${esc(u.name)}: ${on ? 'in the comparison, press to take it out' : 'add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u)}${on ? '<span class="check">&#10003;</span>' : ''}${pictureTag(n)}
+    return `<div class="card ${on ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(on)} title="${esc(u.name)}: ${on ? 'in the comparison, press to take it out' : 'add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u)}${on ? '<span class="check">&#10003;</span>' : ''}${pictureTag(n)}
       ${changedTag(n)}<div class="name">${esc(u.name)}</div><div class="desc">${esc(u.description)}</div></div>`;
   }).join('')}</div>`;
 }
@@ -354,8 +357,7 @@ function changeRow(c, from, to) {
   const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
   const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b>${esc(shownOf(c.u, s.key))}</b></span>`);
   if (c.picture) pills.push(c.fields.length ? '<span class="pill" title="The picture changed">Picture</span>' : `<span class="pill visual" title="${VISUAL_TIP}">Only the picture</span>`);
-  const visual = c.kind === 'changed' && !c.fields.length && c.picture;   // only the look changed in the range
-  return `<a class="chg-row f-${esc(c.u.faction)}${visual ? ' visual' : ''}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
+  return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
     ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small></span><span class="chg-kind k-${c.kind}">${c.kind}</span><span class="pills">${pills.join('') || '<span class="pill muted">no value shown</span>'}</span></a>`;
 }
 function changesListHtml() {
@@ -512,7 +514,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic${visualIn(c.version || state.versionDir, c.unit) ? ' visual' : ''}">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic${visualVersion(c.version || state.versionDir, c.unit) ? ' visual' : ''}" ${visualTip(c.version || state.versionDir, c.unit) ? `title="${visualTip(c.version || state.versionDir, c.unit)}"` : ''}>${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
@@ -591,8 +593,8 @@ function counterpartsOf(unit) {
 
 function unitHtml(c, u) {
   const eq = c.scavOf ? [] : counterpartsOf(c.unit);
-  const visual = visualIn(c.version || state.versionDir, c.unit);
-  return `<div class="c-pic${visual ? ' visual' : ''}" ${visual ? `title="${VISUAL_TIP}"` : ''}>${pictureTag(c.unit, '', u)}</div>
+  const visual = visualTip(c.version || state.versionDir, c.unit);
+  return `<div class="c-pic${visual ? ' visual' : ''}" ${visual ? `title="${visual}"` : ''}>${pictureTag(c.unit, '', u)}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
     ${eq.length ? `<div class="c-eq"><button class="c-eq-all" data-a="add-counterparts" title="Add all counterparts of this unit as columns (the ones that are not in the comparison yet)">Counterparts:</button> ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;

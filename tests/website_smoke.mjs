@@ -104,6 +104,17 @@ try {
     const groups = await page.$$eval('select[data-change="version"] optgroup', g => g.map(x => x.label));
     check(groups.length > 1 && /^\d{4}-\d\d \(\d+ versions?\)$/.test(groups[0]), 'the version list is grouped by month', groups.slice(0, 2).join(' | '));
   }
+  if (versions.length >= 12) {   // the real chain: the Armada commanders changed only visually in test-30532 and nothing since: the column that shows that look is framed in gold
+    await page.goto(base + '#/catalog/arm/bots');
+    await page.waitForSelector('.card');
+    check(await page.locator('.card.visual, .row.visual, .chg-row.visual').count() === 0, 'the catalog has no golden frame (only the side-by-side compare has it)', '');
+    await page.goto(base + '#/compare/armcom?view=graphic');
+    await page.waitForSelector('.c-head');
+    await page.click('.c-head [data-a="col-versions"] >> nth=0');
+    await page.waitForTimeout(300);
+    const frames = await page.$$eval('.c-pic', p => p.map(x => x.classList.contains('visual')));
+    check(frames.length === 2 && frames[0] && !frames[1], 'the column that shows the visual-only version is framed, the older one is not', frames.join(','));
+  }
   if (versions.length > 1) {
     // which units have more than one version (from the files: the first version that has a unit, and every one in which it changed)
     const listing = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8'));
@@ -168,13 +179,12 @@ try {
     await page.waitForSelector('.chg-row');
     const rows = await page.locator('.chg-row').count();
     check(rows > 0 && /\d+ changed/.test(await page.textContent('.chg-sum')), 'Changes: the newest version against the one before lists the units', `${rows} ${await page.textContent('.chg-sum')}`);
-    // a change that is only visual (the picture is new, no value differs) has a golden frame: the rows without a changed value but with a picture
-    const visual = await page.locator('.chg-row.visual').count();
-    const pictureOnly = await page.$$eval('.chg-row', r => r.filter(x => x.querySelector('.k-changed') && x.querySelector('.pill.visual')).length);
-    const valueRows = await page.$$eval('.chg-row.visual', r => r.filter(x => x.querySelector('.pill b')).length);
-    check(visual === pictureOnly && valueRows === 0, 'Changes: a visual-only change gets the golden frame, a change of values does not', `${visual} / ${pictureOnly} / ${valueRows}`);
+    // a change that is only visual (the picture is new, no value differs) has the gold pill "Only the picture" (no frame here: the frame is only in the side-by-side compare)
+    const visual = await page.locator('.chg-row:has(.pill.visual)').count();
+    const valueRows = await page.$$eval('.chg-row', r => r.filter(x => x.querySelector('.pill.visual') && x.querySelector('.pill b')).length);
+    check(valueRows === 0 && await page.locator('.chg-row.visual').count() === 0, 'Changes: the pill "Only the picture" is only on rows without a changed value', `${visual} / ${valueRows}`);
     if (visual > 0) {
-      await page.locator('.chg-row.visual').first().click();
+      await page.locator('.chg-row:has(.pill.visual)').first().click();
       await page.waitForSelector('.c-head');
       check(await page.locator('.c-pic.visual').count() >= 1, 'a visual-only change: the picture of the compare column is framed in gold', '');
       await page.goBack(); await page.waitForSelector('.chg-row');
