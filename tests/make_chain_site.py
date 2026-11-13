@@ -5,10 +5,10 @@
     BARUNIT_ASSETS=<destination>/assets python -m unittest discover -s tests
     BARUNIT_SITE=<destination> node tests/website_smoke.mjs
 
-The destination gets everything of website/ and, next to the real base version, two made-up later versions and one that is only named as "unchanged":
+The destination gets everything of website/ and, next to the real base version, two made-up later versions and one that is only looked at (checkedUpTo):
   test-31821-1111111: armllt has a higher metal cost (its picture is the same)
   test-31822-2222222: corllt has a higher metal cost and a picture of its own (a copy of the old one), and one Scavenger unit is gone
-  test-31823-3333333: unchanged (no files, only named in versions.json)
+  test-31823-3333333: unchanged (no files; checkedUpTo names it)
 Run with the Python of the tools; needs nothing else. Existing destination: an error (nothing is deleted).
 """
 import json, shutil, sys
@@ -51,9 +51,9 @@ def main():
         make(v2, '2026-11-06', base['version'], {'armllt': {**base_units['armllt'], 'metal': base_units['armllt']['metal'] + 10}}, []),
         make(v3, '2026-11-07', v2, {'corllt': {**base_units['corllt'], 'metal': base_units['corllt']['metal'] + 10}}, [gone], own_picture=('corllt',)),
     ]
-    listing['unchanged'] = ['test-31823-3333333']
+    listing['checkedUpTo'] = 'test-31823-3333333'
     (assets / 'versions.json').write_text(json.dumps(listing, indent=1) + '\n', encoding='utf-8', newline='\n')
-    print(f'{dest}: base {base["version"]}, then {v2}, {v3} ({gone} gone), test-31823-3333333 unchanged')
+    print(f'{dest}: base {base["version"]}, then {v2}, {v3} ({gone} gone), test-31823-3333333 unchanged (checkedUpTo)')
 
 
 if __name__ == '__main__':

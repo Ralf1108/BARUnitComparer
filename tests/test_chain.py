@@ -72,12 +72,13 @@ class Chain(Patched):
             write_export(self.out, v, metals)
         return self.run_main()
 
-    def test_base_diffs_and_unchanged(self):
+    def test_base_diffs_and_checked_up_to(self):
         self.make_all()
         listing = json.loads((self.out / 'versions.json').read_text(encoding='utf-8'))
         self.assertEqual([(v['version'], v.get('base'), v.get('changed'), v.get('removed')) for v in listing['versions']],
                          [(V1, True, None, None), (V2, None, 3, 1), (V4, None, 1, None)])
-        self.assertEqual(listing['unchanged'], [V3])
+        self.assertEqual(listing['checkedUpTo'], V4)
+        self.assertNotIn('unchanged', listing)
         self.assertTrue(all(v['date'] == '2026-01-02' for v in listing['versions']))
         self.assertEqual(sorted(self.read(V1, 'reduced')['units']), ['a', 'b', 'c'])
         d2 = self.read(V2, 'diff')
@@ -159,6 +160,22 @@ class Chain(Patched):
         changed, pictures = ru.compare({'a': {'metal': 1}}, {'a': 'x'}, {'a': {'metal': 1}}, {'z': 'y'})
         self.assertEqual((changed, pictures), ({'a'}, {'a'}))
         self.assertEqual(ru.compare({'a': {'metal': 1}}, {'a': 'x'}, {'a': {'metal': 1}}, {}), (set(), set()))   # the version before has no fingerprints at all
+
+    def test_change_of_the_engine(self):
+        """The version before, exported again with the new engine (control), is what the diff is made against: a value that differs only because of the engine is
+        not a change of the game; it is named in engineOnly. The engines are named in versions.json."""
+        write_export(self.out, V1, {'a': 10, 'b': 20, 'c': 30})
+        self.run_main('--engine', '1.0')
+        write_export(self.out, V2, {'a': 15, 'b': 20, 'c': 30, 'd': 5})   # a: only the engine (the control has it too); b: a picture; d: new
+        write_export(Path(self.tmp.name) / 'control', V1, {'a': 15, 'b': 20, 'c': 30})
+        control = Path(self.tmp.name) / 'control' / V1 / 'data' / f'units-{V1}.json'
+        self.run_main('--redo', V2, '--engine', '2.0', '--control', str(control))
+        d2 = self.read(V2, 'diff')
+        self.assertEqual(sorted(d2['units']), ['b', 'd'])
+        self.assertEqual((d2['engine'], d2['engineOnly']), ('2.0', {'a': {'metal': [10, 15]}}))
+        listing = json.loads((self.out / 'versions.json').read_text(encoding='utf-8'))
+        self.assertEqual([(v['version'], v.get('engine')) for v in listing['versions']], [(V1, '1.0'), (V2, '2.0')])
+        self.assertEqual(listing['versions'][1]['engineOnly'], {'a': {'metal': [10, 15]}})
 
 
 if __name__ == '__main__':

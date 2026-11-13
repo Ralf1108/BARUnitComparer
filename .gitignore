@@ -12,3 +12,6 @@ render_errors.txt
 # The full export of EVERY game version (units-<version>.json, about 15 MB) stays local, the base version's too: what is in Git is the reduced file of the base
 # and the diff file of each later version (docs/versions.md). The page does not read the full file, and nothing here needs it but a render of the Raptor pictures.
 website/assets/*/data/units-*.json
+
+# caches of the tools (git clone of the game repository, engines)
+/cache/

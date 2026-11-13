@@ -1,26 +1,35 @@
-"""update_versions.py: the new game versions of Beyond All Reason into the website (docs/versions.md). Started by "update game versions.bat".
+"""update_versions.py: every game version of Beyond All Reason from 2026-01-01 into the website (docs/versions.md, docs/plan-versions-2026.md).
+Started by "update game versions.bat".
 
-    python exporter/update_versions.py [--list] [--max N] [--out DIR] [--data DIR] [--format avif]
+    python exporter/update_versions.py [--list] [--max N] [--out DIR] [--data DIR] [--format avif] [--no-prefilter] [--keep-exports]
 
-1. Reads the list of all game versions from the package server of BAR (rapid, https://repos-cdn.beyondallreason.dev/byar/versions.gz: one package per commit of the
-   Beyond All Reason repository, "Beyond All Reason test-<number>-<short hash>"; byar:git:<full hash>, so a version is always the same).
-2. The new versions: newer than the newest one done (website/assets/versions.json: listed, or unchanged), oldest first.
-3. For each one in turn: downloads its package with pr-downloader of the BAR installation (only the files that are missing, into the data folder, like the launcher),
-   then export_and_render_all_units.ps1 -Game: export, the diff against the version before (reduce_units.py), the pictures that changed. A version in which nothing
-   changed gets no files and is not shown; it is only named in versions.json (unchanged).
---list: only show the new versions. --max N: only the first N new ones (the oldest).
+1. The versions: the packages of the BAR server (rapid, https://repos-cdn.beyondallreason.dev/byar/versions.gz: one package per commit, "Beyond All Reason
+   test-<number>-<short hash>", byar:git:<full hash>) whose commit is on the branch `stable` and dated 2026-01-01 or later (the clone of the game repository,
+   git_history.py). The first one is the base version.
+2. The new ones: newer than checkedUpTo (website/assets/versions.json), oldest first. For each one in turn:
+   - the prefilter (git_history.py): no file of the unit definitions or of the look changed against the version before: nothing is downloaded or started,
+     checkedUpTo moves on. --no-prefilter exports every version.
+   - otherwise: the package comes with pr-downloader (only the missing files, into the data folder), the engine of its date (engines.json) into cache/engines,
+     then export_and_render_all_units.ps1: export with that engine, the diff against the version before (reduce_units.py), the pictures that changed.
+     If the engine differs from the one of the version before, that version is exported again with the new engine first (control) and the diff is made against it.
+   - a failure stops the run (nothing is skipped); started again, it goes on at checkedUpTo.
+3. The full export of a version (15 MB) is removed after the version is done (--keep-exports keeps it).
+A folder that holds another chain (another base) is an error: use a new --out.
+--list: only show what is to be done. --max N: only the first N new versions.
 """
 import argparse, json, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / 'shared'))
-import bar_common  # noqa: E402
+sys.path.insert(0, str(ROOT / 'exporter'))
+import bar_common, git_history, reduce_units  # noqa: E402
 
 RAPID = 'https://repos-cdn.beyondallreason.dev'
 VERSIONS = RAPID + '/byar/versions.gz'
 # the settings of pr-downloader that the BAR launcher uses (resources/app.asar)
 PRD_ENV = {'PRD_RAPID_REPO_MASTER': RAPID + '/repos.gz', 'PRD_RAPID_USE_STREAMER': 'false', 'PRD_HTTP_SEARCH_URL': 'https://files-cdn.beyondallreason.dev/find'}
+START = '2026-01-01'   # the chain starts with the first version of the year (docs/plan-versions-2026.md)
 NAME = re.compile(r'^Beyond All Reason (test-(\d+)-[0-9a-f]+)$', re.I)
 
 
@@ -34,20 +43,31 @@ def parse_versions(fields):
     return [found[n] for n in sorted(found)]
 
 
+def parse_commits(fields):
+    """{version: full commit hash} of the packages built from a commit (the tag is byar:git:<hash>)."""
+    return {m.group(1): f[0].removeprefix('byar:git:') for f in fields for m in [f[0].startswith('byar:git:') and NAME.match(f[3])] if m}
+
+
+def server_fields():
+    return bar_common.rapid_lines(bar_common.http_get(VERSIONS, timeout=120))
+
+
 def server_versions():
     """The versions on the package server of BAR."""
-    return parse_versions(bar_common.rapid_lines(bar_common.http_get(VERSIONS, timeout=120)))
+    return parse_versions(server_fields())
+
+
+def year_versions(dates, start=START, fields=None):
+    """[(number, version, commit hash)], oldest first: the versions whose commit is on the branch `stable` (dates: git_history.commit_dates) and dated `start` or later."""
+    fields = fields if fields is not None else server_fields()
+    commits = parse_commits(fields)
+    return [(n, v, commits[v]) for n, v, _ in parse_versions(fields) if commits.get(v) in dates and dates[commits[v]] >= start]
 
 
 def newest_done(out):
-    """The number of the newest version in versions.json (listed or unchanged), 0 if none."""
-    listing = out / 'versions.json'
-    if not listing.exists():
-        return 0
-    data = json.loads(listing.read_text(encoding='utf-8'))
-    names = [v['version'] for v in data['versions']] + data.get('unchanged', [])
-    numbers = [int(m.group(1)) for m in (re.match(r'^test-(\d+)-', n) for n in names) if m]
-    return max(numbers, default=0)
+    """The number of the newest version looked at (versions.json: checkedUpTo, or the newest listed one), 0 if none."""
+    m = re.match(r'^test-(\d+)-', reduce_units.checked_up_to(out))
+    return int(m.group(1)) if m else 0
 
 
 def pr_downloader(data, given):
@@ -58,50 +78,159 @@ def pr_downloader(data, given):
     sys.exit('ERROR: pr-downloader not found (it comes with BAR: <BAR folder>/bin/pr-downloader.exe). Give it with --prd.')
 
 
+def run_prd(prd, write_path, *args):
+    """(exit code, the last lines of the output) of pr-downloader with the settings of the launcher."""
+    r = subprocess.run([prd, '--filesystem-writepath', str(write_path), *args], env={**os.environ, **PRD_ENV},
+                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
+    return r.returncode, '\n'.join(r.stdout.splitlines()[-15:])
+
+
 def download(prd, data, game):
     """The package of the game into the data folder, unless it is there."""
     if bar_common.rapid_package(data, game):
         print(f'  {game}: the package is there already')
         return
     print(f'  {game}: downloading (only the missing files) ...', flush=True)
-    r = subprocess.run([prd, '--filesystem-writepath', str(data), '--download-game', game], env={**os.environ, **PRD_ENV},
-                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors='replace')
-    if r.returncode != 0 or not bar_common.rapid_package(data, game):
-        sys.exit(f'ERROR: pr-downloader could not download {game} (exit code {r.returncode}):\n' + '\n'.join(r.stdout.splitlines()[-15:]))
+    code, tail = run_prd(prd, data, '--download-game', game)
+    if code != 0 or not bar_common.rapid_package(data, game):
+        sys.exit(f'ERROR: pr-downloader could not download {game} (exit code {code}):\n{tail}')
+
+
+def engine_for(date, table):
+    """The standard engine on a day (engines.json: [{from, engine}], oldest first); a day before the first entry gets the first engine."""
+    name = table[0]['engine']
+    for e in table:
+        if e['from'] <= date:
+            name = e['engine']
+    return name
+
+
+def engine_dir(cache, name):
+    return Path(cache) / 'engines' / 'engine' / 'windows64' / name
+
+
+def ensure_engine(prd, cache, name):
+    """The engine in the cache of the tools (not in the installation): downloaded with pr-downloader if it is not there. Returns its folder."""
+    folder = engine_dir(cache, name)
+    if not (folder / 'spring.exe').exists():
+        print(f'  engine {name}: downloading ...', flush=True)
+        code, tail = run_prd(prd, Path(cache) / 'engines', '--download-engine', name)
+        if code != 0 or not (folder / 'spring.exe').exists():
+            sys.exit(f'ERROR: pr-downloader could not download the engine {name} (exit code {code}):\n{tail}')
+        for archive in (Path(cache) / 'engines' / 'engine').glob('*.7z*'):   # the archive is not needed after it is unpacked
+            archive.unlink()
+    return folder
+
+
+def move_checked(out, version):
+    """checkedUpTo -> version (a version without a change: no files, only this)."""
+    f = Path(out) / 'versions.json'
+    data = json.loads(f.read_text(encoding='utf-8'))
+    data.pop('unchanged', None)
+    data['checkedUpTo'] = version
+    f.write_text(json.dumps(data, indent=1) + '\n', encoding='utf-8', newline='\n')
+
+
+def run_script(args):
+    return subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *map(str, args)]).returncode
+
+
+def listed_engine(out):
+    """The engine of the newest version in versions.json that names one ('' if none)."""
+    f = Path(out) / 'versions.json'
+    if not f.exists():
+        return ''
+    return next((v['engine'] for v in reversed(json.loads(f.read_text(encoding='utf-8'))['versions']) if v.get('engine')), '')
+
+
+def drop_unused(out, version):
+    """The folder of a version that got no files (nothing changed) holds only the full export and empty folders: it is removed. A folder with a diff file, the base,
+    or a picture is never touched."""
+    folder = Path(out) / bar_common.version_name(version)
+    if folder.is_dir() and not list(folder.glob('data/*.gz')) and not list(folder.glob('images/*')):
+        shutil.rmtree(folder)
+
+
+def plan(chain, done, repo, prefilter):
+    """[(number, version, commit, kind)] of the versions after `done`. kind: 'base' (the first version of the chain when nothing is done), 'values' or 'look'
+    (Git shows a change: to be exported), 'none' (no change of the files: only checkedUpTo moves on). Without the prefilter every version is 'values'."""
+    steps = []
+    for i, (n, v, c) in enumerate(chain):
+        if n <= done:
+            continue
+        if i == 0 and not done:
+            kind = 'base'
+        else:
+            kind = git_history.kind_of_step(repo, chain[i - 1][2], c) if prefilter else 'values'
+        steps.append((n, v, c, kind))
+    return steps
 
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split('\n\n')[0])
-    ap.add_argument('--list', action='store_true', help='only show the new versions')
+    ap.add_argument('--list', action='store_true', help='only show what is to be done')
     ap.add_argument('--max', type=int, default=0, help='only the first N new versions (the oldest)')
     ap.add_argument('--out', default=str(ROOT / 'website' / 'assets'), help='the out folder (default website/assets/)')
     ap.add_argument('--data', default='', help='data folder of the BAR installation')
     ap.add_argument('--prd', default='', help='pr-downloader.exe (default: the one of the BAR installation)')
     ap.add_argument('--format', default='avif', help='picture format (as export_and_render_all_units.ps1 -Format)')
+    ap.add_argument('--cache', default=str(ROOT / 'cache'), help='the cache of the tools: the clone of the game repository and the engines (default cache/)')
+    ap.add_argument('--no-prefilter', action='store_true', help='export every version, also the ones for which Git shows no change of the units or the look')
+    ap.add_argument('--keep-exports', action='store_true', help='keep the full export (15 MB) of every version')
     a = ap.parse_args()
-    out = Path(a.out)
+    out, cache = Path(a.out), Path(a.cache)
+    repo = git_history.ensure_clone(cache / 'bar.git')
+    dates = git_history.commit_dates(repo)
+    chain = year_versions(dates)
+    if not chain:
+        sys.exit('ERROR: no game version of the year found.')
     done = newest_done(out)
-    if not done:
-        sys.exit(f'ERROR: no game version in {out / "versions.json"}: export the base version first ("export and render all units.bat").')
-    new = [v for v in server_versions() if v[0] > done]
-    print(f'newest version done: test-{done}; new on the server: {len(new)}' + (f' ({new[0][1]} ... {new[-1][1]})' if new else ''))
+    listing = out / 'versions.json'
+    if done:
+        base = next((v['version'] for v in json.loads(listing.read_text(encoding='utf-8'))['versions'] if v.get('base')), '')
+        if base != chain[0][1]:
+            sys.exit(f'ERROR: the base version in {listing} is {base}, but the year starts with {chain[0][1]}. Use a new --out folder (the old chain is not changed).')
+    steps = plan(chain, done, repo, not a.no_prefilter)
+    hits = [s for s in steps if s[3] != 'none']
+    print(f'{len(chain)} versions since {START} (newest test-{chain[-1][0]}); checked up to: {"test-" + str(done) if done else "nothing"}; '
+          f'to do: {len(steps)} ({len(hits)} to export, {len(steps) - len(hits)} without a change in the files)')
     if a.max:
-        new = new[:a.max]
-    if a.list or not new:
-        for _, version, _ in new:
-            print(f'  {version}')
+        steps = steps[:a.max]
+    if a.list or not steps:
+        for n, v, c, kind in steps:
+            print(f'  {v}  {dates[c]}  {kind}')
         return
     data = bar_common.find_data_dir(a.data)
     prd = pr_downloader(data, a.prd)
-    for i, (_, version, game) in enumerate(new, 1):
-        print(f'[{i}/{len(new)}] {version}', flush=True)
+    table = json.loads((ROOT / 'exporter' / 'engines.json').read_text(encoding='utf-8'))
+    names = [v for _, v, _ in chain]
+    for i, (n, version, commit, kind) in enumerate(steps, 1):
+        print(f'[{i}/{len(steps)}] {version} ({dates[commit]}, {kind})', flush=True)
+        if kind == 'none':
+            move_checked(out, version)
+            continue
+        game = 'Beyond All Reason ' + version
+        engine = ensure_engine(prd, cache, engine_for(dates[commit], table))
         download(prd, data, game)
-        args = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(ROOT / 'export_and_render_all_units.ps1'),
-                '-Game', game, '-Yes', '-Faction', 'all', '-Format', a.format, '-Out', str(out), '-Data', str(data)]
-        r = subprocess.run(args)
-        if r.returncode != 0:
-            sys.exit(f'ERROR: export_and_render_all_units.ps1 failed for {version} (exit code {r.returncode}); the versions after it are not done. Start again to go on.')
-    print('done: ' + ', '.join(f'{v["version"]} ({v.get("changed", "base")})' for v in json.loads((out / 'versions.json').read_text(encoding='utf-8'))['versions']))
+        args = [ROOT / 'export_and_render_all_units.ps1', '-Game', game, '-Yes', '-Faction', 'all', '-Format', a.format, '-Out', out, '-Data', data, '-Engine', engine]
+        before = listed_engine(out)
+        if kind != 'base' and before and before != engine.name:   # a change of the engine: the version before, exported again with the new engine
+            prev = names[names.index(version) - 1]
+            short = bar_common.version_name(prev)
+            control = cache / 'control' / short / 'data' / f'units-{short}.json'
+            if not control.exists():
+                print(f'  the engine changes ({before} -> {engine.name}): {prev} is exported again with the new engine', flush=True)
+                download(prd, data, 'Beyond All Reason ' + prev)
+                code = run_script([ROOT / 'exporter' / 'export_units.ps1', '-Out', cache / 'control', '-Game', 'Beyond All Reason ' + prev, '-Data', data, '-Engine', engine])
+                if code != 0 or not control.exists():
+                    sys.exit(f'ERROR: the control export of {prev} with the engine {engine.name} failed; the versions from {version} on are not done. Start again to go on.')
+            args += ['-Control', control]
+        if run_script(args) != 0:
+            sys.exit(f'ERROR: export_and_render_all_units.ps1 failed for {version}; the versions after it are not done. Start again to go on.')
+        if not a.keep_exports:
+            (out / bar_common.version_name(version) / 'data' / f'units-{bar_common.version_name(version)}.json').unlink(missing_ok=True)
+        drop_unused(out, version)
+    print('done: ' + ', '.join(f'{v["version"]} ({v.get("changed", "base")})' for v in json.loads(listing.read_text(encoding='utf-8'))['versions']))
 
 
 if __name__ == '__main__':

@@ -14,14 +14,14 @@ Reads every <out>/<version>/data/units-<version>.json and writes what is not the
                                                           icon is in this version's folder), the names of the units that are gone
     <out>/<version>/data/pictures.json                    the fingerprints of the pictures that changed
     <out>/<version>/images/icons/<file>.png               only the icons that changed
-    A version in which nothing changed gets no file; it is only named in versions.json (unchanged) and is not shown.
+    A version in which nothing changed gets no file; versions.json only says up to where versions were looked at (checkedUpTo); it is not shown.
 and in any case <out>/versions.json: the base and every version with a diff file, oldest first, with the date of the game version (the commit of the Beyond All Reason
 repository), and the versions in which nothing changed. A version older than the base is left out.
 --data: data folder of BAR (default as in shared/bar_common.py); without the game installed there are no icons and no picture fingerprints (the pictures count as unchanged).
 --out: default website/assets/; nothing else in that folder is touched.
 --units: this units-<version>.json has to exist (it is only checked; every version that has an export and no result yet is done).
 """
-import argparse, gzip, json, re, sys
+import argparse, gzip, json, re, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -102,10 +102,15 @@ def diff_file(folder):
     return next((folder / 'data').glob('units-*.diff.json.gz'), None)
 
 
-def unchanged_versions(out):
-    """The versions that were compared with the version before them and in which nothing changed (versions.json: unchanged): no diff file, not listed on the page."""
+def checked_up_to(out):
+    """The newest version looked at (versions.json: checkedUpTo), '' if none. Versions are done in order: every version up to it is done, with a diff file or without
+    a change (then it has no files and is not listed). An older versions.json with `unchanged` is read as well."""
     f = out / 'versions.json'
-    return set(json.loads(f.read_text(encoding='utf-8')).get('unchanged', [])) if f.exists() else set()
+    if not f.exists():
+        return ''
+    data = json.loads(f.read_text(encoding='utf-8'))
+    names = [data.get('checkedUpTo', '')] + data.get('unchanged', []) + [v['version'] for v in data['versions']]
+    return max((n for n in names if n), key=natural, default='')
 
 
 # ---------------------------------------------------------------- the chain: base, then every version against the one before
@@ -156,6 +161,11 @@ def compare(units, prints, before_units, before_prints):
     return changed, pictures
 
 
+def value_changes(a, b):
+    """{field: [value in a, value in b]} of the fields (not the icon) in which two reduced units differ."""
+    return {k: [a.get(k), b.get(k)] for k in sorted(set(a) | set(b)) if k != 'icon' and a.get(k) != b.get(k)}
+
+
 def load_export(f, data_dir):
     """The full export -> (game version, reduced units, {iconType: bitmap in the pool}, picture fingerprints, pool or None)."""
     full = json.loads(f.read_text(encoding='utf-8'))
@@ -177,7 +187,7 @@ def load_export(f, data_dir):
     return full, units, icons, prints, pool
 
 
-def write_base(f, folder, data_dir):
+def write_base(f, folder, data_dir, engine=''):
     """The base version: the reduced file of all units, pictures.json, all icons."""
     full, units, icons, prints, pool = load_export(f, data_dir)
     version, target = full['gameVersion'], folder / 'data' / f'{f.stem}.reduced.json.gz'
@@ -188,21 +198,27 @@ def write_base(f, folder, data_dir):
         print(f'{version}: {len(set(icons.values()))} icons')
     if prints:
         write_whole(folder / 'data' / 'pictures.json', (json.dumps(prints, indent=0, sort_keys=True) + '\n').encode('utf-8'))
-    write_whole(target, compress(text_of({'gameName': full.get('gameName'), 'gameVersion': version}, units)))
+    write_whole(target, compress(text_of({'gameName': full.get('gameName'), 'gameVersion': version, **({'engine': engine} if engine else {})}, units)))
     print(f'{target.name}: base version, {len(units)} units, {target.stat().st_size / 1024:.1f} KB (full file {f.stat().st_size / 1e6:.1f} MB)')
 
 
-def write_diff(f, folder, chain, data_dir):
+def write_diff(f, folder, chain, data_dir, engine='', control=None):
     """A later version against the version before it (chain): the diff file, pictures.json of the changed pictures, the changed icons. Returns the diff, or None if
-    nothing changed (then the version has no diff file)."""
+    nothing changed (then the version has no diff file). `engine`: the engine of the export (named in the diff file). `control`: a second export of the version before, made
+    with the engine of this one (a change of the engine, docs/plan-versions-2026.md decision 8): the comparison is made against it, so that only changes of the game
+    count; the units whose values differ only because of the engine are named in `engineOnly` (unit: {field: [value before, value now]})."""
     full, units, icons, prints, pool = load_export(f, data_dir)
+    before_units, engine_only = chain.units, {}
+    if control:
+        before_units = load_export(control, data_dir)[1]
+        engine_only = {n: d for n in chain.units if n in before_units and (d := value_changes(chain.units[n], before_units[n]))}
     version = full['gameVersion']
     target = folder / 'data' / f'{f.stem}.diff.json.gz'
     if not chain.prints or not prints:
         print(f'note: the pictures are not compared (no fingerprints of {"the version before" if not chain.prints else "this version"}), only the values')
     if not prints and (folder / 'data' / 'pictures.json').exists():
         sys.exit(f'ERROR: the game {version} is not installed, so its pictures cannot be compared, and {folder.name} has pictures.json already: it would be lost. Install the game version (the download of exporter/update_versions.py) or remove the file on purpose.')
-    changed, pictures = compare(units, prints, chain.units, chain.prints)
+    changed, pictures = compare(units, prints, before_units, chain.prints)
     new_icons = {}   # icon files that the version before does not have like this; every unit with one of them counts as changed
     if pool:
         for bitmap in set(icons.values()):
@@ -211,7 +227,7 @@ def write_diff(f, folder, chain, data_dir):
             if theirs is None or (theirs / 'images' / 'icons' / name).read_bytes() != mine:
                 new_icons[name] = mine
     changed |= {n for n, u in units.items() if u.get('icon') in new_icons}
-    removed = sorted(set(chain.units) - set(units))
+    removed = sorted(set(before_units) - set(units))
     if not changed and not removed:
         for old in (target, folder / 'data' / 'pictures.json'):
             old.unlink(missing_ok=True)
@@ -232,7 +248,8 @@ def write_diff(f, folder, chain, data_dir):
         write_whole(folder / 'data' / 'pictures.json', (json.dumps(own_prints, indent=0, sort_keys=True) + '\n').encode('utf-8'))
     else:
         (folder / 'data' / 'pictures.json').unlink(missing_ok=True)
-    header = {'gameName': full.get('gameName'), 'gameVersion': version, 'before': chain.version, 'count': len(units), 'removed': removed}
+    header = {'gameName': full.get('gameName'), 'gameVersion': version, 'before': chain.version, 'count': len(units), 'removed': removed,
+              **({'engine': engine} if engine else {}), **({'engineOnly': engine_only} if engine_only else {})}
     write_whole(target, compress(text_of(header, diff)))
     print(f'{target.name}: {len(diff)} of {len(units)} units changed against {chain.version} ({len(pictures)} with another picture), '
           f'{len(removed)} gone, {target.stat().st_size / 1024:.1f} KB')
@@ -255,6 +272,11 @@ def commit_date(version):
     sha = version.rsplit('-', 1)[-1]
     if not re.fullmatch(r'[0-9a-f]{7,40}', sha):
         return ''
+    clone = ROOT / 'cache' / 'bar.git'
+    if clone.exists():   # the clone of the game repository (exporter/git_history.py) knows every date; the API of GitHub often answers with 503
+        r = subprocess.run(['git', '-C', str(clone), 'log', '-1', '--format=%cs', sha], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        if r.returncode == 0 and re.fullmatch(r'\d{4}-\d\d-\d\d', r.stdout.strip()):
+            return r.stdout.strip()
     try:
         return json.loads(bar_common.fetch(COMMITS + sha))['commit']['committer']['date'][:10]
     except Exception as e:
@@ -262,9 +284,9 @@ def commit_date(version):
         return ''
 
 
-def write_versions(out, unchanged):
+def write_versions(out, checked):
     """website/assets/versions.json: the base version and every later version that has a diff file, the oldest first (by the numbers in the name), with its date;
-    `unchanged`: the versions compared in which nothing changed (not shown). The dates there already are kept (a commit does not change); only the missing ones are
+    `checkedUpTo`: the newest version looked at (the ones without a diff file up to there had no change, they are not shown). The dates there already are kept (a commit does not change); only the missing ones are
     asked from GitHub."""
     old = out / 'versions.json'
     known = {v['version']: v.get('date', '') for v in json.loads(old.read_text(encoding='utf-8'))['versions']} if old.exists() else {}
@@ -283,9 +305,13 @@ def write_versions(out, unchanged):
             v['changed'] = len(d['units'])
             if d.get('removed'):
                 v['removed'] = len(d['removed'])
+            if d.get('engineOnly'):
+                v['engineOnly'] = d['engineOnly']
+        if d.get('engine'):
+            v['engine'] = d['engine']
         versions.append(v)
     versions.sort(key=lambda v: natural(v['version']))
-    text = json.dumps({'versions': versions, 'unchanged': sorted(unchanged, key=natural)}, indent=1) + '\n'
+    text = json.dumps({'versions': versions, 'checkedUpTo': checked}, indent=1) + '\n'
     old.write_text(text, encoding='utf-8', newline='\n')
 
 
@@ -303,6 +329,8 @@ def main():
     ap.add_argument('--data', default='', help='data folder of the BAR installation (for the icons and the picture fingerprints)')
     ap.add_argument('--force', action='store_true', help='make the base file and every diff file again, even if they are there')
     ap.add_argument('--redo', action='append', default=[], metavar='VERSION', help='make only this version (its folder name) again; repeat for several. A later version that depends on it is not changed: use --force for that')
+    ap.add_argument('--engine', default='', help='the engine of the exports (its name, for example 2025.06.12): named in the file of the version made now')
+    ap.add_argument('--control', default='', metavar='FILE', help='a second export of the version before, made with the engine of the version made now (only with --redo VERSION)')
     ap.add_argument('--pictures', default='', metavar='FOLDER', help='only print the units whose picture belongs into FOLDER/images (FOLDER: <out>/<version>)')
     a = ap.parse_args()
     if a.pictures:
@@ -319,8 +347,8 @@ def main():
     redo = set(a.redo)
     if base is None or ((a.force or base.name in redo) and base in exports):   # the first version exported is the base
         base = base or min(exports, key=lambda p: natural(p.name))
-        write_base(exports[base], base, a.data)
-    unchanged = unchanged_versions(out)
+        write_base(exports[base], base, a.data, a.engine)
+    checked = checked_up_to(out)
     folders = {p for p in exports} | {d.parent.parent for d in out.glob('*/data/units-*.diff.json.gz')}
     for folder in sorted((p for p in folders if natural(p.name) < natural(base.name)), key=lambda p: natural(p.name)):
         print(f'note: {folder.name} is older than the base version {base.name}: left out')
@@ -330,7 +358,7 @@ def main():
         again = a.force or folder.name in redo
         if existing and not again:
             check_before(chain, folder, existing)
-        if not again and (existing or folder.name in unchanged):
+        if not again and (existing or (checked and natural(folder.name) <= natural(checked))):
             if existing:
                 chain.apply(folder, read_gz(existing))
             print(f'{folder.name}: done already ({"diff file" if existing else "nothing changed"}), skipped')
@@ -340,13 +368,11 @@ def main():
             chain.apply(folder, read_gz(existing))
             print(f'note: {folder.name}: no units-<version>.json, the diff file is kept as it is')
             continue
-        diff = write_diff(exports[folder], folder, chain, a.data)
+        diff = write_diff(exports[folder], folder, chain, a.data, a.engine, Path(a.control) if a.control else None)
         if diff:
             chain.apply(folder, diff)
-            unchanged.discard(folder.name)
-        else:
-            unchanged.add(folder.name)
-    write_versions(out, unchanged)
+    newest = max((p.name for p in folders), key=natural, default='')
+    write_versions(out, max(checked, newest, key=natural))
     print(f'done: {out}')
 
 

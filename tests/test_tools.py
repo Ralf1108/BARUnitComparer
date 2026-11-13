@@ -117,8 +117,8 @@ class Versions(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out = Path(tmp)
             self.assertEqual(update_versions.newest_done(out), 0)
-            (out / 'versions.json').write_text('{"versions": [{"version": "test-31-abc1234"}], "unchanged": ["test-35-def5678", "test-33-1234567"]}', encoding='utf-8')
-            self.assertEqual(update_versions.newest_done(out), 35)   # an unchanged version counts as done
+            (out / 'versions.json').write_text('{"versions": [{"version": "test-31-abc1234"}], "checkedUpTo": "test-35-def5678"}', encoding='utf-8')
+            self.assertEqual(update_versions.newest_done(out), 35)   # the newest version looked at counts as done
 
     def test_natural_order(self):
         names = ['test-1000-a', 'test-99-b', 'test-100-c']

@@ -70,7 +70,7 @@ class Assets(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         listing = json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8'))
-        cls.versions, cls.unchanged = listing['versions'], listing.get('unchanged', [])
+        cls.versions, cls.checked = listing['versions'], listing.get('checkedUpTo', '')
         cls.data = {}
         for v in cls.versions:
             with gzip.open(ASSETS / v['dir'] / 'data' / v['file'], 'rt', encoding='utf-8') as f:
@@ -82,9 +82,8 @@ class Assets(unittest.TestCase):
         self.assertTrue(self.versions[0].get('base') and sum(1 for v in self.versions if v.get('base')) == 1, 'exactly one base version, the first one')
         names = [v['version'] for v in self.versions]
         self.assertEqual(names, sorted(names, key=ru.natural), 'oldest first')
-        self.assertEqual(self.unchanged, sorted(self.unchanged, key=ru.natural))
-        self.assertFalse(set(self.unchanged) & set(names), 'a version in which nothing changed is not listed')
-        self.assertTrue(all(ru.natural(u) > ru.natural(names[0]) for u in self.unchanged), 'unchanged versions are newer than the base')
+        self.assertNotIn('unchanged', json.loads((ASSETS / 'versions.json').read_text(encoding='utf-8')), 'replaced by checkedUpTo')
+        self.assertTrue(self.checked and ru.natural(self.checked) >= ru.natural(names[-1]), 'checkedUpTo is the newest version looked at: the newest listed one or a later one')
         for before, v in zip([None, *self.versions], self.versions):
             d = self.data[v['dir']]
             self.assertEqual(d['gameVersion'], v['version'])

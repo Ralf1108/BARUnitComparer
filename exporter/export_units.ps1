@@ -5,12 +5,12 @@
 #   <Out>\<version>\data\units-<version>.reduced.json.gz and <Out>\<version>\images\icons\   the data of the website (reduce_units.py)
 # Nothing of the installed game is changed: the game writes into its own folder (<Work>\data) and reads the installed packages, pool, rapid and maps (SPRING_DATADIR).
 # The game starts in a small framed window, ends itself (quitforce) and only this script's own process is ever stopped.
-#   .\export_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name>"]
+#   .\export_units.ps1 [-Out <folder>] [-Data <data folder of BAR>] [-Work <folder>] [-WaitSec 300] [-Map "<map name>"] [-Game "<game name and version>"] [-Engine "<engine folder name or full path>"] [-Control <file>]
 # -Out: default website\assets\.
 # -PrintGame: only prints the game that would be exported ("Beyond All Reason <version>") and ends, without starting anything.
 # -Data: the data folder of the BAR installation (the one with packages, pool, rapid, engine, cache). Default: the environment variable BAR_DATA, otherwise the first of the usual places (shared\data_dirs.txt).
 # -Map: the map to load as the engine names it; any installed map will do. Default: "Hooked 1.1.1" (small, so that the game loads fast), if it is not installed any other installed map.
-# -Engine: the engine to start, the name of its folder in <Data>\engine ("windows64\2025.06.12" for one that pr-downloader unpacked); default: the newest. Every game version is meant
+# -Engine: the engine to start, the name of its folder in <Data>\engine, or a full path (the engine cache of the tools: cache\engines\engine\windows64\2025.06.12); default: the newest. Every game version is meant
 # for the engine of its time (docs/plan-versions-2026.md).
 # -Headless: starts spring-headless.exe: no window and no dialog box, a bit faster; the same data. (The sandbox always gets LuaUI\Config\BYAR.lua, so that older games start the widget.)
 # -Game: the game to start as the engine names it ("Beyond All Reason test-31820-45ea098"); default: the installed one (see Get-GameVersion; an older version has to be
@@ -24,6 +24,7 @@ param(
     [string]$Map = '',
     [string]$Game = '',
     [string]$Engine = '',
+    [string]$Control = '',
     [switch]$PrintGame,
     [switch]$Headless
 )
@@ -60,8 +61,9 @@ function Get-GameVersion($data) {
 # The newest installed engine (the folder with spring.exe, or spring-headless.exe, whose name has the highest version number)
 function Get-Engine($data, $wanted, $exeName) {
     if ($wanted) {
-        $dir = Get-Item (Join-Path $data "engine\$wanted") -ErrorAction SilentlyContinue
-        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName $exeName))) { Fail "Engine '$wanted' not found in $data\engine (installed: $((Get-ChildItem (Join-Path $data 'engine') -Directory | ForEach-Object Name) -join ', '))." }
+        $place = if ([IO.Path]::IsPathRooted($wanted)) { $wanted } else { Join-Path $data "engine\$wanted" }   # a full path (the engine cache of the tools), or a folder name in <Data>\engine
+        $dir = Get-Item $place -ErrorAction SilentlyContinue
+        if (-not $dir -or -not (Test-Path (Join-Path $dir.FullName $exeName))) { Fail "Engine '$wanted' not found ($place has no $exeName; installed in $data\engine: $((Get-ChildItem (Join-Path $data 'engine') -Directory -ErrorAction SilentlyContinue | ForEach-Object Name) -join ', '))." }
         return $dir
     }
     $byVersion = { [regex]::Replace($_.Name, '\d+', [Text.RegularExpressions.MatchEvaluator] { param($m) $m.Value.PadLeft(10, '0') }) }
@@ -205,7 +207,8 @@ if ($reduced) {
         $ErrorActionPreference = 'Continue'   # a line of Python on stderr (a note, a warning) is no reason to stop here
         foreach ($file in $exported) {   # a new export replaces the result of that version only (--redo), not the whole chain
             $version = Split-Path (Split-Path $file -Parent | Split-Path -Parent) -Leaf
-            & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data --redo $version 2>&1 | ForEach-Object { "$_" }
+            $reduceExtra = @(); if ($Engine) { $reduceExtra += @('--engine', (Split-Path $Engine -Leaf)) }; if ($Control) { $reduceExtra += @('--control', $Control) }   # the engine is named in the file of the version; a control export (a change of the engine) is what the diff is made against
+            & python (Join-Path $here 'reduce_units.py') --units $file --out $Out --data $Data @reduceExtra --redo $version 2>&1 | ForEach-Object { "$_" }
             if ($LASTEXITCODE -ne 0) { $reduced = $false }
         }
     } catch { "$_"; $reduced = $false }
