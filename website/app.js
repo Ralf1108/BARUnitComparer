@@ -142,8 +142,11 @@ const unitsOf = (dir = state.versionDir) => state.merged[dir];
 const changedIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit]);
 const versionsOf = unit => state.unitVersions[unit] || [];   // the versions of a unit (folders, oldest first)
 const hasVersions = unit => versionsOf(unit).length > 1;   // there is another version of it
-const newerVersions = c => versionsOf(c.unit).filter(d => indexOf(d) > verOf(c));   // the versions of a column's unit that are newer than the one the column shows
-const missingVersions = c => newerVersions(c).filter(d => !state.columns.some(o => o.unit === c.unit && (o.version || state.versionDir) === d));   // ... and not shown yet
+// the version in which the values a column shows were set: the newest version of the unit that is not newer than the version of the column (the page shows the newest
+// game version, in which most units have not changed for a long time)
+const stateVersion = c => versionsOf(c.unit).filter(d => indexOf(d) <= verOf(c)).pop();
+const olderVersions = c => { const at = indexOf(stateVersion(c)); return versionsOf(c.unit).filter(d => indexOf(d) < at).reverse(); };   // newest first
+const missingVersions = c => olderVersions(c).filter(d => !state.columns.some(o => o.unit === c.unit && (o.version || state.versionDir) === d));   // ... and not shown yet
 function selectVersion(dir) {
   state.versionDir = dir;
   state.units = unitsOf(dir);
@@ -479,7 +482,12 @@ function versionSelect(c) {
 let shown = [];   // the columns of the last renderCompare
 const valueOf = (c, key) => key === 'weapons' ? unitOf(c).weapons.join(', ') : unitOf(c)[key];
 const verOf = c => indexOf(c.version || state.versionDir);
-const anchorOf = c => shown.filter(o => o.unit === c.unit && verOf(o) < verOf(c)).sort((a, b) => verOf(b) - verOf(a))[0] || null;
+const anchorOf = c => {
+  if (c.ref) return null;
+  const ref = shown.find(o => o.ref && o.unit === c.unit);   // a Ref column of the same unit: the other versions are compared with it
+  if (ref) return ref;
+  return shown.filter(o => o.unit === c.unit && verOf(o) < verOf(c)).sort((a, b) => verOf(b) - verOf(a))[0] || null;
+};
 const cellChanged = (c, s) => { const a = anchorOf(c); return !!a && valueOf(c, s.key) !== valueOf(a, s.key); };
 const differs = (columns, s) => columns.some(c => cellChanged(c, s));
 // what the bars and values of a column are coloured against: the Ref column; in the version comparison the same unit in the nearest older version shown (each unit against itself)
@@ -548,12 +556,12 @@ function versionsFilterButton(lead = false) {
   if (state.versions.length < 2) return '';
   return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show units that have at least 2 versions (they changed in some game version). Press again to show all units. A unit's own Versions button adds its newer versions as columns.">Versions</button>`;
 }
-// the button Versions of a column: all newer versions of its unit as columns right of it; grey if the unit has no other version, or this is its newest
+// the button Versions of a column: the older versions of its unit as columns right of it, and the unit is the Ref; grey if the unit has no other version, or this is its newest
 function versionsButton(c) {
-  const newer = missingVersions(c).length, any = hasVersions(c.unit), later = newerVersions(c).length;
-  const tip = newer ? 'Versions: add every newer version of this unit as a column right of it (the changed values are marked).'
-    : later ? 'All newer versions of this unit are shown already.' : any ? 'This is the newest version of the unit: no newer version to add.' : 'This unit has only one version (it did not change in any game version).';
-  return `<button class="versions" data-a="col-versions" title="${tip}" ${newer ? '' : 'disabled'}>Versions</button>`;
+  const more = missingVersions(c).length, any = hasVersions(c.unit), older = olderVersions(c).length;
+  const tip = more ? 'Versions: add the older versions of this unit as columns right of it (newest first) and make this unit the reference: the older ones are coloured against it, the changed values are marked.'
+    : older ? 'All older versions of this unit are shown already.' : any ? 'This is the oldest version of the unit: no older version to add.' : 'This unit has only one version (it did not change in any game version).';
+  return `<button class="versions" data-a="col-versions" title="${tip}" ${more ? '' : 'disabled'}>Versions</button>`;
 }
 function countersButton(c) {
   const has = countersOf(c.unit).length > 0;
@@ -620,15 +628,16 @@ function step(from, to) {
 
 function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
 
-// the button Versions of a column: every newer version of its unit as a column right of it (the ones that are shown already are left out)
-function addNewerVersions(c) {
+// the button Versions of a column: every older version of its unit as a column right of it (the ones that are shown already are left out), and the column is the Ref
+function addOlderVersions(c) {
   const more = missingVersions(c).map(d => newColumn(c.unit, d));
   if (!more.length) return false;
   remember();
-  const at = state.columns.indexOf(c);
-  let after = at;   // behind the columns of this unit that follow it already (older to newer)
+  let after = state.columns.indexOf(c);   // behind the columns of this unit that follow it already
   while (state.columns[after + 1] && state.columns[after + 1].unit === c.unit) after++;
   state.columns.splice(after + 1, 0, ...more);
+  for (const o of displayColumns()) o.ref = false;
+  c.ref = true;   // the clicked unit is the reference: the older versions are coloured against it
   return true;
 }
 
@@ -676,7 +685,7 @@ const actions = {
     keepAddress(); renderCompare(); showLastColumn(); renderNav();
   },
   versions() { state.versionsMode = !state.versionsMode; keepAddress(); render(); },
-  'col-versions'(v, el) { if (addNewerVersions(columnOf(el))) { keepAddress(); renderCompare(); renderNav(); } },
+  'col-versions'(v, el) { if (addOlderVersions(columnOf(el))) { keepAddress(); renderCompare(); renderNav(); } },
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },
   'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
   'fav-save'() {

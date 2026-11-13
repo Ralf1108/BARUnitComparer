@@ -137,27 +137,28 @@ try {
       check(await page.locator('.c-head [data-a="col-versions"]').isDisabled(), 'Versions (unit): grey if the unit has no other version', single[0]);
       const order = await page.$$eval('.c-tools button', b => b.map(x => x.dataset.a).filter(Boolean));
       check(order.indexOf('col-versions') >= 0 && order.indexOf('col-versions') < order.indexOf('col-counters'), 'Versions (unit): the button is left of Counters', order.join(', '));
-      const unit = multi.find(u => { const first = listing.versions.findIndex(v => (read(v).units || {})[u]); return first >= 0 && first < listing.versions.length - 1 && count[u] > 1; });
-      await page.goto(base + `#/compare/${unit}@${listing.versions.find(v => read(v).units[unit]).dir}?view=graphic`);
+      const removedAny = new Set(listing.versions.flatMap(v => read(v).removed || []));
+      const unit = multi.find(u => !removedAny.has(u) && count[u] >= 3) || multi.find(u => !removedAny.has(u));   // more than one version, and still there in the newest game version (which the page shows)
+      await page.goto(base + `#/compare/${unit}?view=graphic`);
       await page.waitForSelector('.c-head');
-      const before = await page.locator('.c-head').count();
-      check(!(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled()), 'Versions (unit): the button works if the unit has newer versions', unit);
+      check(!(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled()), 'Versions (unit): the button works if the unit has older versions', unit);
       await page.click('.c-head [data-a="col-versions"] >> nth=0');
       await page.waitForTimeout(300);
       const cols = await page.$$eval('select.c-ver', s => s.map(x => x.value));
       const at = dir => listing.versions.findIndex(v => v.dir === dir);
-      check(cols.length === count[unit] && cols.every((c, i) => i === 0 || at(c) > at(cols[i - 1])), 'Versions (unit): every version of the unit is a column, oldest left', `${cols.length} / ${count[unit]}: ${cols.join(', ')}`);
-      check(before === 1 && (await page.locator('.c-head [data-a="col-versions"]').last().isDisabled()), 'Versions (unit): the newest column has the button grey', '');
-      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the changed values are marked', '');
+      check(cols.length === count[unit] && cols.every((c, i) => i === 0 || at(c) < at(cols[i - 1])), 'Versions (unit): the older versions are columns right of the unit, newest first', `${cols.length} / ${count[unit]}: ${cols.join(', ')}`);
+      check(await page.locator('.c-head.is-ref').count() === 1 && await page.locator('.c-head').first().evaluate(e => e.classList.contains('is-ref')), 'Versions (unit): the clicked unit is the reference (Ref)', '');
+      check(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled() && await page.locator('.c-head [data-a="col-versions"]').last().isDisabled(), 'Versions (unit): nothing older is left: the buttons are grey', '');
+      check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the older versions are coloured and marked against the reference', '');
       const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
       check(options.length <= count[unit] + 1, 'a column lists only the versions that matter for its unit', `${options.length}: ${options.join(', ')}`);
       const beforeChange = await hash();
-      await page.selectOption('select.c-ver >> nth=-1', listing.versions[0].dir);
+      await page.selectOption('select.c-ver >> nth=1', listing.versions[0].dir);   // the second column (not the Ref) to the base version
       check((await hash()) !== beforeChange, 'a column can show another game version', await hash());
       await page.click('[data-a="undo"]');
       check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);
       await page.click('[data-a="undo"]');
-      check(await page.locator('.c-head').count() === 1, 'Undo takes the added versions back', await page.locator('.c-head').count());
+      check(await page.locator('.c-head').count() === 1, 'Undo takes the added versions back (the Ref stays, as with every Undo)', await page.locator('.c-head').count());
     }
   }
 
