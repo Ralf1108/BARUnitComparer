@@ -217,6 +217,18 @@ try {
   await page.goto(base + '#/catalog/arm/bots');
   await page.waitForSelector('.card');
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'phone: the catalog is not wider than the screen', '');
+  // the reference column stays in view when the other columns are scrolled: in the graphic view and in the table (its values are what the others are compared with)
+  for (const view of ['graphic', 'table']) {
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto(base + `#/compare/armpw,corak,leggob,armflea,armllt?view=${view}&ref=armpw`);
+    await page.waitForSelector('.cmp-scroll');
+    const spot = () => page.evaluate(() => { const e = document.querySelector('.is-ref'), s = document.querySelector('.cmp-scroll').getBoundingClientRect(), b = e.getBoundingClientRect(); return [Math.round(b.left - s.left), Math.round(b.right - s.left)]; });
+    const first = (await spot())[0];
+    await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 5000; });
+    await page.waitForTimeout(200);
+    const after = await spot(), sticky = await page.evaluate(() => { const v = document.querySelector(view_cell()); return v ? Math.round(v.getBoundingClientRect().left) : -1; function view_cell() { return document.querySelector('td.ref-col') ? 'td.ref-col' : '.stats.is-ref'; } });
+    check(after[0] === first && after[1] > 100 && sticky >= 0 && sticky < 200, `the reference column stays in view when scrolled (${view})`, `${first} -> ${after} / ${sticky}`);
+  }
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
   check(false, 'the test ran through', e.message);

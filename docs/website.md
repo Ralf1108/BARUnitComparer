@@ -162,6 +162,7 @@ The page is built for a large monitor first; a narrow window gets its own compac
 - **Catalog (up to 600 px):** three units per row with the name only (the description is in the list view and in the compare); the categories are one row that is scrolled sideways; the search comes first and is as wide as the screen.
 - **Header (up to 600 px):** the links fit in one line (Favorites is only the star).
 - **Changes (up to 600 px):** one row per unit, the lists From and To as wide as the screen.
+- **The reference column stays in view** when the other columns are scrolled sideways, so that its values stay next to the ones they are compared with: in the graphic view the whole column (head, picture, values), in the table view the column next to the value names (`.ref-col`, the width of the names is `--lw`, set in `updateMore`). The arrow at the left edge starts behind it.
 - The page is never wider than the screen (no sideways scrolling of the page; only the columns of the compare and the category row scroll sideways).
 
 ## 5. Running it

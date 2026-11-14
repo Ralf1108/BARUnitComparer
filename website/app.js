@@ -532,6 +532,9 @@ function updateMore() {
   const sc = app.querySelector('.cmp-scroll');
   if (!sc) return;
   app.querySelector('.more-left').hidden = sc.scrollLeft < 4;
+  const corner = sc.querySelector('.t-corner'), stick = sc.querySelector('.c-head.is-ref, th.is-ref');   // the reference column stays at the left edge: the arrow and the table's second sticky column start behind it
+  if (corner) sc.querySelector('.cmp-table').style.setProperty('--lw', corner.getBoundingClientRect().width + 'px');
+  app.querySelector('.more-left').style.left = (corner ? corner.getBoundingClientRect().width + (stick ? stick.getBoundingClientRect().width : 0) : stick ? stick.getBoundingClientRect().width : 0) + 'px';
   app.querySelector('.more-right').hidden = sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 4;
 }
 
@@ -577,15 +580,16 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : gripHtml()}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref ref-col' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : gripHtml()}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
-    if (s.key === 'weapons') return `<td data-col="${c.id}" class="${changed}">${esc(u.weapons.join(', '))}</td>`;
+    const rc = c.ref ? ' ref-col' : '';
+    if (s.key === 'weapons') return `<td data-col="${c.id}" class="${rc}${changed}">${esc(u.weapons.join(', '))}</td>`;
     const v = u[s.key];
-    if (!v) return `<td data-col="${c.id}" class="none${changed}">–</td>`;
+    if (!v) return `<td data-col="${c.id}" class="none${rc}${changed}">–</td>`;
     const ref = referenceFor(c, reference);
-    return `<td data-col="${c.id}" class="num${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${s.show(v)}</td>`;
+    return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${s.show(v)}</td>`;
   };
   return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}</tr></thead>
     <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}">${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
