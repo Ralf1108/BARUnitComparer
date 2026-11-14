@@ -318,8 +318,3 @@ span.c-ver { border: 0; background: none; }
 .pill { font-size: 12px; background: #1a1a1a; border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; white-space: nowrap; }
 .pill s { color: var(--muted); } .pill b { color: var(--gold); font-weight: 500; } .pill.muted { color: var(--muted); }
 @media (max-width: 700px) { .chg-row { grid-template-columns: 48px 1fr; } .chg-kind { display: none; } .pills { grid-column: 1 / -1; } }
-
-/* only the look of a unit changed in this version (the picture is new, the values are the same): a golden frame */
-.visual img { outline: 2px solid var(--gold); outline-offset: -2px; border-radius: 4px; box-shadow: 0 0 12px rgba(240, 185, 90, .5); }
-.chg.visual { background: var(--gold); color: #000; }
-.pill.visual { border-color: var(--gold); color: var(--gold); }

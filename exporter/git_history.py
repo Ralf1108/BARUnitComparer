@@ -4,7 +4,7 @@
 
 A bare clone of the repository of Beyond All Reason without file contents (git clone --bare --filter=blob:none, kept in cache/bar.git, not in Git) gives
   - the commits of the branch `stable` with their dates (the date of a game version is the commit date),
-  - the prefilter: which files changed between two versions (git diff --name-only on the trees), so that a version that changes neither a value nor the look
+  - the prefilter: which files changed between two versions (git diff --name-only on the trees), so that a version that changes no value
     is neither downloaded nor started.
 Used by update_versions.py. Standing alone: --steps shows how every step of the chain is classified.
 """
@@ -22,8 +22,7 @@ CLONE = ROOT / 'cache' / 'bar.git'
 # The list must be COMPLETE (a missed path loses a change): the check against the exports and the switch --no-prefilter of update_versions.py.
 VALUE_PATHS = ['units', 'unitbasedefs', 'weapons', 'gamedata', 'language', 'common', 'modules', 'types', 'modoptions.lua', 'modinfo.lua', 'init.lua',
                'EngineOptions.lua', 'luarules/configs', 'luarules/gadgets/include', 'luarules/Utilities']
-# What reaches the pictures: the models, the textures, the animation scripts (hidden pieces) and the radar icons.
-LOOK_PATHS = ['objects3d', 'unittextures', 'scripts', 'icons']
+# A change of the look alone (models, textures, scripts, icons) is no change for the website: only the values are compared (docs/versions.md).
 
 
 def git(repo, *args):
@@ -62,10 +61,8 @@ def changed_files(repo, old, new, paths):
 
 
 def kind_of_step(repo, old, new):
-    """'values' (a value path changed: the game must be exported), 'look' (only a look path changed: only the pictures can change) or 'none'."""
-    if changed_files(repo, old, new, VALUE_PATHS):
-        return 'values'
-    return 'look' if changed_files(repo, old, new, LOOK_PATHS) else 'none'
+    """'values' (a value path changed: the game must be exported) or 'none'."""
+    return 'values' if changed_files(repo, old, new, VALUE_PATHS) else 'none'
 
 
 def main():

@@ -54,9 +54,11 @@ class Rules(unittest.TestCase):
 
     def test_compare_with_version_before(self):
         base = {'a': {'metal': 1, 'icon': 'x.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'gone': {'metal': 1}}
-        units = {'a': {'metal': 2, 'icon': 'y.png'}, 'b': {'metal': 1}, 'lootboxnano_t1': {'metal': 1}, 'new': {'metal': 1}}
-        changed, pictures = reduce_units.compare(units, {'b': '2', 'lootboxnano_t1': '2'}, base, {'b': '1', 'lootboxnano_t1': '1'})
-        self.assertEqual((changed, pictures), ({'a', 'b', 'new'}, {'b', 'new'}))   # the loot boxes get a model by chance: no change
+        units = {'a': {'metal': 2, 'icon': 'y.png'}, 'b': {'metal': 1}, 'c': {'metal': 2}, 'lootboxnano_t1': {'metal': 2}, 'new': {'metal': 1}}
+        base['c'] = {'metal': 1}
+        changed, pictures = reduce_units.compare(units, {'a': '1', 'b': '2', 'c': '2', 'lootboxnano_t1': '2'}, base, {'a': '1', 'b': '1', 'c': '1', 'lootboxnano_t1': '1'})
+        # a: only a value; b: only a picture = no change; c: both; the loot boxes get a model by chance: their picture is no change
+        self.assertEqual((changed, pictures), ({'a', 'c', 'lootboxnano_t1', 'new'}, {'c', 'new'}))
         self.assertEqual(reduce_units.compare({'b': {'metal': 1}}, {}, {'b': {'metal': 1}}, {'b': '1'}), (set(), set()))   # without fingerprints only the values count
 
     def test_shared_rules(self):

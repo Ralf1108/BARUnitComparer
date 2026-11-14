@@ -44,7 +44,7 @@ class Prefilter(unittest.TestCase):
         c3 = commit(self.repo, '2026-01-04', {'units/arm/armpw.lua': '2', 'objects3d/armpw.s3o': 'm3'})             # values (and the look)
         c4 = commit(self.repo, '2026-01-05', {'luarules/configs/quick_start_build_defs.lua': 'q'})                   # included by the definitions: values
         kind = lambda a, b: git_history.kind_of_step(self.repo, a, b)
-        self.assertEqual([kind(c0, c1), kind(c1, c2), kind(c2, c3), kind(c3, c4)], ['none', 'look', 'values', 'values'])
+        self.assertEqual([kind(c0, c1), kind(c1, c2), kind(c2, c3), kind(c3, c4)], ['none', 'none', 'values', 'values'])
         self.assertEqual(git_history.changed_files(self.repo, c2, c3, ['units']), ['units/arm/armpw.lua'])
 
     def test_commit_dates(self):

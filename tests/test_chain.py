@@ -22,9 +22,9 @@ def unit(name, metal):
 # the made-up game versions: {unit: metal} and {unit: fingerprint of its picture}
 VERSIONS = {
     V1: ({'a': 10, 'b': 20, 'c': 30}, {'a': 'p1', 'b': 'p2', 'c': 'p3'}),
-    V2: ({'a': 11, 'b': 20, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # a: value, b: picture, c: gone, d: new
-    V3: ({'a': 11, 'b': 20, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # nothing changed
-    V4: ({'a': 12, 'b': 20, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # a: value
+    V2: ({'a': 11, 'b': 21, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # a: value, b: value and picture, c: gone, d: new
+    V3: ({'a': 11, 'b': 21, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # nothing changed
+    V4: ({'a': 12, 'b': 21, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'}),    # a: value
 }
 
 
@@ -101,7 +101,7 @@ class Chain(Patched):
             folder = self.out / v
             chain.apply(folder, ru.read_gz(ru.diff_file(folder)))
         self.assertEqual(chain.version, V4)
-        self.assertEqual({n: u['metal'] for n, u in chain.units.items()}, {'a': 12, 'b': 20, 'd': 5})
+        self.assertEqual({n: u['metal'] for n, u in chain.units.items()}, {'a': 12, 'b': 21, 'd': 5})
         self.assertEqual(chain.prints, {'a': 'p1', 'b': 'p22', 'd': 'p4'})   # c is gone with its fingerprint
 
     def test_picture_units(self):
@@ -122,7 +122,7 @@ class Chain(Patched):
     def test_redo_makes_only_that_version(self):
         self.make_all()
         v4_before = (ru.diff_file(self.out / V4)).read_bytes()
-        VERSIONS[V2] = ({'a': 15, 'b': 20, 'd': 5}, VERSIONS[V2][1])
+        VERSIONS[V2] = ({'a': 15, 'b': 21, 'd': 5}, VERSIONS[V2][1])
         try:
             write_export_again = json.loads((self.out / V2 / 'data' / f'units-{V2}.json').read_text(encoding='utf-8'))
             write_export_again['units']['a'] = unit('a', 15)
@@ -131,7 +131,7 @@ class Chain(Patched):
             self.assertEqual(self.read(V2, 'diff')['units']['a']['metal'], 15)
             self.assertEqual(ru.diff_file(self.out / V4).read_bytes(), v4_before, '--redo makes only that version')
         finally:
-            VERSIONS[V2] = ({'a': 11, 'b': 20, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'})
+            VERSIONS[V2] = ({'a': 11, 'b': 21, 'd': 5}, {'a': 'p1', 'b': 'p22', 'd': 'p4'})
 
     def test_a_diff_of_another_version_is_an_error(self):
         self.make_all()
@@ -160,16 +160,17 @@ class Chain(Patched):
         self.assertTrue(listing['versions'][0]['base'])
 
     def test_a_unit_that_gets_a_picture(self):
-        changed, pictures = ru.compare({'a': {'metal': 1}}, {'a': 'x'}, {'a': {'metal': 1}}, {'z': 'y'})
-        self.assertEqual((changed, pictures), ({'a'}, {'a'}))
-        self.assertEqual(ru.compare({'a': {'metal': 1}}, {'a': 'x'}, {'a': {'metal': 1}}, {}), (set(), set()))   # the version before has no fingerprints at all
+        changed, pictures = ru.compare({'a': {'metal': 2}}, {'a': 'x'}, {'a': {'metal': 1}}, {'z': 'y'})
+        self.assertEqual((changed, pictures), ({'a'}, {'a'}))   # a value changed and the unit had no picture before: it gets one
+        self.assertEqual(ru.compare({'a': {'metal': 1}}, {'a': 'x'}, {'a': {'metal': 1}}, {'a': 'y'}), (set(), set()))   # only the picture changed: no change at all
+        self.assertEqual(ru.compare({'a': {'metal': 2}}, {'a': 'x'}, {'a': {'metal': 1}}, {}), ({'a'}, set()))   # the version before has no fingerprints at all
 
     def test_change_of_the_engine(self):
         """The version before, exported again with the new engine (control), is what the diff is made against: a value that differs only because of the engine is
         not a change of the game; it is named in engineOnly. The engines are named in versions.json."""
         write_export(self.out, V1, {'a': 10, 'b': 20, 'c': 30})
         self.run_main('--engine', '1.0')
-        write_export(self.out, V2, {'a': 15, 'b': 20, 'c': 30, 'd': 5})   # a: only the engine (the control has it too); b: a picture; d: new
+        write_export(self.out, V2, {'a': 15, 'b': 21, 'c': 30, 'd': 5})   # a: only the engine (the control has it too); b: a value and a picture; d: new
         write_export(Path(self.tmp.name) / 'control', V1, {'a': 15, 'b': 20, 'c': 30})
         control = Path(self.tmp.name) / 'control' / V1 / 'data' / f'units-{V1}.json'
         self.run_main('--redo', V2, '--engine', '2.0', '--control', str(control))

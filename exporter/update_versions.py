@@ -7,7 +7,7 @@ Started by "update game versions.bat".
    test-<number>-<short hash>", byar:git:<full hash>) whose commit is on the branch `stable` and dated 2026-01-01 or later (the clone of the game repository,
    git_history.py). The first one is the base version.
 2. The new ones: newer than checkedUpTo (website/assets/versions.json), oldest first. For each one in turn:
-   - the prefilter (git_history.py): no file of the unit definitions or of the look changed against the version before: nothing is downloaded or started,
+   - the prefilter (git_history.py): no file of the unit definitions changed against the version before: nothing is downloaded or started,
      checkedUpTo moves on. --no-prefilter exports every version.
    - otherwise: the package comes with pr-downloader (only the missing files, into the data folder), the engine of its date (engines.json) into cache/engines,
      then export_and_render_all_units.ps1: export with that engine, the diff against the version before (reduce_units.py), the pictures that changed.
@@ -179,7 +179,7 @@ def refresh_lists(out):
 
 
 def plan(chain, done, repo, prefilter):
-    """[(number, version, commit, kind)] of the versions after `done`. kind: 'base' (the first version of the chain when nothing is done), 'values' or 'look'
+    """[(number, version, commit, kind)] of the versions after `done`. kind: 'base' (the first version of the chain when nothing is done), 'values'
     (Git shows a change: to be exported), 'none' (no change of the files: only checkedUpTo moves on). Without the prefilter every version is 'values'."""
     steps = []
     for i, (n, v, c) in enumerate(chain):
@@ -202,7 +202,7 @@ def main():
     ap.add_argument('--prd', default='', help='pr-downloader.exe (default: the one of the BAR installation)')
     ap.add_argument('--format', default='avif', help='picture format (as export_and_render_all_units.ps1 -Format)')
     ap.add_argument('--cache', default=str(ROOT / 'cache'), help='the cache of the tools: the clone of the game repository and the engines (default cache/)')
-    ap.add_argument('--no-prefilter', action='store_true', help='export every version, also the ones for which Git shows no change of the units or the look')
+    ap.add_argument('--no-prefilter', action='store_true', help='export every version, also the ones for which Git shows no change of the units')
     ap.add_argument('--no-lists', action='store_true', help='do not refresh counterparts.json and counters.json from beyondallreason.info at the end')
     ap.add_argument('--keep-exports', action='store_true', help='keep the full export (15 MB) of every version')
     a = ap.parse_args()

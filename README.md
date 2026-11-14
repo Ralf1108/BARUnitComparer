@@ -32,7 +32,7 @@ You do not need the game to **use** the site: open the link above. You only need
 - **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
 - **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
 - **+ Scav:** shows the Scavenger copy of every unit next to it.
-- **Changes:** a page with what changed in the game between any two versions of the year (from 2026-01-01): the changed values as `old → new`, new and gone units, filters by faction and value; a click opens the unit in the compare. In the side-by-side compare, a unit whose latest change was only visual (new picture, same values) has a golden frame on its picture; the tooltip names the version.
+- **Changes:** a page with what changed in the game between any two versions of the year (from 2026-01-01): the changed values as `old → new`, new and gone units, filters by faction and value; a click opens the unit in the compare. Only values count: a change of a model or texture alone is not listed.
 - **Versions:** (every version of the year, see [docs/plan-versions-2026.md](docs/plan-versions-2026.md)) the button at the top shows only units that have at least 2 versions; the button **Versions** of a unit adds all its older versions as columns right of it and makes the unit the Ref (grey if there is none), the changed values are marked. Every column can show any exported version. A version in which no unit changed is not shown.
 - **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link (units, view, Ref and + Scav), ready to share.
 

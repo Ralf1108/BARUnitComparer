@@ -102,9 +102,6 @@ async function loadCompressedJson(name) {
 const versionOf = dir => state.versions.find(v => v.dir === dir);
 const indexOf = dir => state.versions.findIndex(v => v.dir === dir);
 const versionBefore = dir => (state.versions[indexOf(dir) - 1] || {}).dir;
-// a unit whose change in a version is only visual: its picture changed, all its values are the same as in the version before
-const NOT_A_VALUE = new Set(['icon', 'ownPicture', 'ownIcon', 'pic', 'iconAt', 'visualOnly']);
-const valuesOf = u => JSON.stringify(Object.keys(u).filter(k => !NOT_A_VALUE.has(k)).sort().map(k => [k, u[k]]));
 async function loadVersions() {
   const listing = await loadJson('versions.json'), listed = listing.versions;
   const first = Math.max(0, listed.findIndex(v => v.base));
@@ -123,7 +120,6 @@ async function loadVersions() {
     }
     const all = { ...before }, next = { ...icons };
     for (const [n, u] of Object.entries(data.units)) {
-      u.visualOnly = !!(u.ownPicture && before[n] && valuesOf(u) === valuesOf(before[n]));   // golden picture: only the look changed
       u.pic = u.ownPicture || !before[n] ? v.dir : before[n].pic;   // its picture changed (or it is new): in this version's folder, else where it was
       u.iconAt = u.ownIcon ? v.dir : icons[u.icon] || state.baseDir;
       if (u.ownIcon) next[u.icon] = v.dir;
@@ -142,12 +138,6 @@ async function loadVersions() {
 }
 // all units of a version
 const unitsOf = (dir = state.versionDir) => state.merged[dir];
-// did only the look of the unit change in this version (against the version before)?
-const visualIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit] && state.diffs[dir].units[unit].visualOnly);
-// the golden frame: the look of the unit as it is in the game version `dir` came from a change in which only the look changed (the newest version of the unit that is not newer than `dir`)
-const visualVersion = (dir, unit) => { const at = versionsOf(unit).filter(d => indexOf(d) <= indexOf(dir)).pop(); return at && visualIn(at, unit) ? at : null; };
-const visualTip = (dir, unit) => { const at = visualVersion(dir, unit); return at ? `Only the look changed in ${shortVersion(at)}: the picture is new, all values are the same as in the version before it.` : ''; };
-const VISUAL_TIP = 'Only the look changed in this version: the picture is new, all values are the same as before.';
 // did the unit change in this version (against the version before)
 const changedIn = (dir, unit) => !!(state.diffs[dir] && state.diffs[dir].units[unit]);
 const versionsOf = unit => state.unitVersions[unit] || [];   // the versions of a unit (folders, oldest first)
@@ -322,8 +312,7 @@ function renderCatalogUnits() {
   }).join('')}</div>`;
 }
 // a unit that changed in the version shown (against the version before)
-const changedTag = n => visualIn(state.versionDir, n) ? `<span class="chg visual" title="${VISUAL_TIP}">visual</span>`
-  : changedIn(state.versionDir, n) ? `<span class="chg" title="Changed against the version before, ${esc(shortVersion(versionBefore(state.versionDir)))} (values or picture)">changed</span>` : '';
+const changedTag = n => changedIn(state.versionDir, n) ? `<span class="chg" title="Changed against the version before, ${esc(shortVersion(versionBefore(state.versionDir)))} (values or picture)">changed</span>` : '';
 
 function renderTray() {
   const units = chosenUnits(), tray = document.getElementById('tray');
@@ -356,7 +345,7 @@ const changesLink = (to, from) => `#/changes/${to}?from=${from}`;
 function changeRow(c, from, to) {
   const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
   const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b>${esc(shownOf(c.u, s.key))}</b></span>`);
-  if (c.picture) pills.push(c.fields.length ? '<span class="pill" title="The picture changed">Picture</span>' : `<span class="pill visual" title="${VISUAL_TIP}">Only the picture</span>`);
+  if (c.picture) pills.push('<span class="pill" title="The picture changed">Picture</span>');
   return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
     ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small></span><span class="chg-kind k-${c.kind}">${c.kind}</span><span class="pills">${pills.join('') || '<span class="pill muted">no value shown</span>'}</span></a>`;
 }
@@ -514,7 +503,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic${visualVersion(c.version || state.versionDir, c.unit) ? ' visual' : ''}" ${visualTip(c.version || state.versionDir, c.unit) ? `title="${visualTip(c.version || state.versionDir, c.unit)}"` : ''}>${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
@@ -593,8 +582,7 @@ function counterpartsOf(unit) {
 
 function unitHtml(c, u) {
   const eq = c.scavOf ? [] : counterpartsOf(c.unit);
-  const visual = visualTip(c.version || state.versionDir, c.unit);
-  return `<div class="c-pic${visual ? ' visual' : ''}" ${visual ? `title="${visual}"` : ''}>${pictureTag(c.unit, '', u)}</div>
+  return `<div class="c-pic">${pictureTag(c.unit, '', u)}</div>
     <div class="c-name">${esc(u.name)}</div>
     <div class="c-desc">${esc(u.description)}<span class="tier t${u.tech}">T${u.tech}</span></div>
     ${eq.length ? `<div class="c-eq"><button class="c-eq-all" data-a="add-counterparts" title="Add all counterparts of this unit as columns (the ones that are not in the comparison yet)">Counterparts:</button> ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;

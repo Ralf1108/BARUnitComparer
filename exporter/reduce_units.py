@@ -10,7 +10,7 @@ Reads every <out>/<version>/data/units-<version>.json and writes what is not the
     <out>/<version>/data/pictures.json                    the fingerprint of every unit's picture (render_unit.picture_fingerprints: model, textures, hidden pieces, faction)
     <out>/<version>/images/icons/<file>.png               the role icons of the units, from the game
   every LATER version: only what changed against the version BEFORE it (the base with the changes of every version in between)
-    <out>/<version>/data/units-<version>.diff.json.gz      the units whose values, picture or icon changed and the new units (`ownPicture` / `ownIcon`: their picture /
+    <out>/<version>/data/units-<version>.diff.json.gz      the units whose values changed and the new units (`ownPicture` / `ownIcon`: their picture /
                                                           icon is in this version's folder), the names of the units that are gone
     <out>/<version>/data/pictures.json                    the fingerprints of the pictures that changed
     <out>/<version>/images/icons/<file>.png               only the icons that changed
@@ -131,7 +131,7 @@ class Chain:
     def apply(self, folder, diff):
         """The changes of the version in `folder` (its diff file, read)."""
         for name, u in diff['units'].items():
-            self.units[name] = {k: v for k, v in u.items() if k not in ('ownPicture', 'ownIcon')}
+            self.units[name] = {k: v for k, v in u.items() if k not in ('ownPicture', 'ownIcon', 'pictureParts')}
             if u.get('ownIcon'):
                 self.icons[u['icon']] = folder
         prints = folder / 'data' / 'pictures.json'
@@ -144,9 +144,9 @@ class Chain:
 
 
 def compare(units, prints, before_units, before_prints):
-    """(the units whose values or picture differ from the version before, new units included; the units whose picture differs, new units included).
-    The icon counts only if both versions have one (without the game installed there are no icons); the pictures are compared only if both versions have fingerprints.
-    A unit that had no picture before and has one now counts as changed."""
+    """(the units whose values differ from the version before, new units included; the units among them whose picture differs, new units included).
+    Only the values count: a unit whose picture or icon changed but not one value is no change (the page compares values), and its fingerprint stays that of the picture
+    that is shown. The pictures are compared only if both versions have fingerprints. A unit that had no picture before and has one now gets one."""
     plain = lambda u: {k: v for k, v in u.items() if k != 'icon'}
     changed, pictures = set(), set()
     for name, u in units.items():
@@ -155,12 +155,11 @@ def compare(units, prints, before_units, before_prints):
             changed.add(name)
             pictures.add(name)
             continue
-        if plain(u) != plain(b) or (u.get('icon') and b.get('icon') and u['icon'] != b['icon']):
+        if plain(u) != plain(b):
             changed.add(name)
-        old, new = before_prints.get(name), prints.get(name)
-        if prints and before_prints and new and old != new and not RANDOM_MODEL.match(name):   # also a unit that had no picture before
-            changed.add(name)
-            pictures.add(name)
+            old, new = before_prints.get(name), prints.get(name)
+            if prints and before_prints and new and old != new and not RANDOM_MODEL.match(name):
+                pictures.add(name)
     return changed, pictures
 
 
@@ -222,14 +221,13 @@ def write_diff(f, folder, chain, data_dir, engine='', control=None):
     if not prints and (folder / 'data' / 'pictures.json').exists():
         sys.exit(f'ERROR: the game {version} is not installed, so its pictures cannot be compared, and {folder.name} has pictures.json already: it would be lost. Install the game version (the download of exporter/update_versions.py) or remove the file on purpose.')
     changed, pictures = compare(units, prints, before_units, chain.prints)
-    new_icons = {}   # icon files that the version before does not have like this; every unit with one of them counts as changed
+    new_icons = {}   # icon files that the version before does not have like this; a changed unit with one of them brings it along (a new icon alone is no change)
     if pool:
         for bitmap in set(icons.values()):
             name, mine = Path(bitmap).name, pool.read(bitmap)
             theirs = chain.icons.get(name)
             if theirs is None or (theirs / 'images' / 'icons' / name).read_bytes() != mine:
                 new_icons[name] = mine
-    changed |= {n for n, u in units.items() if u.get('icon') in new_icons}
     removed = sorted(set(before_units) - set(units))
     if not changed and not removed:
         for old in (target, folder / 'data' / 'pictures.json'):

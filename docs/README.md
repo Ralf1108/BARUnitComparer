@@ -27,7 +27,7 @@ A project that shows the units of Beyond All Reason next to each other. These do
 
 ## Next steps and open points
 
-- **Year of versions:** built (the export from 2026-01-01 to test-31943, `history.json.gz`, the month grouping, the page Changes). To keep it current: `update game versions.bat` (the newest versions), `exporter/make_engine_table.py` when a new engine becomes the standard, `exporter/broken_versions.json` for game versions that do not start. Open: the look-only versions are exported like any other (the game start could be saved); the control export is repeated after a version without a change under a new engine.
+- **Year of versions:** built (the export from 2026-01-01 to test-31943, `history.json.gz`, the month grouping, the page Changes). To keep it current: `update game versions.bat` (the newest versions), `exporter/make_engine_table.py` when a new engine becomes the standard, `exporter/broken_versions.json` for game versions that do not start. Look-only changes are not wanted (only values count; docs/versions.md). Open: the control export is repeated after a version without a change under a new engine.
 - Set the description and topics of the GitHub repository ("About", by hand).
 - Ask the BAR developers whether the published pictures and the site are in order ([licence.md](licence.md)).
 - Correct `website/assets/counterparts.json` by hand.
