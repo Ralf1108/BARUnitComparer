@@ -102,7 +102,7 @@ try {
     await page.goto(base + '#/catalog/arm/bots');
     await page.waitForSelector('.card');
     const groups = await page.$$eval('select[data-change="version"] optgroup', g => g.map(x => x.label));
-    check(groups.length > 1 && /^\d{4}-\d\d \(\d+ versions?\)$/.test(groups[0]), 'the version list is grouped by month', groups.slice(0, 2).join(' | '));
+    check(groups.length > 1 && /^[A-Z][a-z]+ \d{4} \(\d+ versions?\)$/.test(groups[0]), 'the version list is grouped by month', groups.slice(0, 2).join(' | '));
   }
   if (versions.length > 1) {
     // which units have more than one version (from the files: the first version that has a unit, and every one in which it changed)

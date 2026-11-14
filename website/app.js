@@ -18,23 +18,23 @@ const CATEGORIES = [
 const clock = s => `${String(Math.floor(Math.round(s) / 60)).padStart(2, '0')}:${String(Math.round(s) % 60).padStart(2, '0')}`;
 const whole = v => String(Math.round(v));
 const STATS = [
-  { key: 'metal', label: 'Metal', fill: 'metal', show: whole, lower: true },
-  { key: 'energy', label: 'Energy', fill: 'energy', show: whole, lower: true },
-  { key: 'buildTime', label: 'Buildtime', fill: 'time', show: clock, lower: true },
-  { key: 'buildPower', label: 'Buildpower', fill: 'power', show: whole },
-  { key: 'energyMake', label: 'Energy Make', fill: 'make', show: whole },
-  { key: 'hitpoints', label: 'Hitpoints', fill: 'hp', show: whole },
-  { key: 'radar', label: 'Radar Range', fill: 'radar', show: whole },
-  { key: 'speed', label: 'Speed', fill: 'speed', show: v => String(Math.floor(v)) },
-  { key: 'weapons', label: 'Weapons' },
-  { key: 'dps', label: 'DPS', fill: 'dps', show: whole },
-  { key: 'range', label: 'Weapon Range', fill: 'range', show: whole },
+  { key: 'metal', label: 'Metal', fill: 'metal', show: whole, lower: true, tip: 'Metal cost: what the unit costs to build. Lower is better.' },
+  { key: 'energy', label: 'Energy', fill: 'energy', show: whole, lower: true, tip: 'Energy cost: what the unit costs to build. Lower is better.' },
+  { key: 'buildTime', label: 'Build time', fill: 'time', show: clock, lower: true, tip: 'Build time in minutes:seconds with a build power of 100 (more or stronger builders are faster). Lower is better.' },
+  { key: 'buildPower', label: 'Build power', fill: 'power', show: whole, tip: 'Build power: how fast the unit builds, repairs and reclaims.' },
+  { key: 'energyMake', label: 'Energy income', fill: 'make', show: whole, tip: 'Energy the unit makes per second (its own upkeep taken off; wind and tidal generators as the game lists them).' },
+  { key: 'hitpoints', label: 'Hitpoints', fill: 'hp', show: whole, tip: 'Hitpoints: how much damage the unit takes before it is destroyed.' },
+  { key: 'radar', label: 'Radar range', fill: 'radar', show: whole, tip: 'Radar range, in the length unit of the game (elmos).' },
+  { key: 'speed', label: 'Speed', fill: 'speed', show: v => String(Math.floor(v)), tip: 'Top speed of the unit.' },
+  { key: 'weapons', label: 'Weapons', tip: 'The kinds of weapons the unit has.' },
+  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together.' },
+  { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons, in the length unit of the game (elmos).' },
 ];
 
 const app = document.getElementById('app');
 const state = {
   units: {}, counterpart: {}, versions: [], version: '', versionDir: '', baseDir: '', diffs: {}, merged: {}, versionsMode: false,
-  changes: { faction: 'all', key: '', search: '' }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
+  changes: { faction: 'all', key: '', search: '', scav: false }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
   columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
@@ -152,16 +152,20 @@ function selectVersion(dir) {
   state.units = unitsOf(dir);
   state.version = versionOf(dir).version;
 }
-// "test-31836-b250a16" -> "test-31836" and the date
-// the options of the version list: oldest first, grouped by month ("2026-03 (5 versions)") as soon as there are many versions
+// the options of the version list: oldest first, grouped by month ("March 2026 (5 versions)") as soon as there are many versions
 function versionOptions(note, selected = state.versionDir) {
   const option = v => `<option value="${esc(v.dir)}" ${v.dir === selected ? 'selected' : ''}>${esc(versionLabel(v) + note(v))}</option>`;
   if (state.versions.length < 12) return state.versions.map(option).join('');
   const months = new Map();
   for (const v of state.versions) { const m = (v.date || '').slice(0, 7) || 'no date'; if (!months.has(m)) months.set(m, []); months.get(m).push(v); }
-  return [...months].map(([m, list]) => `<optgroup label="${esc(m)} (${list.length} version${list.length > 1 ? 's' : ''})">${list.map(option).join('')}</optgroup>`).join('');
+  const monthName = m => /^\d{4}-\d\d$/.test(m) ? `${MONTHS[m.slice(5) - 1]} ${m.slice(0, 4)}` : m;
+  return [...months].map(([m, list]) => `<optgroup label="${esc(monthName(m))} (${list.length} version${list.length > 1 ? 's' : ''})">${list.map(option).join('')}</optgroup>`).join('');
 }
-const versionLabel = v => `${v.version.replace(/-[0-9a-f]{7,}$/, '')}${v.date ? ` · ${v.date}` : ''}`;
+// "test-31836-b250a16" of 2026-11-08 -> "8 Nov 2026 · test-31836" (the date is what a player knows; without a date only the name)
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const niceDate = d => { const m = /^(\d{4})-(\d\d)-(\d\d)$/.exec(d || ''); return m ? `${Number(m[3])} ${MONTHS[m[2] - 1].slice(0, 3)} ${m[1]}` : ''; };
+const versionName = v => v.version.replace(/-[0-9a-f]{7,}$/, '');
+const versionLabel = v => v.date ? `${niceDate(v.date)} · ${versionName(v)}` : versionName(v);
 
 async function start() {
   try {
@@ -185,7 +189,8 @@ async function start() {
 function route() {
   const [path, query = ''] = location.hash.replace(/^#\/?/, '').split('?');
   const [page, a, b] = path.split('/'), params = new URLSearchParams(query);
-  if (page === 'changes' && state.versions.length > 1) {
+  if (page === 'help') state.page = 'help';
+  else if (page === 'changes' && state.versions.length > 1) {
     state.page = 'changes';
     const last = state.versions[state.versions.length - 1].dir;
     state.changesTo = versionOf(a) ? a : last;
@@ -237,7 +242,7 @@ function keepAddress() { if (state.page === 'compare') history.replaceState(null
 // ------------------------------------------------------------------ frame
 function render() {
   renderNav();
-  if (state.page === 'compare') renderCompare(); else if (state.page === 'changes') renderChanges(); else renderCatalog();
+  if (state.page === 'compare') renderCompare(); else if (state.page === 'changes') renderChanges(); else if (state.page === 'help') renderHelp(); else renderCatalog();
   renderTray();
 }
 
@@ -257,9 +262,11 @@ function renderNav() {
   document.getElementById('nav-links').innerHTML = `<a href="#/catalog/${state.faction}/${state.category}" class="${state.page === 'catalog' ? 'active' : ''}">Catalog</a>
     <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
     ${state.versions.length > 1 ? `<a href="#/changes" class="${state.page === 'changes' ? 'active' : ''}" title="What changed in the game: the units that changed between two game versions">Changes</a>` : ''}
+    <a href="#/help" class="${state.page === 'help' ? 'active' : ''}" title="How this page works, in a few lines">Help</a>
     <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
-  document.getElementById('version').innerHTML = state.versions.length > 1
+  // the version list belongs to the catalog and the compare; the page Changes has its own two lists
+  document.getElementById('version').innerHTML = state.page === 'changes' || state.page === 'help' ? '' : state.versions.length > 1
     ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${versionOptions(note)}</select>`
     : `<span class="v-label">Game version</span> ${esc(versionLabel(versionOf(state.versionDir)))}`;
 }
@@ -272,8 +279,10 @@ function catalogUnits() {
     if (u.faction !== state.faction || (state.tiers.size && !state.tiers.has(u.tech))) return false;
     if (state.versionsMode && !hasVersions(n)) return false;   // the button Versions: only units with at least 2 versions
     return search ? matchUnit(n, u, search) : u.category === state.category;
-  }).sort((a, b) => byTech(state.units[a], state.units[b]));
+  }).sort((a, b) => isInternal(a) - isInternal(b) || byTech(state.units[a], state.units[b]));
 }
+// a unit the game has no name for (its name is its code name): test and helper units, listed last
+const isInternal = n => state.units[n].name === n;
 
 function renderCatalog() {
   const f = state.faction, cat = CATEGORIES.find(c => c.id === state.category);
@@ -282,6 +291,7 @@ function renderCatalog() {
     <div class="title"><b>${factionName(f)}</b><h1>${cat.name}</h1>
       <span class="switch">Switch To ${FACTIONS.filter(o => o.id !== f).map(o => `<a class="f-${o.id}" href="#/catalog/${o.id}/${state.category}">${o.name}</a>`).join('')}</span></div>
     <div class="tabs">${CATEGORIES.map(c => `<a class="${c.id === state.category ? 'active' : ''}" href="#/catalog/${f}/${c.id}">${c.icon}${c.name}</a>`).join('')}</div>
+    ${load('intro', 'yes') === 'yes' ? `<p class="intro"><span><b>New here?</b> Click the units you want to compare, then press <b>Compare</b> at the bottom of the page. <a href="#/help">How it works</a></span><button data-a="intro-close" title="Hide this line" aria-label="Hide this line">&#10005;</button></p>` : ''}
     <div class="controls">
       <span class="seg"><button data-a="view" data-v="list" class="${state.view === 'list' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM8 1h18v4H8zM0 8h5v4H0zM8 8h18v4H8zM0 15h5v4H0zM8 15h18v4H8z"/></svg>List</button><button data-a="view" data-v="grid" class="${state.view === 'grid' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM7 1h5v4H7zM14 1h5v4h-5zM21 1h5v4h-5zM0 8h5v4H0zM7 8h5v4H7zM14 8h5v4h-5zM21 8h5v4h-5zM0 15h5v4H0zM7 15h5v4H7zM14 15h5v4h-5zM21 15h5v4h-5z"/></svg>Grid</button></span>
       <label class="toggle"><input type="checkbox" data-change="names" ${state.showNames ? 'checked' : ''}><i></i>Show names</label>
@@ -296,23 +306,28 @@ function renderCatalog() {
 function renderCatalogUnits() {
   const list = catalogUnits(), chosen = new Set(chosenUnits());
   const box = document.getElementById('units');
+  const names = {};
+  for (const n of list) names[state.units[n].name] = (names[state.units[n].name] || 0) + 1;
+  // under the name: the description; a unit without a name says so; two units with the same name also show their code names
+  const descOf = n => isInternal(n) ? 'Internal unit (the game has no name for it)' : state.units[n].description;
+  const codeOf = n => names[state.units[n].name] > 1 && !isInternal(n) ? `<small class="code">${esc(n)}</small>` : '';
   if (!list.length) { box.innerHTML = '<p class="empty">No units here.</p>'; return; }
   if (state.view === 'list') {
     box.innerHTML = `<div class="list"><div class="row head"><span>Tech</span><span></span><span></span><span>Name</span><span class="opt">Description</span><span class="num opt">Metal</span><span class="num opt">Energy</span><span class="num opt">Hitpoints</span><span class="num">DPS</span></div>${list.map(n => {
       const u = state.units[n];
       return `<div class="row ${chosen.has(n) ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(chosen.has(n))} title="${chosen.has(n) ? 'In the comparison: press to take it out' : 'Add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u) || '<span></span>'}${pictureTag(n)}
-        <span>${esc(u.name)} ${changedTag(n)}</span><span class="desc">${esc(u.description)}</span><span class="num opt">${whole(u.metal)}</span><span class="num opt">${whole(u.energy)}</span><span class="num opt">${whole(u.hitpoints)}</span><span class="num">${u.dps ? whole(u.dps) : ''}</span></div>`;
+        <span>${esc(u.name)} ${codeOf(n)} ${changedTag(n)}</span><span class="desc">${esc(descOf(n))}</span><span class="num opt">${whole(u.metal)}</span><span class="num opt">${whole(u.energy)}</span><span class="num opt">${whole(u.hitpoints)}</span><span class="num">${u.dps ? whole(u.dps) : ''}</span></div>`;
     }).join('')}</div>`;
     return;
   }
   box.innerHTML = `<div class="grid ${state.showNames ? '' : 'hide-names'}">${list.map(n => {
     const u = state.units[n], on = chosen.has(n);
     return `<div class="card ${on ? 'selected' : ''}" data-a="toggle" data-v="${esc(n)}" ${pressable(on)} title="${esc(u.name)}: ${on ? 'in the comparison, press to take it out' : 'add to the comparison'}"><span class="tier t${u.tech}">T${u.tech}</span>${iconTag(u)}${on ? '<span class="check">&#10003;</span>' : ''}${pictureTag(n)}
-      ${changedTag(n)}<div class="name">${esc(u.name)}</div><div class="desc">${esc(u.description)}</div></div>`;
+      ${changedTag(n)}<div class="name">${esc(u.name)}</div><div class="desc">${esc(descOf(n))}${codeOf(n)}</div></div>`;
   }).join('')}</div>`;
 }
 // a unit that changed in the version shown (against the version before)
-const changedTag = n => changedIn(state.versionDir, n) ? `<span class="chg" title="Changed against the version before, ${esc(shortVersion(versionBefore(state.versionDir)))} (values or picture)">changed</span>` : '';
+const changedTag = n => changedIn(state.versionDir, n) ? `<span class="chg" title="A value of this unit changed in this game version (against the version before, ${esc(shortVersion(versionBefore(state.versionDir)))})">changed</span>` : '';
 
 function renderTray() {
   const units = chosenUnits(), tray = document.getElementById('tray');
@@ -344,19 +359,24 @@ function rangeChanges(from, to) {
 const changesLink = (to, from) => `#/changes/${to}?from=${from}`;
 function changeRow(c, from, to) {
   const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
-  const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b>${esc(shownOf(c.u, s.key))}</b></span>`);
+  // a number that got better for the unit is green, one that got worse red (cost and build time: lower is better)
+  const verdict = s => { const a = c.a[s.key], b = c.u[s.key]; return !s.fill || typeof a !== 'number' || typeof b !== 'number' || a === b ? '' : (s.lower ? b < a : b > a) ? 'good' : 'bad'; };
+  const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}${verdict(s) ? ` (${verdict(s) === 'good' ? 'better' : 'worse'} for the unit)` : ''}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b class="${verdict(s)}">${esc(shownOf(c.u, s.key))}</b></span>`);
   if (c.picture) pills.push('<span class="pill" title="The picture changed">Picture</span>');
   return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
-    ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small></span><span class="chg-kind k-${c.kind}">${c.kind}</span><span class="pills">${pills.join('') || '<span class="pill muted">no value shown</span>'}</span></a>`;
+    ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-main"><span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small>${c.kind === 'changed' ? '' : `<span class="chg-kind k-${c.kind}">${c.kind === 'new' ? 'new unit' : 'removed'}</span>`}</span><span class="pills">${pills.join('') || (c.kind === 'changed' ? '<span class="pill muted">a value that is not listed here</span>' : '')}</span></span></a>`;
 }
 function changesListHtml() {
   const { faction, key, search } = state.changes, q = search.trim().toLowerCase();
-  const list = rangeChanges(state.changesFrom, state.changesTo).filter(c => (faction === 'all' || c.u.faction === faction)
-    && (!key || c.fields.some(s => s.key === key)) && (!q || matchUnit(c.unit, c.u, q)));
+  const all = rangeChanges(state.changesFrom, state.changesTo), kinds = Object.fromEntries(all.map(c => [c.unit, c.kind]));
+  // a Scavenger copy changes with its unit: it is left out while its unit is in the list (the switch "Scavenger copies" or the faction Scavengers shows them)
+  const isCopy = c => !state.changes.scav && faction !== 'scv' && c.unit.endsWith('_scav') && kinds[c.unit.slice(0, -5)] === c.kind;
+  const match = c => (faction === 'all' || c.u.faction === faction) && (!key || c.fields.some(s => s.key === key)) && (!q || matchUnit(c.unit, c.u, q));
+  const list = all.filter(c => match(c) && !isCopy(c)), copies = all.filter(c => match(c) && isCopy(c)).length;
   const count = kind => list.filter(c => c.kind === kind).length;
   const range = state.versions.slice(indexOf(state.changesFrom) + 1, indexOf(state.changesTo) + 1);
   const engine = range.flatMap(v => Object.keys(v.engineOnly || {}).map(n => `${n} (${shortVersion(v.dir)}: ${v.engine || 'other engine'})`));
-  return `<p class="chg-sum"><b>${count('changed')}</b> changed · <b>${count('new')}</b> new · <b>${count('gone')}</b> gone, in ${range.length} version${range.length === 1 ? '' : 's'} with changes</p>
+  return `<p class="chg-sum"><b>${count('changed')}</b> changed · <b>${count('new')}</b> new · <b>${count('gone')}</b> gone, in ${range.length} version${range.length === 1 ? '' : 's'} with changes${copies ? ` · <span title="A Scavenger copy changes with its unit. Switch on Scavenger copies to list them.">${copies} Scavenger cop${copies === 1 ? 'y' : 'ies'} not listed</span>` : ''}</p>
     ${engine.length ? `<p class="chg-note" title="Values that differ only because the engine of the game was changed: not a change of the game, not listed above">Engine only, not a change of the game: ${esc(engine.join(', '))}</p>` : ''}
     <div class="chg-list">${list.map(c => changeRow(c, state.changesFrom, state.changesTo)).join('') || '<p class="empty">Nothing changed here.</p>'}</div>`;
 }
@@ -365,12 +385,48 @@ function renderChanges() {
   const c = state.changes;
   const select = (kind, label, options) => `<label>${label} <select data-change="${kind}">${options}</select></label>`;
   app.innerHTML = `<div class="changes"><div class="title"><h1>Changes</h1></div>
-    <p class="chg-intro">What changed in the game between two versions: a version against the version before it, or any two versions (a unit that changed twice shows the total). A click opens the unit in the unit compare.</p>
+    <p class="chg-intro">What changed in the game between two versions. Choose <b>From</b> and <b>To</b>: the list shows every unit whose values differ, as <s>old</s> → <b>new</b> (<b class="good">green</b>: better for the unit, <b class="bad">red</b>: worse). A click on a unit opens both versions side by side.</p>
     <div class="controls">${select('chg-from', 'From', versionOptions(v => v.base ? ' (base)' : '', state.changesFrom))}${select('chg-to', 'To', versionOptions(v => v.base ? ' (base)' : ` (${v.changed} changed)`, state.changesTo))}
       <label>Units <select data-change="chg-faction"><option value="all">All</option>${FACTIONS.map(f => `<option value="${f.id}" ${c.faction === f.id ? 'selected' : ''}>${f.name}</option>`).join('')}</select></label>
       <label>Value <select data-change="chg-key"><option value="">Any</option>${CHANGE_KEYS.map(s => `<option value="${s.key}" ${c.key === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
+      <label class="toggle small" title="Every unit has a Scavenger copy that changes with it: off, the copies are left out of the list"><input type="checkbox" data-change="chg-scav" ${c.scav ? 'checked' : ''}><i></i>Scavenger copies</label>
       <input class="search" data-input="chg-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(c.search)}"></div>
     <div id="chg-body">${changesListHtml()}</div></div>`;
+}
+
+// ------------------------------------------------------------------ help: the page in a few lines
+function renderHelp() {
+  document.title = 'Help - BAR Unit Comparer';
+  const item = (name, text) => `<li><b>${name}</b><span>${text}</span></li>`;
+  app.innerHTML = `<div class="help"><div class="title"><h1>Help</h1></div>
+    <p class="lead">This page shows the units of <a href="https://www.beyondallreason.info/">Beyond All Reason</a> with their values and lets you put any of them side by side. It is a fan project; the data comes from the game itself.</p>
+    <h2>In three steps</h2>
+    <ol class="steps"><li><b>Catalog:</b> choose a faction and a category, click the units you want. They are collected at the bottom of the page.</li>
+      <li><b>Compare:</b> press <b>Compare</b>. Every unit is a column; each bar is drawn against the largest value in its row.</li>
+      <li><b>Share:</b> the address of the page holds your comparison. Copy it to show it to someone, or press the star to keep it under Favorites.</li></ol>
+    <p><a class="btn go" href="#/catalog">Open the catalog</a> <a class="btn" href="#/compare">Open the compare</a></p>
+    <h2>The buttons of the compare</h2>
+    <ul>${[
+      ['Ref', 'makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).'],
+      ['Counterparts', '(under the picture) the units of the other factions that do the same job. A click adds one, <i>Counterparts:</i> adds all.'],
+      ['Counters', 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
+      ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
+      ['Versions', '(on a unit) adds the older versions of this unit as columns, so you see what a balance change did. The values that changed are marked in gold.'],
+      ['Changed units only', 'lists only the units that changed in some game version.'],
+      ['Table view', 'the same values as a compact table.'],
+      ['&#9734;', 'saves the selection as a favorite (in your browser).'],
+      ['Undo / Redo', 'take back or repeat a change of the columns (Ctrl+Z, Ctrl+Y).'],
+      ['&#8942;&#8942;', 'drag it to move a column.'],
+    ].map(([n, text]) => item(n, text)).join('')}</ul>
+    <h2>The values</h2>
+    <ul>${STATS.map(s => item(s.label, esc(s.tip))).join('')}${item('T1, T2, T3', 'the tech level: T1 units come from the first factories, T2 and T3 from the advanced ones.')}</ul>
+    <h2>Game versions and changes</h2>
+    <ul>${item('Game version', '(at the top) the catalog and the compare show the newest version of the game. Choose an older one to see the units as they were then. Only versions in which a unit value changed are listed.')}
+      ${item('Changes', 'lists what changed between two versions: old value → new value, new units and removed ones. A click opens the unit before and after, side by side.')}
+      ${item('changed', '(a tag in the catalog) a value of this unit changed in the version shown.')}</ul>
+    <h2>Search</h2>
+    <ul>${item('Words', 'find the start of a word in the name or the description: <i>tank</i>, <i>anti-air</i>.')}
+      ${item('&lt;codename', 'finds units by their name in the game files: <i>&lt;armpw</i>.')}</ul></div>`;
 }
 
 // ------------------------------------------------------------------ compare
@@ -393,7 +449,7 @@ function pickUnits() {
     const u = pickUnit(n);
     if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
     return u.faction === p.faction && u.category === p.category;
-  }).sort((a, b) => byTech(pickUnit(a), pickUnit(b)));
+  }).sort((a, b) => (pickUnit(a).name === a) - (pickUnit(b).name === b) || byTech(pickUnit(a), pickUnit(b)));   // units without a name last
 }
 // a unit of the selection: as in the version shown; a unit that this version does not have, as in the newest version that has it
 const pickUnit = n => state.units[n] || state.lastUnit[n];
@@ -414,7 +470,7 @@ function renderCompare() {
     <div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" ${undoStack.length ? '' : 'disabled'}>&#8630; Undo</button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" ${redoStack.length ? '' : 'disabled'}>Redo &#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic view' : 'Table view'}</button> <button class="btn fav-star ${currentFavorite() >= 0 ? 'on' : ''}" data-a="fav-save" title="${currentFavorite() >= 0 ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${state.columns.length ? '' : 'disabled'}>${currentFavorite() >= 0 ? '&#9733;' : '&#9734;'}</button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${versionsFilterButton(true)} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${state.columns.length ? '' : 'disabled'}>Clear all units</button></div>
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
-      : '<p class="cmp-empty">Choose units on the right: every click adds a column.</p>'}</div>
+      : emptyCompareHtml()}</div>
       <button class="more more-left" data-a="scroll-columns" data-v="-1" title="More columns to the left">&#8249;</button><button class="more more-right" data-a="scroll-columns" data-v="1" title="More columns to the right: scroll sideways">&#8250;</button></div>
       ${chooserHtml()}</div>`;
   app.querySelector('.cmp-scroll').scrollLeft = left;
@@ -423,9 +479,22 @@ function renderCompare() {
   fitLayout();
 }
 
+// nothing chosen yet: what to do, and a few comparisons to start with (a unit and its counterparts in the other factions)
+function emptyCompareHtml() {
+  const examples = [['armpw', 'Light infantry bots'], ['armstump', 'Light tanks'], ['armllt', 'Light laser towers'], ['armcom', 'Commanders']]
+    .map(([n, label]) => [state.units[n] ? [n, ...counterpartsOf(n)] : [], label]).filter(([units]) => units.length > 1);
+  return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
+    <ol class="steps"><li><b>Pick units</b> in the list ${window.innerWidth <= 900 ? 'below' : state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}: every click adds a column. The search finds units of all factions.</li>
+      <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
+      <li><b>Press Ref</b> on one unit: the others turn green (as good or better) or red (worse) against it.</li></ol>
+    ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 3).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
+    <p class="hint">More: <a href="#/help">how the page works</a></p></div>`;
+}
+
 // the unit pictures shrink (down to 60 px) when the stats and the footer would otherwise need a scrollbar
 function fitPictures() {
   const root = document.documentElement.style;
+  if (window.innerWidth <= 900) { root.setProperty('--pic', '200px'); return; }   // narrow: the unit selection is below the columns, the page scrolls anyway
   root.setProperty('--pic', '300px');
   document.body.style.minHeight = '0';
   for (let i = 0; i < 2; i++) {
@@ -509,12 +578,12 @@ function tableHtml(columns, stats, max, reference) {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
     if (s.key === 'weapons') return `<td data-col="${c.id}" class="${changed}">${esc(u.weapons.join(', '))}</td>`;
     const v = u[s.key];
-    if (!v) return `<td data-col="${c.id}" class="${changed}"></td>`;
+    if (!v) return `<td data-col="${c.id}" class="none${changed}">–</td>`;
     const ref = referenceFor(c, reference);
     return `<td data-col="${c.id}" class="num${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${s.show(v)}</td>`;
   };
   return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}</tr></thead>
-    <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}">${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
+    <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}">${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
 function columnHtml(c, col, side, max, reference, stats) {
@@ -554,7 +623,7 @@ function pickerHtml() {
 // the button Versions at the top: only the units with at least 2 versions are listed (the catalog and the unit selection of the compare)
 function versionsFilterButton(lead = false) {
   if (state.versions.length < 2) return '';
-  return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show units that have at least 2 versions (they changed in some game version). Press again to show all units. A unit's own Versions button adds its newer versions as columns.">Versions</button>`;
+  return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show the units that changed in some game version (they have at least 2 versions). Press again to show all units. The button Versions of a unit then adds its older versions as columns.">Changed units only</button>`;
 }
 // the button Versions of a column: the older versions of its unit as columns right of it, and the unit is the Ref; grey if the unit has no other version, or this is its newest
 function versionsButton(c) {
@@ -596,10 +665,10 @@ function verdictOf(s, v, ref) {
 }
 
 function statHtml(s, u, max, ref, changed) {
-  const cls = `stat${changed ? ' changed' : ''}`, label = `<label${changed ? ' title="Changed against the older version"' : ''}>${s.label}</label>`;
+  const cls = `stat${changed ? ' changed' : ''}`, label = `<label title="${esc(s.tip)}${changed ? ' Changed against the other version of this unit.' : ''}">${s.label}</label>`;
   if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons">${esc(u.weapons.join(', '))}</div></div>`;
   const v = u[s.key];
-  if (!v) return `<div class="${cls}">${label}<div></div></div>`;
+  if (!v) return `<div class="${cls}">${label}<div class="none" title="This unit has no such value">–</div></div>`;
   const share = max[s.key] ? 100 * v / max[s.key] : 0;
   return `<div class="${cls}">${label}<div class="bar"><div class="fill fill-${s.fill}${verdictOf(s, v, ref)}" style="width:${share.toFixed(1)}%"></div><span class="val">${s.show(v)}</span></div></div>`;
 }
@@ -662,6 +731,7 @@ const showLastColumn = () => { const s = app.querySelector('.cmp-scroll'); s.scr
 
 const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
+  'intro-close'() { save('intro', 'no'); renderCatalog(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) {   // only the units: the search keeps its focus, the page its position; the card keeps the focus (keyboard)
     remember(); toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray();
@@ -809,6 +879,7 @@ document.addEventListener('change', async e => {
     const from = kind === 'chg-from' ? e.target.value : state.changesFrom, to = kind === 'chg-to' ? e.target.value : state.changesTo;
     location.hash = changesLink(to, indexOf(from) < indexOf(to) ? from : versionBefore(to));
   }
+  if (kind === 'chg-scav') { state.changes.scav = e.target.checked; document.getElementById('chg-body').innerHTML = changesListHtml(); }
   if (kind === 'chg-faction' || kind === 'chg-key') { state.changes[kind === 'chg-faction' ? 'faction' : 'key'] = e.target.value; document.getElementById('chg-body').innerHTML = changesListHtml(); }
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
   if (kind === 'version') {

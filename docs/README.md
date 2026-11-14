@@ -25,11 +25,16 @@ A project that shows the units of Beyond All Reason next to each other. These do
 | `website/` | the website: unit catalog and comparison | [website.md](website.md) |
 | `tests/` | data tests, chain tests, year tests (Git, engines), helper tests and a smoke test of the page (also on a made-up chain of versions) | [website.md](website.md), section "Publishing with GitHub Pages" |
 
-## Next steps and open points
+## Keeping it current
 
-- **Year of versions:** built (the export from 2026-01-01 to test-31943, `history.json.gz`, the month grouping, the page Changes). To keep it current: `update game versions.bat` (the newest versions), `exporter/make_engine_table.py` when a new engine becomes the standard, `exporter/broken_versions.json` for game versions that do not start. Look-only changes are not wanted (only values count; docs/versions.md). Open: the control export is repeated after a version without a change under a new engine.
+- **New game versions:** `update game versions.bat` (it also brings the table of engines, the counterparts and the counters up to date).
+- **A game version that does not start:** name it in `exporter/broken_versions.json` (the run stops at it and prints the reason).
+
+## Open points
+
 - Set the description and topics of the GitHub repository ("About", by hand).
 - Ask the BAR developers whether the published pictures and the site are in order ([licence.md](licence.md)).
 - Correct `website/assets/counterparts.json` by hand.
 - Choose the final picture format and quality for the website (AVIF 70 is the default so far).
-- Not covered: units of other games or mods (the file has what the running game knows); animations; shine and glow in the 3D view (texture 2 of the S3O) if it is built with colour only at first.
+- The control export is repeated after a version without a change under a new engine (costs a little time, the result is right).
+- Not covered: units of other games or mods (the file has what the running game knows); animations; shine and glow in the 3D view.

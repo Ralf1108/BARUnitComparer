@@ -4,11 +4,47 @@
 
 ## 👉 [**Open the website: https://ralf1108.github.io/BARUnitComparer/**](https://ralf1108.github.io/BARUnitComparer/) 👈
 
-Unit catalog and comparison for [Beyond All Reason](https://www.beyondallreason.info/) (BAR): all units of Armada, Cortex, Legion, Scavengers and Raptors, with pictures and values. An unofficial fan project.
+Look up and compare the units of [Beyond All Reason](https://www.beyondallreason.info/) (BAR): all units of Armada, Cortex, Legion, Scavengers and Raptors, with pictures and values, side by side. Nothing to install: it runs in the browser. An unofficial fan project.
 
 [![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/)
 
-## How it works
+## How to use it
+
+**1. Pick units in the catalog.** Choose a faction and a category and click the units you want.
+
+[![The catalog: the bots of Armada](docs/catalog.png)](https://ralf1108.github.io/BARUnitComparer/)
+
+**2. Press Compare.** Every unit is a column, every value a bar. Press **Ref** on one unit and the others turn green (as good or better) or red (worse).
+
+**3. See what a patch changed.** The page **Changes** lists every unit whose values changed between two game versions, old value → new value.
+
+[![The page Changes: the units that changed between two game versions](docs/changes.png)](https://ralf1108.github.io/BARUnitComparer/#/changes)
+
+The page **Help** on the website explains every button and value.
+
+## What it can do
+
+| | |
+|---|---|
+| **Catalog** | all units by faction and category, as grid or list, with search and tech level filter |
+| **Compare** | any number of units side by side, as bars or as a compact table; columns can be moved by drag and drop |
+| **Ref** | one unit is the reference: the others are coloured green or red against it |
+| **Counterparts** | the units of the other factions that do the same job; one click adds them all |
+| **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info) |
+| **+ Scav** | the Scavenger copy of every unit next to it |
+| **Changes** | what changed between any two game versions of the year (from 2026-01-01): changed values, new and removed units |
+| **Versions** | the older versions of a unit as columns next to it, the changed values marked |
+| **Share and keep** | the link holds the whole comparison; **Favorites** keep selections in your browser; **Undo / Redo** |
+
+Only values count as a change: a new model or texture alone is not listed.
+
+---
+
+## For developers
+
+Everything below is only needed to run the site on your own computer or to make new data.
+
+### How it is made
 
 ```
 installed game ──► exporter ──► unit data (JSON) ──┐
@@ -17,48 +53,27 @@ installed game ──► exporter ──► unit data (JSON) ──┐
                    (3D models, Python + browser)
 ```
 
-You do not need the game to **use** the site: open the link above. You only need the game (and the tools below) to **make new data**, for example for a new game version. The finished data is part of this repository (`website/assets/`).
+The finished data is part of this repository (`website/assets/`). The game is only needed to **make new data**, for example for a new game version.
 
-## Contents
-
-**Catalog**
-- All units by faction and category, as grid or list, with search and tech level filter.
-- A click marks a unit for the comparison.
-
-**Compare**
-- Any number of units side by side: values as bars, scaled to the largest value in each row, or as a compact table.
-- The unit selection at the right edge: search over all units, faction, category; a click on a unit adds a column. Columns can be moved by drag and drop.
-- **Counterparts:** the units of the other factions that do the same job, one click adds them all.
-- **Counters:** replaces the columns with the units that counter this unit (from the counter charts of beyondallreason.info).
-- **Ref:** makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).
-- **+ Scav:** shows the Scavenger copy of every unit next to it.
-- **Changes:** a page with what changed in the game between any two versions of the year (from 2026-01-01): the changed values as `old → new`, new and gone units, filters by faction and value; a click opens the unit in the compare. Only values count: a change of a model or texture alone is not listed.
-- **Versions:** (every version of the year, see [docs/plan-versions-2026.md](docs/plan-versions-2026.md)) the button at the top shows only units that have at least 2 versions; the button **Versions** of a unit adds all its older versions as columns right of it and makes the unit the Ref (grey if there is none), the changed values are marked. Every column can show any exported version. A version in which no unit changed is not shown.
-- **Undo / Redo** of every change of the columns, **Favorites** for selections you want to keep (saved in your browser), and the comparison is kept in the link (units, view, Ref and + Scav), ready to share.
-
-**Tools** (they get the content out of the installed game)
-- Exporter: the data of all units as JSON.
-- Renderer: pictures of the units from the game's own 3D models.
-
-## Try it locally (without the game)
+### Try it locally (without the game)
 
 1. Install [Python 3](https://www.python.org/downloads/).
 2. Download this repository (green **Code** button, *Download ZIP*) and unpack it.
 3. Double click `website/serve.bat` (or run `python website/serve.py`). The browser opens `http://localhost:8000/`.
 
-## Make new data (needs the game)
+### Make new data (needs the game)
 
 Install BAR and start it once (so that a game has been loaded), then double click:
 
 | File | What happens |
 |---|---|
-| `export and render all units.bat` | makes everything that is missing for the installed game version: unit data and data of the website in `website/assets/<version>/data/`, pictures in `website/assets/<version>/images/` |
-| `update game versions.bat` | goes through the game versions of the year (from 2026-01-01): downloads each one that changed a unit file, exports it with the engine of its time and keeps only what changed against the version before (`--list`: only show them), then refreshes the counterparts and counters |
+| `update game versions.bat` | adds the new game versions: each one that changed a unit value is downloaded, exported and compared with the version before |
+| `export and render all units.bat` | makes everything that is missing for the installed game version: unit data and pictures |
 | `website/serve.bat` | starts the local web server and opens the website |
 
 All tools, their parameters and requirements: [TOOLS.md](TOOLS.md).
 
-## Folders
+### Folders
 
 | Folder | Content |
 |---|---|
@@ -69,7 +84,7 @@ All tools, their parameters and requirements: [TOOLS.md](TOOLS.md).
 | `tests/` | automatic tests (run by GitHub on every push: `python -m unittest discover -s tests`, `node tests/website_smoke.mjs`) |
 | `docs/` | technical documents |
 
-## Documentation
+### Documentation
 
 - [TOOLS.md](TOOLS.md): exporter, renderer, counterparts and counters, requirements
 - [exporter/README.md](exporter/README.md), [render_unit/README.md](render_unit/README.md): parameters and output files
