@@ -397,3 +397,22 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
   .chg-row { padding: 5px 8px; gap: 8px; }
   .help { padding: 0 12px 40px; } .help .title h1 { font-size: 30px; }
 }
+
+/* scrolled sideways: the reference column shrinks to a narrow strip with its values only, the names of the table rows get smaller (the class is set in updateMore) */
+.cmp-scroll.scrolled .cmp-grid .is-ref { width: 88px; min-width: 0; }
+.scrolled .cmp-grid .c-head.is-ref .c-title, .scrolled .cmp-grid .c-head.is-ref .c-tools > :not(.ref),
+.scrolled .cmp-grid .c-unit.is-ref .c-name, .scrolled .cmp-grid .c-unit.is-ref .c-desc, .scrolled .cmp-grid .c-unit.is-ref .c-eq { display: none; }
+.scrolled .cmp-grid .c-unit.is-ref .c-pic { width: 60px; }
+.scrolled .cmp-grid .stats.is-ref .stat { grid-template-columns: 0 1fr; gap: 0; }
+.scrolled .cmp-grid .stats.is-ref .stat label { visibility: hidden; overflow: hidden; }
+.scrolled .cmp-grid .stats.is-ref .weapons { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.scrolled .cmp-table thead th.ref-col { min-width: 0; width: 64px; max-width: 64px; padding: 4px; }
+.scrolled .cmp-table th.ref-col .t-fac, .scrolled .cmp-table th.ref-col .t-name, .scrolled .cmp-table th.ref-col .t-desc, .scrolled .cmp-table th.ref-col .c-ver, .scrolled .cmp-table th.ref-col .c-tools > :not(.ref) { display: none; }
+.scrolled .cmp-table th.ref-col .t-pic img { width: 44px; height: 44px; }
+.scrolled .cmp-table td.ref-col { width: 64px; max-width: 64px; padding: 4px; font-size: 12px; overflow-wrap: anywhere; }
+.scrolled .cmp-table tbody th { font-size: 11px; padding: 4px 6px; }
+@media (max-width: 600px) {
+  .cmp-scroll.scrolled .cmp-grid .is-ref { width: 76px; }
+  .scrolled .cmp-grid .stats.is-ref .stat { display: block; } .scrolled .cmp-grid .stats.is-ref .stat label { height: 15px; }
+  .scrolled .cmp-table thead th.ref-col, .scrolled .cmp-table td.ref-col { width: 56px; max-width: 56px; }
+}

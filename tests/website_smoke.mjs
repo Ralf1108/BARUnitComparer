@@ -223,11 +223,15 @@ try {
     await page.goto(base + `#/compare/armpw,corak,leggob,armflea,armllt?view=${view}&ref=armpw`);
     await page.waitForSelector('.cmp-scroll');
     const spot = () => page.evaluate(() => { const e = document.querySelector('.is-ref'), s = document.querySelector('.cmp-scroll').getBoundingClientRect(), b = e.getBoundingClientRect(); return [Math.round(b.left - s.left), Math.round(b.right - s.left)]; });
-    const first = (await spot())[0];
+    const start = await spot(), first = start[0];
     await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 5000; });
     await page.waitForTimeout(200);
     const after = await spot(), sticky = await page.evaluate(() => { const v = document.querySelector(view_cell()); return v ? Math.round(v.getBoundingClientRect().left) : -1; function view_cell() { return document.querySelector('td.ref-col') ? 'td.ref-col' : '.stats.is-ref'; } });
-    check(after[0] === first && after[1] > 100 && sticky >= 0 && sticky < 200, `the reference column stays in view when scrolled (${view})`, `${first} -> ${after} / ${sticky}`);
+    check(after[0] <= first && after[1] > after[0] && sticky >= 0 && sticky < 200, `the reference column stays in view when scrolled (${view})`, `${start} -> ${after} / ${sticky}`);
+    check(await page.locator('.cmp-scroll.scrolled').count() === 1 && after[1] - after[0] < (start[1] - start[0]) / 1.5, `scrolled: the reference column shrinks to its values (${view})`, `${start} -> ${after}`);
+    await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 0; });
+    await page.waitForTimeout(200);
+    check(await page.locator('.cmp-scroll.scrolled').count() === 0, `back at the left edge: the reference column is whole again (${view})`, '');
   }
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
