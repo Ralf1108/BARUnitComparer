@@ -64,6 +64,10 @@ const pictureTag = (unit, cls = 'pic', u = state.units[unit]) => `<img class="${
 const pressable = on => `tabindex="0" role="button" aria-pressed="${on}"`;
 // the grip of a column: dragged with the mouse, or focused and moved with the arrow keys left / right
 const GRIP = '<span class="grip" draggable="true" tabindex="0" role="button" aria-label="Move this column (arrow keys left and right)" title="Drag to move this column left or right (or focus it and use the arrow keys)">&#8942;&#8942;</span>';
+const isNarrow = () => window.innerWidth <= 900;
+const gripHtml = () => isNarrow()
+  ? '<button class="mv" data-a="move" data-v="-1" title="Move this column to the left" aria-label="Move this column to the left">&#8249;</button><button class="mv" data-a="move" data-v="1" title="Move this column to the right" aria-label="Move this column to the right">&#8250;</button>'
+  : GRIP;
 const iconTag = u => u.icon ? `<img class="role" loading="lazy" alt="" src="${folderOf(u, 'iconAt')}images/icons/${esc(u.icon)}">` : '';
 
 // a missing picture: the next format; after the last one all formats once more a moment later (a failed request is not always a missing file); a missing icon: nothing.
@@ -263,7 +267,7 @@ function renderNav() {
     <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
     ${state.versions.length > 1 ? `<a href="#/changes" class="${state.page === 'changes' ? 'active' : ''}" title="What changed in the game: the units that changed between two game versions">Changes</a>` : ''}
     <a href="#/help" class="${state.page === 'help' ? 'active' : ''}" title="How this page works, in a few lines">Help</a>
-    <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733; Favorites${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
+    <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733;<span class="fav-word"> Favorites</span>${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   // the version list belongs to the catalog and the compare; the page Changes has its own two lists
   document.getElementById('version').innerHTML = state.page === 'changes' || state.page === 'help' ? '' : state.versions.length > 1
@@ -472,7 +476,8 @@ function renderCompare() {
       ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
       : emptyCompareHtml()}</div>
       <button class="more more-left" data-a="scroll-columns" data-v="-1" title="More columns to the left">&#8249;</button><button class="more more-right" data-a="scroll-columns" data-v="1" title="More columns to the right: scroll sideways">&#8250;</button></div>
-      ${chooserHtml()}</div>`;
+      ${chooserHtml()}</div>
+    ${isNarrow() && !state.sheet ? '<button class="fab" data-a="pick-toggle" title="Open the unit selection">+ Add units</button>' : ''}`;
   app.querySelector('.cmp-scroll').scrollLeft = left;
   app.querySelector('.cmp-scroll').addEventListener('scroll', updateMore);
   app.querySelector('.picker').scrollTop = listTop;
@@ -484,7 +489,7 @@ function emptyCompareHtml() {
   const examples = [['armpw', 'Light infantry bots'], ['armstump', 'Light tanks'], ['armllt', 'Light laser towers'], ['armcom', 'Commanders']]
     .map(([n, label]) => [state.units[n] ? [n, ...counterpartsOf(n)] : [], label]).filter(([units]) => units.length > 1);
   return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
-    <ol class="steps"><li><b>Pick units</b> in the list ${window.innerWidth <= 900 ? 'below' : state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}: every click adds a column. The search finds units of all factions.</li>
+    <ol class="steps"><li><b>Pick units</b> ${isNarrow() ? 'with <b>+ Add units</b> at the bottom' : `in the list ${state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}`}: every click adds a column. The search finds units of all factions.</li>
       <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
       <li><b>Press Ref</b> on one unit: the others turn green (as good or better) or red (worse) against it.</li></ol>
     ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 3).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
@@ -494,7 +499,7 @@ function emptyCompareHtml() {
 // the unit pictures shrink (down to 60 px) when the stats and the footer would otherwise need a scrollbar
 function fitPictures() {
   const root = document.documentElement.style;
-  if (window.innerWidth <= 900) { root.setProperty('--pic', '200px'); return; }   // narrow: the unit selection is below the columns, the page scrolls anyway
+  if (isNarrow()) { root.setProperty('--pic', '200px'); return; }   // narrow: the unit selection is below the columns, the page scrolls anyway
   root.setProperty('--pic', '300px');
   document.body.style.minHeight = '0';
   for (let i = 0; i < 2; i++) {
@@ -572,7 +577,7 @@ const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : GRIP}${tools}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : gripHtml()}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
@@ -592,7 +597,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b>${versionSelect(c)}</div>
-      <div class="c-tools">${GRIP}${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
+      <div class="c-tools">${gripHtml()}${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref, cellChanged(c, s))).join('')}</div>`;
@@ -600,10 +605,10 @@ function columnHtml(c, col, side, max, reference, stats) {
 
 // the unit selection at the right edge: a click on a unit adds a column
 function chooserHtml() {
-  const p = state.pick;
-  if (!state.pickOpen) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
-  return `<div class="chooser f-${p.faction}">
-    <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search Unit (all factions), or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection (to the right)">&#9654;</button></div>
+  const p = state.pick, narrow = isNarrow();
+  if (!state.pickOpen && !narrow) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
+  return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
+    <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search Unit (all factions), or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="${narrow ? 'Close the unit selection' : 'Hide the unit selection (to the right)'}">${narrow ? 'Done' : '&#9654;'}</button></div>
     <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}</div>
     <div class="c-cats">${CATEGORIES.map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
     <div class="picker">${pickerHtml()}</div></div>`;
@@ -743,7 +748,11 @@ const actions = {
     const grid = sc.querySelector('.cmp-grid'), gap = grid ? parseFloat(getComputedStyle(grid).columnGap) || 0 : 0;
     sc.scrollBy({ left: Number(v) * (col ? col.getBoundingClientRect().width + gap : 420), behavior: 'smooth' });
   },
-  'pick-toggle'() { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); renderCompare(); },
+  'pick-toggle'() {   // narrow: the sheet from the bottom edge (not remembered); wide: the selection at the right edge
+    if (isNarrow()) state.sheet = !state.sheet; else { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); }
+    renderCompare();
+  },
+  move(v, el) { moveColumn(columnOf(el), Number(v)); },
   'clear-all'() { remember(); state.columns = []; keepAddress(); render(); },
   clear() { remember(); state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
@@ -786,6 +795,16 @@ const actions = {
   'add-unit'(v) { remember(); addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { remember(); const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },
 };
+
+// a column one place to the left (-1) or right (1); false at the edge
+function moveColumn(c, by) {
+  const at = state.columns.indexOf(c), to = at + by;
+  if (at < 0 || to < 0 || to >= state.columns.length) return false;
+  remember();
+  state.columns.splice(at, 1); state.columns.splice(to, 0, c);
+  keepAddress(); renderCompare();
+  return true;
+}
 
 // moving a column: drag the grip of its header, drop on another column (left half: before it, right half: after it)
 let dragged = null;
@@ -841,11 +860,8 @@ document.addEventListener('keydown', e => {
   const grip = e.target.closest && e.target.closest('.grip');
   if (grip && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
     e.preventDefault();
-    const c = columnOf(grip), at = state.columns.indexOf(c), to = at + (e.key === 'ArrowLeft' ? -1 : 1);
-    if (at < 0 || to < 0 || to >= state.columns.length) return;
-    remember();
-    state.columns.splice(at, 1); state.columns.splice(to, 0, c);
-    keepAddress(); renderCompare();
+    const c = columnOf(grip);
+    if (!moveColumn(c, e.key === 'ArrowLeft' ? -1 : 1)) return;
     const again = app.querySelector(`[data-col="${c.id}"] .grip`);
     if (again) again.focus();
     return;
@@ -896,5 +912,9 @@ document.addEventListener('change', async e => {
   }
 });
 
-window.addEventListener('resize', () => { if (state.page === 'compare') fitLayout(); });
+let wasNarrow = isNarrow();
+window.addEventListener('resize', () => {
+  if (isNarrow() !== wasNarrow) { wasNarrow = isNarrow(); state.sheet = false; render(); return; }   // the layout for phones is another one
+  if (state.page === 'compare') fitLayout();
+});
 start();

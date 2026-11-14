@@ -152,6 +152,18 @@ The version compare: the question is "what changed in the game", not "how do the
 - **A click on a row** opens the unit compare with the From version and the To version of the unit side by side (`#/compare/<unit>@<from>,<unit>@<to>?view=graphic&versions=1`); a new unit comes once (in the To version), a gone one in the From version.
 - Code: `rangeChanges`, `changeRow`, `changesListHtml`, `renderChanges` in `website/app.js`; tested in `tests/website_smoke.mjs` ("Changes: ...").
 
+## 4c. Phones and narrow windows
+
+The page is built for a large monitor first; a narrow window gets its own compact layout (`isNarrow()` in `app.js`: up to 900 px; the rules at the end of `style.css`). Tested at 390 px in `tests/website_smoke.mjs` ("phone: ...").
+
+- **Unit selection as a sheet (up to 900 px):** the selection is not below the columns but comes up from the bottom edge with the button **+ Add units** (fixed at the bottom right). It stays open while units are added; **Done** closes it. It is not remembered (`state.sheet`).
+- **Moving a column (up to 900 px):** dragging does not work with a finger, so the grip is replaced by two buttons, left and right (`moveColumn`, also used by the arrow keys).
+- **Compare (up to 600 px):** two columns fit on the screen (`--colmin: calc(50vw - 16px)`); the name of a value is above its bar, not left of it; the buttons of a column wrap; the heading "Compare" is left out.
+- **Catalog (up to 600 px):** three units per row with the name only (the description is in the list view and in the compare); the categories are one row that is scrolled sideways; the search comes first and is as wide as the screen.
+- **Header (up to 600 px):** the links fit in one line (Favorites is only the star).
+- **Changes (up to 600 px):** one row per unit, the lists From and To as wide as the screen.
+- The page is never wider than the screen (no sideways scrolling of the page; only the columns of the compare and the category row scroll sideways).
+
 ## 5. Running it
 
 ```

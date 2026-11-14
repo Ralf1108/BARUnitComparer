@@ -196,6 +196,27 @@ try {
   const pictures = await page.evaluate(() => [...document.querySelectorAll('.c-pic img')].filter(i => i.complete && i.naturalWidth > 0).length);
   check(pictures === 3, 'the unit pictures are loaded', pictures);
 
+  // a phone (390 px wide): the unit selection is a sheet opened with "+ Add units", a column is moved with buttons, two columns fit on the screen
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto(base + '#/compare/armpw,corak?view=graphic');
+  await page.waitForSelector('.fab');
+  check(await page.locator('.chooser.sheet.open').count() === 0, 'phone: the unit selection is closed at first', '');
+  const widths = await page.$$eval('.c-head', h => h.map(x => Math.round(x.getBoundingClientRect().right)));
+  check(widths.length === 2 && widths[1] <= 390, 'phone: two columns fit on the screen', widths.join(','));
+  await page.click('.fab');
+  await page.waitForSelector('.chooser.sheet.open');
+  await page.click('.pick:not(.chosen) >> nth=0');
+  await page.waitForFunction(() => document.querySelectorAll('.c-head').length === 3);
+  check(await page.locator('.chooser.sheet.open').count() === 1, 'phone: a unit is added from the sheet, which stays open for the next one', '');
+  await page.click('.chooser .toggle-pick');
+  await page.waitForSelector('.fab');
+  await page.click('.c-head >> nth=0 >> [data-a="move"][data-v="1"]');
+  await page.waitForFunction(() => location.hash.startsWith('#/compare/corak,armpw'));
+  check((await hash()).startsWith('#/compare/corak,armpw'), 'phone: the button moves the column', await hash());
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'phone: the page is not wider than the screen', '');
+  await page.goto(base + '#/catalog/arm/bots');
+  await page.waitForSelector('.card');
+  check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'phone: the catalog is not wider than the screen', '');
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
   check(false, 'the test ran through', e.message);
