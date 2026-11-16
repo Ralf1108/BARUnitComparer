@@ -229,6 +229,12 @@ try {
     const after = await spot(), sticky = await page.evaluate(() => { const v = document.querySelector(view_cell()); return v ? Math.round(v.getBoundingClientRect().left) : -1; function view_cell() { return document.querySelector('td.ref-col') ? 'td.ref-col' : '.stats.is-ref'; } });
     check(after[0] <= first && after[1] > after[0] && sticky >= 0 && sticky < 200, `the reference column stays in view when scrolled (${view})`, `${start} -> ${after} / ${sticky}`);
     check(await page.locator('.cmp-scroll.scrolled').count() === 1 && after[1] - after[0] < (start[1] - start[0]) / 1.5, `scrolled: the reference column shrinks to its values (${view})`, `${start} -> ${after}`);
+    if (view === 'graphic') {   // halfway: the column next to the reference column sits right beside it (the gap between the columns)
+      await page.evaluate(() => { document.querySelector('.cmp-scroll').style.scrollSnapType = 'none'; document.querySelector('.cmp-scroll').scrollLeft = 60; });
+      await page.waitForTimeout(200);
+      const gap = await page.evaluate(() => { const r = document.querySelector('.c-head.is-ref').getBoundingClientRect(), n = document.querySelector('.c-head:not(.is-ref)').getBoundingClientRect(); return Math.round(n.left - r.right); });
+      check(gap >= 0 && gap <= 30, 'scrolled a little: the next column sits right beside the shrinking reference column', `gap ${gap}`);
+    }
     await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 0; });
     await page.waitForTimeout(200);
     check(await page.locator('.cmp-scroll.scrolled').count() === 0, `back at the left edge: the reference column is whole again (${view})`, '');

@@ -533,7 +533,12 @@ function updateMore() {
   if (!sc) return;
   app.querySelector('.more-left').hidden = sc.scrollLeft < 4;
   // scrolled sideways: the reference column shrinks to its values (and the names of the table rows get smaller), so that more of the other columns can be seen; with a little hysteresis
-  sc.classList.toggle('scrolled', sc.scrollLeft > (sc.classList.contains('scrolled') ? 4 : 40));
+  const refCol = sc.querySelector('.cmp-grid .c-head.is-ref');
+  if (refCol && !sc.classList.contains('scrolled')) sc.dataset.refw = refCol.getBoundingClientRect().width;   // its whole width, measured while it is whole
+  sc.classList.toggle('scrolled', sc.scrollLeft > (sc.classList.contains('scrolled') ? 4 : 24));
+  // the graphic view: the reference column gets narrower with every pixel that is scrolled, so that the column next to it stays right beside it (down to a strip)
+  const strip = parseFloat(getComputedStyle(sc).getPropertyValue('--strip')) || 88;
+  sc.style.setProperty('--refw', Math.max(strip, (Number(sc.dataset.refw) || strip) - sc.scrollLeft) + 'px');
   const corner = sc.querySelector('.t-corner'), stick = sc.querySelector('.c-head.is-ref, th.is-ref');   // the reference column stays at the left edge: the arrow and the table's second sticky column start behind it
   if (corner) sc.querySelector('.cmp-table').style.setProperty('--lw', corner.getBoundingClientRect().width + 'px');
   app.querySelector('.more-left').style.left = (corner ? corner.getBoundingClientRect().width + (stick ? stick.getBoundingClientRect().width : 0) : stick ? stick.getBoundingClientRect().width : 0) + 'px';
