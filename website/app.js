@@ -64,6 +64,15 @@ const pictureTag = (unit, cls = 'pic', u = state.units[unit]) => `<img class="${
 const pressable = on => `tabindex="0" role="button" aria-pressed="${on}"`;
 // the grip of a column: dragged with the mouse, or focused and moved with the arrow keys left / right
 const GRIP = '<span class="grip" draggable="true" tabindex="0" role="button" aria-label="Move this column (arrow keys left and right)" title="Drag to move this column left or right (or focus it and use the arrow keys)">&#8942;&#8942;</span>';
+// the tools of a column are small icon buttons with a tooltip (drawn with lines: stroke, no fill)
+const svgIcon = d => `<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
+const ICONS = {
+  versions: svgIcon('M2.6 8a5.4 5.4 0 1 0 1.6-3.8M2.2 2.2v3h3M8 5v3.2l2.2 1.5'),           // a clock turning back: the other versions
+  counters: svgIcon('M3 3l10 10M13 3L3 13M2 10.5l3.5 3.5M10.5 14l3.5-3.5'),               // crossed swords: the units that beat this one
+  counterparts: svgIcon('M2 5.5h11.5l-3-3M14 10.5H2.5l3 3'),                              // arrows both ways: the same job in the other factions
+  ref: svgIcon('M8 2v12M4.5 14h7M2.5 4.5h11M2.5 4.5L1 9h3zM13.5 4.5L12 9h3z'),           // a balance: the unit the others are weighed against
+};
+const toolButton = (kind, action, tip, on, enabled) => `<button class="tool ${kind}${on ? ' active' : ''}" data-a="${action}" title="${tip}" aria-label="${tip}" aria-pressed="${!!on}" ${enabled ? '' : 'disabled'}>${ICONS[kind]}</button>`;
 const isNarrow = () => window.innerWidth <= 900;
 const gripHtml = () => isNarrow()
   ? '<button class="mv" data-a="move" data-v="-1" title="Move this column to the left" aria-label="Move this column to the left">&#8249;</button><button class="mv" data-a="move" data-v="1" title="Move this column to the right" aria-label="Move this column to the right">&#8250;</button>'
@@ -150,7 +159,9 @@ const hasVersions = unit => versionsOf(unit).length > 1;   // there is another v
 // game version, in which most units have not changed for a long time)
 const stateVersion = c => versionsOf(c.unit).filter(d => indexOf(d) <= verOf(c)).pop();
 const olderVersions = c => { const at = indexOf(stateVersion(c)); return versionsOf(c.unit).filter(d => indexOf(d) < at).reverse(); };   // newest first
-const missingVersions = c => olderVersions(c).filter(d => !state.columns.some(o => o.unit === c.unit && (o.version || state.versionDir) === d));   // ... and not shown yet
+// every other version of the unit than the one the column shows (older and newer), newest first
+const otherVersions = c => { const own = stateVersion(c); return versionsOf(c.unit).filter(d => d !== own).reverse(); };
+const missingVersions = c => otherVersions(c).filter(d => !state.columns.some(o => o.unit === c.unit && stateVersion(o) === d));   // ... and not shown yet
 function selectVersion(dir) {
   state.versionDir = dir;
   state.units = unitsOf(dir);
@@ -245,6 +256,7 @@ function keepAddress() { if (state.page === 'compare') history.replaceState(null
 
 // ------------------------------------------------------------------ frame
 function render() {
+  document.querySelectorAll('.note-pop').forEach(o => o.remove());
   renderNav();
   if (state.page === 'compare') renderCompare(); else if (state.page === 'changes') renderChanges(); else if (state.page === 'help') renderHelp(); else renderCatalog();
   renderTray();
@@ -411,17 +423,23 @@ function renderHelp() {
     <p><a class="btn go" href="#/catalog">Open the catalog</a> <a class="btn" href="#/compare">Open the compare</a></p>
     <h2>The buttons of the compare</h2>
     <ul>${[
-      ['Ref', 'makes a unit the reference: the bars of all other units turn green (as good or better) or red (worse).'],
-      ['Counterparts', '(under the picture) the units of the other factions that do the same job. A click adds one, <i>Counterparts:</i> adds all.'],
-      ['Counters', 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
+      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
+      [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
-      ['Versions', '(on a unit) adds the older versions of this unit as columns, so you see what a balance change did. The values that changed are marked in gold.'],
+      [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; a unit with more than one version has a gold dot on the icon. The values that changed are marked in gold.'],
+      ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Changed units only', 'lists only the units that changed in some game version.'],
       ['Table view', 'the same values as a compact table.'],
       ['&#9734;', 'saves the selection as a favorite (in your browser).'],
       ['Undo / Redo', 'take back or repeat a change of the columns (Ctrl+Z, Ctrl+Y).'],
-      ['&#8942;&#8942;', 'drag it to move a column.'],
+      ['&#8942;&#8942;', 'drag it to move a column (on a phone: the two arrow buttons).'],
+      ['&#8249; &#8250;', '(at the edges) more columns are hidden there: a click scrolls to the next one.'],
     ].map(([n, text]) => item(n, text)).join('')}</ul>
+    <h2>On a phone</h2>
+    <ul>${item('+ Add units', '(bottom right of the compare) opens the unit selection from the bottom; <b>Done</b> closes it.')}
+      ${item('Swipe', 'sideways to see more columns: two units fit on the screen.')}
+      ${item('Icons', 'a phone shows no tooltips: the lists on this page explain every icon and value.')}</ul>
     <h2>The values</h2>
     <ul>${STATS.map(s => item(s.label, esc(s.tip))).join('')}${item('T1, T2, T3', 'the tech level: T1 units come from the first factories, T2 and T3 from the advanced ones.')}</ul>
     <h2>Game versions and changes</h2>
@@ -486,13 +504,15 @@ function renderCompare() {
 
 // nothing chosen yet: what to do, and a few comparisons to start with (a unit and its counterparts in the other factions)
 function emptyCompareHtml() {
-  const examples = [['armpw', 'Light infantry bots'], ['armstump', 'Light tanks'], ['armllt', 'Light laser towers'], ['armcom', 'Commanders']]
-    .map(([n, label]) => [state.units[n] ? [n, ...counterpartsOf(n)] : [], label]).filter(([units]) => units.length > 1);
+  // [the units (a single one: it and its counterparts), the label]; a unit that the version shown does not have is left out, an example with less than 2 units too
+  const examples = [[['armpw'], 'Light infantry bots'], [['armstump'], 'Light tanks'], [['armllt'], 'Light laser towers'], [['armcom', 'corcom', 'legcom'], 'Commanders'],
+    [['armroy', 'corroy', 'legnavydestro'], 'Destroyers (ships)'], [['armsh', 'corsh', 'legsh'], 'Light hovercraft'], [['armfus', 'corfus', 'legfus', 'armckfus'], 'Fusion reactors']]
+    .map(([list, label]) => [(list.length > 1 ? list : [list[0], ...counterpartsOf(list[0])]).filter(n => state.units[n]), label]).filter(([units]) => units.length > 1);
   return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
     <ol class="steps"><li><b>Pick units</b> ${isNarrow() ? 'with <b>+ Add units</b> at the bottom' : `in the list ${state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}`}: every click adds a column. The search finds units of all factions.</li>
       <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
-      <li><b>Press Ref</b> on one unit: the others turn green (as good or better) or red (worse) against it.</li></ol>
-    ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 3).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
+      <li><b>Press Ref</b> on one unit: the others turn green (better) or red (worse); equal values are greyed out.</li></ol>
+    ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 4).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
     <p class="hint">More: <a href="#/help">how the page works</a></p></div>`;
 }
 
@@ -511,10 +531,22 @@ function fitPictures() {
 }
 
 // columns and unit selection fill the height of the window; the footer stays at the bottom, the page needs no scrollbar
+// a wide window: when the columns are only a little too wide for the room, they get narrower (down to 280 px) instead of scrolling a few pixels
+// (which showed the arrow and the shadow at the left edge over the first column without much to scroll)
+function fitColumns() {
+  const grid = app.querySelector('.cmp-grid'), sc = app.querySelector('.cmp-scroll');
+  if (!grid) return;
+  grid.style.removeProperty('--colmin');
+  if (isNarrow()) return;
+  const cs = getComputedStyle(grid), n = Number(grid.style.getPropertyValue('--n')) || 1, gap = parseFloat(cs.columnGap) || 0, wanted = parseFloat(cs.getPropertyValue('--colmin')) || 360;
+  const fit = Math.floor((sc.clientWidth - (n - 1) * gap) / n);
+  if (fit < wanted) grid.style.setProperty('--colmin', Math.max(280, fit) + 'px');
+}
 function fitLayout() {
   const body = app.querySelector('.cmp-body');
   if (!body) return;
   body.style.minHeight = '0';
+  fitColumns();
   fitPictures();
   const top = body.getBoundingClientRect().top + window.scrollY;
   body.style.minHeight = Math.max(320, window.innerHeight - top - document.querySelector('.legal').offsetHeight) + 'px';
@@ -527,21 +559,36 @@ function refreshChooser() {
   if (state.pick.search) input.focus();
 }
 
+// the scroll position from which the reference column sticks to the left edge (Infinity: no reference column): its place in the grid (--i) or in the table row
+function refStuckAt(sc) {
+  const head = sc.querySelector('.cmp-grid .c-head.is-ref');
+  if (head) return parseFloat(getComputedStyle(head).marginLeft) || 0;
+  const th = sc.querySelector('th.is-ref');
+  if (!th) return Infinity;
+  let x = 0;
+  for (let o = th.previousElementSibling; o && !o.classList.contains('t-corner'); o = o.previousElementSibling) x += o.offsetWidth;
+  return x;
+}
 // an arrow at the edge shows that more columns are hidden to the left or to the right
 function updateMore() {
   const sc = app.querySelector('.cmp-scroll');
   if (!sc) return;
   app.querySelector('.more-left').hidden = sc.scrollLeft < 4;
-  // scrolled sideways: the reference column shrinks to its values (and the names of the table rows get smaller), so that more of the other columns can be seen; with a little hysteresis
+  // the reference column stays at its place; scrolled up to the left edge it sticks there and shrinks to a strip with its values (the names of the table rows get smaller),
+  // so that more of the other columns can be seen; with a little hysteresis. stuckAt: the scroll position from which it sticks
+  const corner = sc.querySelector('.t-corner'), lw = corner ? corner.getBoundingClientRect().width : 0;
+  if (corner) sc.querySelector('.cmp-table').style.setProperty('--lw', lw + 'px');
+  const stuckAt = refStuckAt(sc), sl = sc.scrollLeft;
   const refCol = sc.querySelector('.cmp-grid .c-head.is-ref');
   if (refCol && !sc.classList.contains('scrolled')) sc.dataset.refw = refCol.getBoundingClientRect().width;   // its whole width, measured while it is whole
-  sc.classList.toggle('scrolled', sc.scrollLeft > (sc.classList.contains('scrolled') ? 4 : 24));
-  // the graphic view: the reference column gets narrower with every pixel that is scrolled, so that the column next to it stays right beside it (down to a strip)
+  sc.classList.toggle('scrolled', sl > stuckAt + (sc.classList.contains('scrolled') ? 4 : 24));
+  // the graphic view: stuck, the reference column gets narrower with every pixel that is scrolled, so that the column next to it stays right beside it (down to a strip)
   const strip = parseFloat(getComputedStyle(sc).getPropertyValue('--strip')) || 88;
-  sc.style.setProperty('--refw', Math.max(strip, (Number(sc.dataset.refw) || strip) - sc.scrollLeft) + 'px');
-  const corner = sc.querySelector('.t-corner'), stick = sc.querySelector('.c-head.is-ref, th.is-ref');   // the reference column stays at the left edge: the arrow and the table's second sticky column start behind it
-  if (corner) sc.querySelector('.cmp-table').style.setProperty('--lw', corner.getBoundingClientRect().width + 'px');
-  app.querySelector('.more-left').style.left = (corner ? corner.getBoundingClientRect().width + (stick ? stick.getBoundingClientRect().width : 0) : stick ? stick.getBoundingClientRect().width : 0) + 'px';
+  sc.style.setProperty('--refw', Math.max(strip, (Number(sc.dataset.refw) || strip) - (sl - stuckAt)) + 'px');
+  const stick = sl > stuckAt ? sc.querySelector('.c-head.is-ref, th.is-ref') : null;   // stuck at the left edge: the arrow (and on a phone a swipe) starts behind it
+  const behind = lw + (stick ? stick.getBoundingClientRect().width : 0);
+  app.querySelector('.more-left').style.left = behind + 'px';
+  sc.style.scrollPaddingLeft = (stick ? behind + 10 : lw) + 'px';
   app.querySelector('.more-right').hidden = sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 4;
 }
 
@@ -576,23 +623,25 @@ const cellChanged = (c, s) => { const a = anchorOf(c); return !!a && valueOf(c, 
 const differs = (columns, s) => columns.some(c => cellChanged(c, s));
 // what the bars and values of a column are coloured against: the Ref column; in the version comparison the same unit in the nearest older version shown (each unit against itself)
 function referenceFor(c, reference) {
+  if (c.ref) return null;
+  if (reference) return unitOf(reference);   // a Ref: everything against it (also the other versions of the Ref's unit)
   const a = anchorOf(c);
-  if (a) return { ...unitOf(a), anchor: true };   // another version of the same unit is shown left of it: against that (equal values stay uncoloured)
-  return reference && !c.ref ? unitOf(reference) : null;
+  return a ? { ...unitOf(a), anchor: true } : null;   // no Ref: another version of the same unit left of it (equal values stay uncoloured)
 }
 
-const refButton = c => `<button class="ref ${c.ref ? 'active' : ''}" data-a="col-ref" title="Reference: the bars of all other columns are coloured green (as good or better) or red (worse) in comparison with this unit. Press again to switch it off.">Ref</button>`;
+const refButton = c => toolButton('ref', 'col-ref', c.ref ? 'Reference (on): the other columns are coloured against this unit. Press again to switch it off.'
+  : 'Ref: make this unit the reference. The values of all other columns turn green (better) or red (worse) against it; equal values are greyed out.', c.ref, true);
 
 // the compact view: one row per value, one column per unit, the same red / green against the reference
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
-    const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
+    const u = unitOf(c), tools = c.scavOf ? refButton(c) : `${versionsButton(c)}${countersButton(c)}${counterpartsButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
     return `<th class="f-${c.faction}${c.ref ? ' is-ref ref-col' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${versionSelect(c)}<div class="c-tools">${c.scavOf ? '' : gripHtml()}${tools}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
     const rc = c.ref ? ' ref-col' : '';
-    if (s.key === 'weapons') return `<td data-col="${c.id}" class="${rc}${changed}">${esc(u.weapons.join(', '))}</td>`;
+    if (s.key === 'weapons') return `<td data-col="${c.id}" class="${rc}${changed}${sameWeapons(u, referenceFor(c, reference)) ? ' diff-same' : ''}">${esc(u.weapons.join(', '))}</td>`;
     const v = u[s.key];
     if (!v) return `<td data-col="${c.id}" class="none${rc}${changed}">–</td>`;
     const ref = referenceFor(c, reference);
@@ -604,11 +653,11 @@ function tableHtml(columns, stats, max, reference) {
 
 function columnHtml(c, col, side, max, reference, stats) {
   const u = unitOf(c), ref = referenceFor(c, reference);
-  const at = r => `style="grid-column:${col + 1};grid-row:${r}"`;
+  const at = r => `style="grid-column:${col + 1};grid-row:${r}${c.ref ? `;--i:${col}` : ''}"`;
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
       <div class="c-title"><b>${factionName(c.faction)}</b>${versionSelect(c)}</div>
-      <div class="c-tools">${gripHtml()}${versionsButton(c)}${countersButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
+      <div class="c-tools">${gripHtml()}${versionsButton(c)}${countersButton(c)}${counterpartsButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button></div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
     <div class="stats f-${c.faction} ${side}${sticky}" ${at(3)}>${stats.map(s => statHtml(s, u, max, ref, cellChanged(c, s))).join('')}</div>`;
@@ -641,17 +690,39 @@ function versionsFilterButton(lead = false) {
   if (state.versions.length < 2) return '';
   return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show the units that changed in some game version (they have at least 2 versions). Press again to show all units. The button Versions of a unit then adds its older versions as columns.">Changed units only</button>`;
 }
-// the button Versions of a column: the older versions of its unit as columns right of it, and the unit is the Ref; grey if the unit has no other version, or this is its newest
+// the button Versions of a column: every other version of its unit as columns right of it, the unit is the Ref; always pressable: with nothing to add it says why (note)
+// pressed once a tool adds columns; pressed again (while it is lit) it takes them out again (activeOf, toggleTool)
+const AGAIN = ' Press again to take them out.';
+const activeOf = (c, kind) => !!(c.active && c.active.kind === kind);
 function versionsButton(c) {
-  const more = missingVersions(c).length, any = hasVersions(c.unit), older = olderVersions(c).length;
-  const tip = more ? 'Versions: add the older versions of this unit as columns right of it (newest first) and make this unit the reference: the older ones are coloured against it, the changed values are marked.'
-    : older ? 'All older versions of this unit are shown already.' : any ? 'This is the oldest version of the unit: no older version to add.' : 'This unit has only one version (it did not change in any game version).';
-  return `<button class="versions" data-a="col-versions" title="${tip}" ${more ? '' : 'disabled'}>Versions</button>`;
+  const on = activeOf(c, 'versions'), n = versionsOf(c.unit).length, more = missingVersions(c).length;
+  const tip = on ? 'Versions: the other versions of this unit are shown.' + AGAIN
+    : more ? `Versions: this unit has ${n} versions. Add the other ${more === 1 ? 'one' : more} as columns right of it (newest first) and make this unit the reference: the values that changed are marked.`
+    : n > 1 ? `All ${n} versions of this unit are shown already.` : 'Versions: this unit has only one version (it did not change in any game version).';
+  return toolButton('versions', 'col-versions', tip, on, true) .replace('class="tool versions', `class="tool versions${n > 1 ? ' has' : ''}`);
+}
+// a short note next to a button that has nothing to do (instead of a grey button: a press tells why)
+function note(el, text) {
+  document.querySelectorAll('.note-pop').forEach(o => o.remove());
+  const r = el.getBoundingClientRect(), pop = document.createElement('div');
+  pop.className = 'note-pop';
+  pop.textContent = text;
+  pop.style.left = Math.max(8, Math.min(window.innerWidth - 268, r.left - 8)) + 'px';   // fixed to the window: it never makes the page wider
+  pop.style.top = (r.bottom + 6) + 'px';
+  document.body.appendChild(pop);
+  setTimeout(() => pop.remove(), 2600);
 }
 function countersButton(c) {
-  const has = countersOf(c.unit).length > 0;
-  const tip = has ? 'Counters: replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units).';
-  return `<button class="counters" data-a="col-counters" title="${tip}" ${has ? '' : 'disabled'}>Counters</button>`;
+  const on = activeOf(c, 'counters'), has = countersOf(c.unit).length > 0;
+  const tip = on ? 'Counters: the units that counter this unit are shown (the other columns were put aside).' + ' Press again to bring the columns back.'
+    : has ? 'Counters: replace all other columns with the units that counter this unit (after the unit counter charts of beyondallreason.info).' : 'No counters are known for this unit (the counter charts list only some units).';
+  return toolButton('counters', 'col-counters', tip, on, on || has);
+}
+function counterpartsButton(c) {
+  const on = activeOf(c, 'counterparts'), all = counterpartsOf(c.unit), missing = all.filter(n => !isShown(n)).length;
+  const tip = on ? 'Counterparts: the units of the other factions that do the same job are shown.' + AGAIN
+    : missing ? 'Counterparts: add the units of the other factions that do the same job as columns.' : all.length ? 'All counterparts of this unit are shown already.' : 'No counterparts are known for this unit.';
+  return toolButton('counterparts', 'add-counterparts', tip, on, on || missing);
 }
 
 // the units that counter this one (a scavenger unit like its normal unit)
@@ -673,16 +744,20 @@ function unitHtml(c, u) {
     ${eq.length ? `<div class="c-eq"><button class="c-eq-all" data-a="add-counterparts" title="Add all counterparts of this unit as columns (the ones that are not in the comparison yet)">Counterparts:</button> ${eq.map(n => `<button class="f-${state.units[n].faction}" data-a="add-unit" data-v="${esc(n)}" title="Add a column with this unit (${factionName(state.units[n].faction)})">${esc(state.units[n].name)}</button>`).join('')}</div>` : ''}`;
 }
 
-// against the reference: worse is red, better green; as good is green too, in the version comparison it stays uncoloured (only what changed stands out)
+// against the reference: better is green, worse red, an equal value is greyed out (only what differs stands out); in the version comparison an equal value stays
+// as it is; nothing to compare with (the reference has no such value): uncoloured
+const sameWeapons = (u, ref) => !!ref && !ref.anchor && u.weapons.length > 0 && u.weapons.join() === (ref.weapons || []).join();   // the same weapons as the reference: greyed out
 function verdictOf(s, v, ref) {
   if (!ref) return '';
-  if (ref.anchor && v === ref[s.key]) return '';
-  return (s.lower ? v > ref[s.key] : v < ref[s.key]) ? ' diff-bad' : ' diff-good';
+  const r = ref[s.key];
+  if (!r) return '';
+  if (v === r) return ref.anchor ? '' : ' diff-same';
+  return (s.lower ? v > r : v < r) ? ' diff-bad' : ' diff-good';
 }
 
 function statHtml(s, u, max, ref, changed) {
   const cls = `stat${changed ? ' changed' : ''}`, label = `<label title="${esc(s.tip)}${changed ? ' Changed against the other version of this unit.' : ''}">${s.label}</label>`;
-  if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons">${esc(u.weapons.join(', '))}</div></div>`;
+  if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons${sameWeapons(u, ref) ? ' same' : ''}">${esc(u.weapons.join(', '))}</div></div>`;
   const v = u[s.key];
   if (!v) return `<div class="${cls}">${label}<div class="none" title="This unit has no such value">–</div></div>`;
   const share = max[s.key] ? 100 * v / max[s.key] : 0;
@@ -717,12 +792,36 @@ function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit))
 function addOlderVersions(c) {
   const more = missingVersions(c).map(d => newColumn(c.unit, d));
   if (!more.length) return false;
-  remember();
   let after = state.columns.indexOf(c);   // behind the columns of this unit that follow it already
   while (state.columns[after + 1] && state.columns[after + 1].unit === c.unit) after++;
   state.columns.splice(after + 1, 0, ...more);
+  // the clicked unit is the reference (where it is), its versions right of it
   for (const o of displayColumns()) o.ref = false;
-  c.ref = true;   // the clicked unit is the reference: the older versions are coloured against it
+  c.ref = true;
+  return true;
+}
+
+// a tool of a column (Versions, Counters, Counterparts): the first press adds columns (act changes state.columns; false: nothing to do), the second takes out what
+// it added and brings back what it put aside, and the Ref as it was; columns added or removed by hand in between stay as they are. One step of Undo each.
+function toggleTool(c, kind, act) {
+  if (activeOf(c, kind)) {
+    remember();
+    const { added, removed, refBefore } = c.active;
+    const cols = state.columns.filter(o => !added.includes(o.id));
+    for (const [i, o] of removed) if (!cols.some(x => x.id === o.id)) cols.splice(Math.min(i, cols.length), 0, o);
+    state.columns = cols;
+    c.active = null;
+    for (const o of displayColumns()) o.ref = tokenOf(o) === refBefore;
+    return true;
+  }
+  const before = state.columns.slice(), refBefore = refUnit();
+  remember();
+  if (act() === false) { undoStack.pop(); return false; }
+  const ids = new Set(before.map(o => o.id));
+  const added = state.columns.filter(o => !ids.has(o.id)).map(o => o.id);
+  const removed = before.map((o, i) => [i, o]).filter(([, o]) => !state.columns.includes(o));
+  for (const o of state.columns) if (o !== c && o.active) o.active = null;   // only the newest tool can be taken back this way (older ones: Undo)
+  c.active = added.length || removed.length ? { kind, added, removed, refBefore } : null;
   return true;
 }
 
@@ -737,9 +836,7 @@ function displayColumns() {
     s.version = c.version;   // the Scavenger copy in the same game version
     return [c, s];
   });
-  const at = list.findIndex(c => c.ref);   // the reference column is the first one and stays at the left edge when the columns are scrolled
-  if (at > 0) list.unshift(...list.splice(at, 1));
-  return list;
+  return list;   // the reference column stays where it is (it sticks to the left edge only when it is scrolled there)
 }
 const columnOf = el => displayColumns().find(c => c.id === Number(el.closest('[data-col]').dataset.col));
 
@@ -754,10 +851,19 @@ const actions = {
     const again = document.querySelector(`#units [data-v="${CSS.escape(v)}"]`);
     if (again) again.focus({ preventScroll: true });
   },
-  'scroll-columns'(v) {   // by one column: its width and the gap between the columns
-    const sc = app.querySelector('.cmp-scroll'), col = sc.querySelector('.c-head:not(.is-ref), thead th[data-col]:not(.is-ref)');
+  'scroll-columns'(v) {   // to the start of the next column to the left or right, so that a column is never cut at the left edge (behind the sticky reference column and the names of the table rows)
+    const sc = app.querySelector('.cmp-scroll'), box = sc.getBoundingClientRect(), base = box.left - sc.scrollLeft;
     const grid = sc.querySelector('.cmp-grid'), gap = grid ? parseFloat(getComputedStyle(grid).columnGap) || 0 : 0;
-    sc.scrollBy({ left: Number(v) * (col ? col.getBoundingClientRect().width + gap : 420), behavior: 'smooth' });
+    const corner = sc.querySelector('.t-corner'), lw = corner ? corner.getBoundingClientRect().width : 0, stuckAt = refStuckAt(sc);
+    const strip = grid ? parseFloat(getComputedStyle(sc).getPropertyValue('--strip')) || 88 : (sc.querySelector('th.is-ref') ? 64 : 0);
+    // a column left of the reference column comes to the left edge (behind the names of the table rows); one right of it comes beside the strip of the stuck reference column
+    const starts = [...sc.querySelectorAll('.c-head:not(.is-ref), thead th[data-col]:not(.is-ref)')].map(h => {
+      const nx = h.getBoundingClientRect().left - base, plain = Math.round(nx - lw);
+      return plain > stuckAt ? Math.max(Math.round(stuckAt), Math.round(nx - lw - strip - gap)) : plain;
+    });
+    const max = sc.scrollWidth - sc.clientWidth, at = sc.scrollLeft;
+    const target = Number(v) > 0 ? Math.min(max, ...starts.filter(s => s > at + 2)) : Math.max(0, ...starts.filter(s => s < at - 2 && s >= 0));
+    sc.scrollTo({ left: Math.max(0, Math.min(max, target)), behavior: 'smooth' });
   },
   'pick-toggle'() {   // narrow: the sheet from the bottom edge (not remembered); wide: the selection at the right edge
     if (isNarrow()) state.sheet = !state.sheet; else { state.pickOpen = !state.pickOpen; save('pickOpen', state.pickOpen ? 'yes' : 'no'); }
@@ -775,7 +881,11 @@ const actions = {
     keepAddress(); renderCompare(); showLastColumn(); renderNav();
   },
   versions() { state.versionsMode = !state.versionsMode; keepAddress(); render(); },
-  'col-versions'(v, el) { if (addOlderVersions(columnOf(el))) { keepAddress(); renderCompare(); renderNav(); } },
+  'col-versions'(v, el) {
+    const c = columnOf(el);
+    if (!activeOf(c, 'versions') && !missingVersions(c).length) { note(el, versionsOf(c.unit).length > 1 ? 'All versions of this unit are shown already.' : 'Only one version: this unit did not change in any game version.'); return; }
+    if (toggleTool(c, 'versions', () => addOlderVersions(c))) { keepAddress(); renderCompare(); renderNav(); }
+  },
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },
   'fav-menu'() { state.favOpen = !state.favOpen; renderNav(); },
   'fav-save'() {
@@ -796,12 +906,20 @@ const actions = {
   undo() { step(undoStack, redoStack); },
   redo() { step(redoStack, undoStack); },
   scav() { state.scav = !state.scav; keepAddress(); renderCompare(); },
-  'col-counters'(v, el) { remember(); const c = columnOf(el); state.columns = [c, ...countersOf(c.unit).map(n => newColumn(n))]; keepAddress(); render(); },
-  'col-ref'(v, el) { const c = columnOf(el), was = c.ref; for (const o of displayColumns()) o.ref = false; c.ref = !was; keepAddress(); renderCompare(); },
+  'col-counters'(v, el) {
+    const c = columnOf(el);
+    if (toggleTool(c, 'counters', () => { const list = countersOf(c.unit); if (!list.length) return false; state.columns = [c, ...list.map(n => newColumn(n))]; })) { keepAddress(); render(); }
+  },
+  'col-ref'(v, el) {   // the reference column stays where it is: moved only by hand (drag and drop, the arrows)
+    const c = columnOf(el), was = c.ref;
+    for (const o of displayColumns()) o.ref = false;
+    c.ref = !was;
+    keepAddress(); renderCompare();
+  },
   'add-counterparts'(v, el) {
-    remember();
-    for (const n of counterpartsOf(columnOf(el).unit)) addUnit(n);
-    keepAddress(); renderCompare(); renderNav(); showLastColumn();
+    const c = columnOf(el), was = activeOf(c, 'counterparts');
+    const done = toggleTool(c, 'counterparts', () => { const missing = counterpartsOf(c.unit).filter(n => !isShown(n)); if (!missing.length) return false; missing.forEach(addUnit); });
+    if (done) { keepAddress(); renderCompare(); renderNav(); if (!was) showLastColumn(); }
   },
   'add-unit'(v) { remember(); addUnit(v); keepAddress(); render(); },
   'remove-column'(v, el) { remember(); const c = columnOf(el); state.columns = state.columns.filter(o => o !== c); keepAddress(); render(); },

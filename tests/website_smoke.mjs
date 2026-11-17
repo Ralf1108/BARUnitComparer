@@ -134,7 +134,9 @@ try {
       // the button of a unit: grey without another version; with one it adds every newer version right of the unit
       await page.goto(base + `#/compare/${single[0]}?view=graphic`);
       await page.waitForSelector('.c-head');
-      check(await page.locator('.c-head [data-a="col-versions"]').isDisabled(), 'Versions (unit): grey if the unit has no other version', single[0]);
+      await page.click('.c-head [data-a="col-versions"]');
+      await page.waitForTimeout(200);
+      check(await page.locator('.c-head').count() === 1 && /only one version/i.test(await page.locator('.note-pop').textContent()), 'Versions (unit): a unit with only one version says so (no column is added)', single[0]);
       const order = await page.$$eval('.c-tools button', b => b.map(x => x.dataset.a).filter(Boolean));
       check(order.indexOf('col-versions') >= 0 && order.indexOf('col-versions') < order.indexOf('col-counters'), 'Versions (unit): the button is left of Counters', order.join(', '));
       const removedAny = new Set(listing.versions.flatMap(v => read(v).removed || []));
@@ -148,7 +150,10 @@ try {
       const at = dir => listing.versions.findIndex(v => v.dir === dir);
       check(cols.length === count[unit] && cols.every((c, i) => i === 0 || at(c) < at(cols[i - 1])), 'Versions (unit): the older versions are columns right of the unit, newest first', `${cols.length} / ${count[unit]}: ${cols.join(', ')}`);
       check(await page.locator('.c-head.is-ref').count() === 1 && await page.locator('.c-head').first().evaluate(e => e.classList.contains('is-ref')), 'Versions (unit): the clicked unit is the reference (Ref)', '');
-      check(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled() && await page.locator('.c-head [data-a="col-versions"]').last().isDisabled(), 'Versions (unit): nothing older is left: the buttons are grey', '');
+      check(await page.locator('.c-head [data-a="col-versions"]').first().evaluate(e => e.classList.contains('active') && !e.disabled), 'Versions (unit): the pressed button is lit (to take them out again)', '');
+      await page.click('.c-head [data-a="col-versions"] >> nth=-1');
+      await page.waitForTimeout(200);
+      check(await page.locator('.c-head').count() === count[unit] && /already/.test(await page.locator('.note-pop').textContent()), 'Versions (unit): on another version column it says that all versions are shown', '');
       check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the older versions are coloured and marked against the reference', '');
       const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
       check(options.length <= count[unit] + 1, 'a column lists only the versions that matter for its unit', `${options.length}: ${options.join(', ')}`);
@@ -159,6 +164,14 @@ try {
       check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);
       await page.click('[data-a="undo"]');
       check(await page.locator('.c-head').count() === 1, 'Undo takes the added versions back (the Ref stays, as with every Undo)', await page.locator('.c-head').count());
+      await page.click('.c-head [data-a="col-ref"] >> nth=0');   // Ref off (Undo kept it), so that the second press must switch it off again
+      await page.waitForTimeout(200);
+      await page.click('.c-head [data-a="col-versions"] >> nth=0');
+      await page.waitForTimeout(300);
+      check(await page.locator('.c-head').count() === count[unit], 'Versions (unit): pressed once, the older versions are added', await page.locator('.c-head').count());
+      await page.click('.c-head [data-a="col-versions"] >> nth=0');
+      await page.waitForTimeout(300);
+      check(await page.locator('.c-head').count() === 1 && await page.locator('.c-head.is-ref').count() === 0, 'Versions (unit): pressed again, they are taken out and the Ref is as before', await page.locator('.c-head').count());
     }
   }
 
@@ -239,6 +252,70 @@ try {
     await page.waitForTimeout(200);
     check(await page.locator('.cmp-scroll.scrolled').count() === 0, `back at the left edge: the reference column is whole again (${view})`, '');
   }
+  // Ref: the other columns are green (better) or red (worse) against it, a value equal to it is greyed out; the reference column itself is not coloured
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(base + '#/compare/armpw,armpw_scav?view=graphic&ref=armpw');
+  await page.waitForSelector('.stats');
+  const verdicts = await page.$$eval('.stats', s => s.map(x => [...x.querySelectorAll('.fill')].map(f => (f.className.match(/diff-(good|bad|same)/) || ['', 'none'])[1])));
+  check(verdicts[0].every(v => v === 'none') && verdicts[1].includes('same') && verdicts[1].some(v => v === 'good' || v === 'bad') && !verdicts[1].includes('none'), 'Ref: better green, worse red, equal greyed out, the reference itself uncoloured', JSON.stringify(verdicts));
+  // the tools of a column: icons; Counters and Counterparts pressed again take out what they added and bring back what they put aside
+  await page.setViewportSize({ width: 1400, height: 900 });
+  await page.goto(base + '#/compare/armpw,armflea?view=graphic');
+  await page.waitForSelector('.c-head');
+  check(await page.locator('.c-head:first-child .tool svg').count() >= 4, 'the tools of a column are icons', await page.locator('.c-head:first-child .tool svg').count());
+  const startCols = await hash();
+  await page.click('.c-head >> nth=0 >> [data-a="add-counterparts"]');
+  await page.waitForTimeout(300);
+  const withParts = await page.locator('.c-head').count();
+  check(withParts > 2, 'Counterparts (icon) adds the counterparts', withParts);
+  await page.click('.c-head >> nth=0 >> [data-a="add-counterparts"]');
+  await page.waitForTimeout(300);
+  check((await hash()) === startCols, 'Counterparts pressed again takes them out', await hash());
+  if (await page.locator('.c-head >> nth=0 >> [data-a="col-counters"]').isEnabled()) {
+    await page.click('.c-head >> nth=0 >> [data-a="col-counters"]');
+    await page.waitForTimeout(300);
+    const withCounters = await hash();
+    check(withCounters !== startCols && !withCounters.includes('armflea'), 'Counters replaces the other columns', withCounters);
+    await page.click('.c-head >> nth=0 >> [data-a="col-counters"]');
+    await page.waitForTimeout(300);
+    check((await hash()) === startCols, 'Counters pressed again brings the columns back', await hash());
+  }
+  // the edge arrows: three columns on a wide window fit without scrolling (no arrow); with more, the left arrow goes back to the very start and then disappears
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
+  await page.waitForSelector('.c-head');
+  check(await page.evaluate(() => { const s = document.querySelector('.cmp-scroll'); return s.scrollWidth <= s.clientWidth && document.querySelector('.more-left').hidden && document.querySelector('.more-right').hidden; }), 'three columns fit a wide window: no arrows, no shadow', '');
+  await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=graphic');
+  await page.waitForSelector('.c-head');
+  await page.evaluate(() => { const s = document.querySelector('.cmp-scroll'); s.scrollLeft = s.scrollWidth; });
+  await page.waitForTimeout(300);
+  for (let i = 0; i < 6 && !(await page.locator('.more-left').isHidden()); i++) { await page.click('.more-left'); await page.waitForTimeout(700); }
+  const back = await page.evaluate(() => `${document.querySelector('.cmp-scroll').scrollLeft} ${document.querySelector('.more-left').hidden} ${document.querySelector('.cmp-scroll').scrollWidth - document.querySelector('.cmp-scroll').clientWidth}`);
+  check(back.startsWith('0 true'), 'the left arrow goes back to the start, then it is gone', back);
+  // Ref: the column goes to the left edge and stays there when Ref is switched off; with a Ref every column is coloured against it
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
+  await page.waitForSelector('.c-head');
+  await page.click('.c-head >> nth=2 >> [data-a="col-ref"]');
+  await page.waitForTimeout(200);
+  check((await hash()).startsWith('#/compare/armpw,corak,leggob') && await page.locator('.c-head >> nth=2').evaluate(e => e.classList.contains('is-ref')), 'Ref: the column stays where it is (no jump to the left)', await hash());
+  await page.click('.c-head >> nth=2 >> [data-a="col-ref"]');
+  await page.waitForTimeout(200);
+  check((await hash()).startsWith('#/compare/armpw,corak,leggob') && !/ref=/.test(await hash()), 'Ref off: the columns are as before', await hash());
+  // a reference column in the middle sticks to the left edge only when it is scrolled there
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=graphic&ref=leggob');
+  await page.waitForSelector('.c-head.is-ref');
+  const refAt = async x => { await page.evaluate(x => { const s = document.querySelector('.cmp-scroll'); s.style.scrollSnapType = 'none'; s.scrollLeft = x; }, x); await page.waitForTimeout(250);
+    return page.evaluate(() => Math.round(document.querySelector('.c-head.is-ref').getBoundingClientRect().left - document.querySelector('.cmp-scroll').getBoundingClientRect().left)); };
+  const r0 = await refAt(0), r1 = await refAt(150), r2 = await refAt(2000);
+  check(r0 > 300 && r1 === r0 - 150 && r2 === 0, 'Ref in the middle: it scrolls with the others until it reaches the left edge, then it sticks', `${r0} ${r1} ${r2}`);
+  await page.setViewportSize({ width: 1600, height: 900 });
+  const vdir = JSON.parse(fs.readFileSync(path.join(site, 'assets', 'versions.json'), 'utf8')).versions[0].dir;
+  await page.goto(base + `#/compare/corak,armpw,armpw@${vdir}?view=graphic&ref=corak`);
+  await page.waitForSelector('.stats');
+  const colours = await page.$$eval('.stats', s => s.map(x => x.querySelectorAll('.fill.diff-good, .fill.diff-bad, .fill.diff-same').length));
+  check(colours[0] === 0 && colours[1] > 0 && colours[2] > 0, 'Ref: two versions of another unit are both coloured against the Ref', colours.join(','));
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
   check(false, 'the test ran through', e.message);

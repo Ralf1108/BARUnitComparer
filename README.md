@@ -14,7 +14,16 @@ Look up and compare the units of [Beyond All Reason](https://www.beyondallreason
 
 [![The catalog: the bots of Armada](docs/catalog.png)](https://ralf1108.github.io/BARUnitComparer/)
 
-**2. Press Compare.** Every unit is a column, every value a bar. Press **Ref** on one unit and the others turn green (as good or better) or red (worse).
+**2. Press Compare.** Every unit is a column, every value a bar. The small icons above each unit do the rest (hover over one to see what it does):
+
+| Icon | What it does |
+|---|---|
+| **Ref** (balance) | makes this unit the reference: the values of the others turn green (better) or red (worse), equal values are greyed out |
+| **Versions** (clock) | adds every other game version of this unit next to it, the changed values marked |
+| **Counterparts** (arrows) | adds the units of the other factions that do the same job |
+| **Counters** (swords) | shows the units that are good against this unit |
+
+Pressed again, an icon takes back what it added. Columns can be moved by drag and drop (on a phone with the two arrow buttons).
 
 **3. See what a patch changed.** The page **Changes** lists every unit whose values changed between two game versions, old value → new value.
 
@@ -28,13 +37,14 @@ The page **Help** on the website explains every button and value.
 |---|---|
 | **Catalog** | all units by faction and category, as grid or list, with search and tech level filter |
 | **Compare** | any number of units side by side, as bars or as a compact table; columns can be moved by drag and drop |
-| **Ref** | one unit is the reference: the others are coloured green or red against it |
-| **Counterparts** | the units of the other factions that do the same job; one click adds them all |
-| **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info) |
+| **Ref** | one unit is the reference: the others are coloured green or red against it; it stays where it is and, scrolled to the left edge, stays in view as a narrow strip of values |
+| **Counterparts** | the units of the other factions that do the same job; one click adds them all, a second takes them out |
+| **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info); a second click brings the old columns back |
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Changes** | what changed between any two game versions of the year (from 2026-01-01): changed values, new and removed units |
-| **Versions** | the older versions of a unit as columns next to it, the changed values marked |
+| **Versions** | all versions of a unit as columns next to each other, the changed values marked |
 | **Share and keep** | the link holds the whole comparison; **Favorites** keep selections in your browser; **Undo / Redo** |
+| **Phone** | two units on the screen, the unit selection comes up from the bottom (**+ Add units**), swipe sideways for more |
 
 Only values count as a change: a new model or texture alone is not listed.
 

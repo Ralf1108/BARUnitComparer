@@ -129,7 +129,9 @@ img { display: block; }
 .cmp-grid { flex: 1; display: grid; grid-template-rows: auto auto 1fr; grid-template-columns: repeat(var(--n), minmax(var(--colmin), 1fr)); --colmin: 360px; --gap: 28px; column-gap: var(--gap); min-width: calc(var(--n) * var(--colmin) + (var(--n) - 1) * var(--gap)); }   /* as wide as its columns: the sticky reference column moves along the whole grid */
 .c-head { padding-bottom: 12px; }
 /* the reference column: as wide as one column, it sticks to the left edge of the scrolled area and the other columns pass behind it */
-.is-ref { grid-column: 1 / -1 !important; justify-self: start; min-width: var(--colmin); width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n)); position: sticky; left: 0; z-index: 2; background: var(--bg); box-shadow: 10px 0 10px -6px #000; }
+/* it spans the whole grid (a sticky element moves only inside its grid area) and starts at its own place (--i: its column), as wide as one column */
+.cmp-grid .is-ref { grid-column: 1 / -1 !important; justify-self: start; min-width: var(--colmin); width: calc((100% - (var(--n) - 1) * var(--gap)) / var(--n));
+  margin-left: calc(var(--i, 0) * ((100% - (var(--n) - 1) * var(--gap)) / var(--n) + var(--gap))); position: sticky; left: 0; z-index: 2; background: var(--bg); box-shadow: 10px 0 10px -6px #000; }
 .c-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .c-title b { font-size: 28px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
@@ -200,6 +202,10 @@ img { display: block; }
 .fill-dps { background: #ef5b5b; }
 .fill.diff-good { background: #3fbf5f; }
 .fill.diff-bad { background: #e0443c; }
+/* equal to the reference: greyed out, so that only the differences stand out */
+.fill.diff-same { background: #3a3a3a; }
+.weapons.same { color: #666; }
+.fill.diff-same + .val { color: #8a8a8a; background: rgba(0, 0, 0, .5); }
 .fill-range { background: repeating-linear-gradient(90deg, #d94a4a 0 2px, #6e2626 2px 4px); }
 .weapons { color: #ee3b3b; font-weight: 400; font-size: 14px; letter-spacing: -.3px; }
 
@@ -270,6 +276,7 @@ img { display: block; }
 .cmp-table td.num { font-variant-numeric: tabular-nums; }
 .cmp-table td.diff-good { color: #5fdc7e; }
 .cmp-table td.diff-bad { color: #ff6b62; }
+.cmp-table td.diff-same { color: #555; font-weight: 400; }
 .cmp-table td.top { font-weight: 600; }
 .cmp-table th.is-ref { box-shadow: inset 0 -2px var(--gold); }
 /* the reference column of the table sticks next to the value names: its values stay in view while the other columns are scrolled (--lw: width of the names, set in updateMore) */
@@ -353,7 +360,7 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 .fab, .mv { display: none; }
 @media (max-width: 900px) {
   /* a swipe stops with a column right beside the strip of the reference column */
-  .cmp-scroll { scroll-snap-type: x proximity; scroll-padding-left: calc(var(--strip) + var(--gap, 10px) + 2px); }
+  .cmp-scroll { scroll-snap-type: x proximity; }   /* scroll-padding-left: set in updateMore (behind the stuck reference column) */
   .cmp-grid > .c-head:not(.is-ref) { scroll-snap-align: start; }
   /* the unit selection: a sheet that comes up from the bottom edge (button "+ Add units"), so that it is always at hand */
   .chooser.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; width: auto; height: 72vh; margin: 0; padding: 10px 10px 0; background: #0c0c0c; border-top: 2px solid var(--gold); box-shadow: 0 -12px 30px #000; transform: translateY(105%); transition: transform .18s; visibility: hidden; }
@@ -420,3 +427,25 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
   .scrolled .cmp-grid .stats.is-ref .stat { display: block; } .scrolled .cmp-grid .stats.is-ref .stat label { height: 15px; }
   .scrolled .cmp-table thead th.ref-col, .scrolled .cmp-table td.ref-col { width: 56px; max-width: 56px; }
 }
+
+/* the tools of a column: icon buttons with a tooltip; lit (gold) while what they added is shown, pressed again they take it out */
+.c-tools .tool { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border: 1px solid #444; background: #0b0b0b; color: #ddd; font-size: 0; }
+.c-tools .tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.c-tools .tool:hover:not(:disabled) { background: #222; color: #fff; }
+.c-tools .tool:disabled { color: #444; border-color: #222; border-style: dashed; background: none; cursor: not-allowed; }
+.c-tools .tool.active { border-color: var(--gold); color: var(--gold); background: #2a210d; }
+.c-tools .tool.ref.active { background: var(--gold); color: #000; }
+.cmp-table .c-tools .tool { width: 28px; height: 28px; } .cmp-table .c-tools .tool svg { width: 15px; height: 15px; }
+.help li b svg { width: 15px; height: 15px; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 4px; }
+@media (max-width: 600px) {   /* a phone: all tools of a column in one line */
+  .c-tools { gap: 2px; flex-wrap: nowrap; } .c-tools .tool, .c-tools .mv, .c-tools .x { width: 24px; height: 24px; } .c-tools .tool svg { width: 14px; height: 14px; } .c-tools .mv { font-size: 15px; } .c-tools .x { font-size: 11px; }
+  .cmp-table .c-tools { flex-wrap: nowrap; gap: 2px; } .cmp-table .c-tools .tool, .cmp-table .c-tools .x { width: 24px; height: 24px; } .cmp-table .c-tools .tool svg { width: 14px; height: 14px; }
+  .cmp-table .c-tools .x { margin-left: 2px; }
+  /* the examples of the empty compare: as wide as the screen, the last one not under the button + Add units */
+  .examples { flex-direction: column; margin-bottom: 80px; } .example { width: 100%; }
+}
+
+/* a unit with more than one version: its Versions icon is a little brighter (a dot); the note of a button that has nothing to do */
+.c-tools .tool.versions.has { position: relative; }
+.c-tools .tool.versions.has::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+.note-pop { position: fixed; z-index: 60; max-width: 260px; padding: 7px 11px; background: #1b1508; border: 1px solid #6b5420; color: #f0dca8; font-size: 13px; border-radius: 6px; box-shadow: 0 6px 18px #000; pointer-events: none; }
