@@ -37,7 +37,7 @@ The page **Help** on the website explains every button and value.
 |---|---|
 | **Catalog** | all units by faction and category, as grid or list, with search and tech level filter |
 | **Compare** | any number of units side by side, as bars or as a compact table; columns can be moved by drag and drop |
-| **Ref** | one unit is the reference: the others are coloured green or red against it; it stays where it is and, scrolled to the left edge, stays in view as a narrow strip of values |
+| **Ref** | one unit is the reference: the others show the difference to it, green (better, +) or red (worse, −); it stays where it is and, scrolled to the left edge, stays in view as a narrow strip of values |
 | **Counterparts** | the units of the other factions that do the same job; one click adds them all, a second takes them out |
 | **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info); a second click brings the old columns back |
 | **+ Scav** | the Scavenger copy of every unit next to it |

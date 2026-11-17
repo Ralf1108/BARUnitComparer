@@ -208,7 +208,12 @@ img { display: block; }
 .fill.diff-same { background: #3a3a3a; }
 .weapons.same { color: #666; }
 .fill.diff-same + .val { color: #8a8a8a; background: rgba(0, 0, 0, .5); }
+/* with a Ref the number is the difference to it, in the colour of its bar */
+.fill.diff-good + .val { color: #7dec97; font-weight: 700; } .fill.diff-bad + .val { color: #ff8a82; font-weight: 700; }
 .fill-range { background: repeating-linear-gradient(90deg, #d94a4a 0 2px, #6e2626 2px 4px); }
+/* the reference column: every bar in one colour (yellow, as Energy), so that the red and green of the other columns stand out */
+.stats.is-ref .fill { background: #ffd48a; }
+.stats.is-ref .weapons, .cmp-table td.ref-col { color: #ffd48a; }
 .weapons { color: #ee3b3b; font-weight: 400; font-size: 14px; letter-spacing: -.3px; }
 
 /* exactly two columns: mirrored, the bars meet in the middle */
@@ -447,7 +452,8 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
   .examples { flex-direction: column; margin-bottom: 80px; } .example { width: 100%; }
 }
 
-/* a unit with more than one version: its Versions icon is a little brighter (a dot); the note of a button that has nothing to do */
+/* a unit with more than one version: its Versions icon carries the number of versions (data-n: 2 to 9, above 9 ">"); the note of a button that has nothing to do */
 .c-tools .tool.versions.has { position: relative; }
-.c-tools .tool.versions.has::after { content: ""; position: absolute; top: 3px; right: 3px; width: 5px; height: 5px; border-radius: 50%; background: var(--gold); }
+.c-tools .tool.versions.has::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 2px; box-sizing: border-box; border-radius: 7px;
+  background: var(--gold); color: #000; font: 700 10px/14px sans-serif; text-align: center; pointer-events: none; }
 .note-pop { position: fixed; z-index: 60; max-width: 260px; padding: 7px 11px; background: #1b1508; border: 1px solid #6b5420; color: #f0dca8; font-size: 13px; border-radius: 6px; box-shadow: 0 6px 18px #000; pointer-events: none; }

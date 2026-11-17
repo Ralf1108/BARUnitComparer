@@ -144,9 +144,11 @@ try {
       await page.goto(base + `#/compare/${unit}?view=graphic`);
       await page.waitForSelector('.c-head');
       check(!(await page.locator('.c-head [data-a="col-versions"]').first().isDisabled()), 'Versions (unit): the button works if the unit has older versions', unit);
+      const badge = await page.locator('.c-head [data-a="col-versions"]').first().getAttribute('data-n');
+      check(badge === (count[unit] > 9 ? '>' : String(count[unit])), 'Versions (unit): the icon shows how many versions the unit has', `${badge} / ${count[unit]}`);
       await page.click('.c-head [data-a="col-versions"] >> nth=0');
       await page.waitForTimeout(300);
-      const cols = await page.$$eval('select.c-ver', s => s.map(x => x.value));
+      const cols =await page.$$eval('select.c-ver', s => s.map(x => x.value));
       const at = dir => listing.versions.findIndex(v => v.dir === dir);
       check(cols.length === count[unit] && cols.every((c, i) => i === 0 || at(c) < at(cols[i - 1])), 'Versions (unit): the older versions are columns right of the unit, newest first', `${cols.length} / ${count[unit]}: ${cols.join(', ')}`);
       check(await page.locator('.c-head.is-ref').count() === 1 && await page.locator('.c-head').first().evaluate(e => e.classList.contains('is-ref')), 'Versions (unit): the clicked unit is the reference (Ref)', '');
@@ -259,6 +261,10 @@ try {
   await page.waitForSelector('.stats');
   const verdicts = await page.$$eval('.stats', s => s.map(x => [...x.querySelectorAll('.fill')].map(f => (f.className.match(/diff-(good|bad|same)/) || ['', 'none'])[1])));
   check(verdicts[0].every(v => v === 'none') && verdicts[1].includes('same') && verdicts[1].some(v => v === 'good' || v === 'bad') && !verdicts[1].includes('none'), 'Ref: better green, worse red, equal greyed out, the reference itself uncoloured', JSON.stringify(verdicts));
+  const signs = await page.$$eval('.stats:not(.is-ref) .fill', f => f.map(x => [(x.className.match(/diff-(good|bad|same)/) || [])[1], x.nextElementSibling.textContent.trim()[0]]));
+  check(signs.length > 0 && signs.every(([v, ch]) => (v === 'good' && ch === '+') || (v === 'bad' && ch === '−') || (v === 'same' && ch === '±')), 'Ref: the other columns show the difference (+ better, − worse, ±0 equal)', JSON.stringify(signs));
+  const refFills =await page.$$eval('.stats.is-ref .fill', f => [...new Set(f.map(x => getComputedStyle(x).backgroundColor))]);
+  check(refFills.length === 1 && refFills[0] === 'rgb(255, 212, 138)', 'Ref: all bars of the reference column are yellow', JSON.stringify(refFills));
   // the tools of a column: icons; Counters and Counterparts pressed again take out what they added and bring back what they put aside
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto(base + '#/compare/armpw,armflea?view=graphic');

@@ -423,11 +423,11 @@ function renderHelp() {
     <p><a class="btn go" href="#/catalog">Open the catalog</a> <a class="btn" href="#/compare">Open the compare</a></p>
     <h2>The buttons of the compare</h2>
     <ul>${[
-      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> better, <b>&minus;</b> worse, ±0 equal (the value itself is in the tooltip). The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
-      [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; a unit with more than one version has a gold dot on the icon, a unit with only one is grey. The values that changed are marked in gold.'],
+      [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['since …', '(the list above the icons) the versions of this unit: the first one and each one in which its values changed. "since 29 May 2026" means the unit is unchanged from that version on.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Changed units only', 'lists only the units that changed in some game version.'],
@@ -650,7 +650,7 @@ function tableHtml(columns, stats, max, reference) {
     const v = u[s.key];
     if (!v) return `<td data-col="${c.id}" class="none${rc}${changed}">–</td>`;
     const ref = referenceFor(c, reference);
-    return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${s.show(v)}</td>`;
+    return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${valueText(s, v, ref)}</td>`;
   };
   return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}</tr></thead>
     <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}">${s.label}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
@@ -704,7 +704,7 @@ function versionsButton(c) {
   const tip = on ? 'Versions: the other versions of this unit are shown.' + AGAIN
     : more ? `Versions: this unit has ${n} versions. Add the other ${more === 1 ? 'one' : more} as columns right of it (newest first) and make this unit the reference: the values that changed are marked.`
     : n > 1 ? `All ${n} versions of this unit are shown already.` : 'Versions: this unit has only one version (it did not change in any game version).';
-  return toolButton('versions', 'col-versions', tip, on, on || n > 1).replace('class="tool versions', `class="tool versions${n > 1 ? ' has' : ''}`);   // only one version: grey (the tooltip says why)
+  return toolButton('versions', 'col-versions', tip, on, on || n > 1).replace('class="tool versions', `${n > 1 ? `data-n="${n > 9 ? '&gt;' : n}" ` : ''}class="tool versions${n > 1 ? ' has' : ''}`);   // only one version: grey (the tooltip says why); more: the number on the icon (above 9: >)
 }
 // a short note next to a button that has nothing to do (instead of a grey button: a press tells why)
 function note(el, text) {
@@ -760,13 +760,26 @@ function verdictOf(s, v, ref) {
   return (s.lower ? v > r : v < r) ? ' diff-bad' : ' diff-good';
 }
 
+// with a Ref the other columns show the difference to it instead of the value: + better, − worse (for the costs and the build time less is better), ±0 equal;
+// the value itself is in the tooltip. Without a Ref, in the version comparison, or if the Ref has no such value: the value
+function valueText(s, v, ref) {
+  const r = ref && !ref.anchor ? ref[s.key] : 0;
+  if (!r) return s.show(v);
+  const title = ` title="${esc(s.show(v))} (Ref: ${esc(s.show(r))})"`;
+  if (v === r) return `<span${title}>±0</span>`;
+  const d = Math.abs(v - r), better = s.lower ? v < r : v > r;
+  let t = s.show(d);
+  if (/^[0:]*$/.test(t)) t = d < 1 ? d.toFixed(1) : t;   // a small difference that the format would show as 0
+  return `<span${title}>${better ? '+' : '−'}${t}</span>`;
+}
+
 function statHtml(s, u, max, ref, changed) {
   const cls = `stat${changed ? ' changed' : ''}`, label = `<label title="${esc(s.tip)}${changed ? ' Changed against the other version of this unit.' : ''}">${s.label}</label>`;
   if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons${sameWeapons(u, ref) ? ' same' : ''}">${esc(u.weapons.join(', '))}</div></div>`;
   const v = u[s.key];
   if (!v) return `<div class="${cls}">${label}<div class="none" title="This unit has no such value">–</div></div>`;
   const share = max[s.key] ? 100 * v / max[s.key] : 0;
-  return `<div class="${cls}">${label}<div class="bar"><div class="fill fill-${s.fill}${verdictOf(s, v, ref)}" style="width:${share.toFixed(1)}%"></div><span class="val">${s.show(v)}</span></div></div>`;
+  return `<div class="${cls}">${label}<div class="bar"><div class="fill fill-${s.fill}${verdictOf(s, v, ref)}" style="width:${share.toFixed(1)}%"></div><span class="val">${valueText(s, v, ref)}</span></div></div>`;
 }
 
 function toggleUnit(unit) {
