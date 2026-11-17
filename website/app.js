@@ -427,7 +427,8 @@ function renderHelp() {
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
-      [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; a unit with more than one version has a gold dot on the icon. The values that changed are marked in gold.'],
+      [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; a unit with more than one version has a gold dot on the icon, a unit with only one is grey. The values that changed are marked in gold.'],
+      ['since …', '(the list above the icons) the versions of this unit: the first one and each one in which its values changed. "since 29 May 2026" means the unit is unchanged from that version on.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Changed units only', 'lists only the units that changed in some game version.'],
       ['Table view', 'the same values as a compact table.'],
@@ -603,10 +604,14 @@ function versionSelect(c) {
   if (state.versions.length < 2) return '';
   const own = c.version || state.versionDir;
   if (c.scavOf) return `<span class="c-ver">${esc(shortVersion(own))}</span>`;
-  const mark = v => v.dir === state.baseDir ? ' · base' : changedIn(v.dir, c.unit) ? ' · changed' : '';
-  // not every version (there can be about 150): the base, the versions in which this unit changed, and the one the column shows now
-  return `<select class="c-ver" data-change="col-version" title="The game version of this column: the base (the first version), the versions in which the unit changed against the one before, and the one shown now">${
-    state.versions.filter(v => unitsOf(v.dir)[c.unit] && (v.dir === state.baseDir || v.dir === own || changedIn(v.dir, c.unit))).map(v => `<option value="${esc(v.dir)}" ${v.dir === own ? 'selected' : ''}>${esc(versionLabel(v) + mark(v))}</option>`).join('')}</select>`;
+  // only the versions of the unit: the first one that has it and every one in which it changed. The column shows the newest of them that is not newer than its
+  // game version (stateVersion): "since 29 May 2026" means the unit is the same from that version on (a later version without a change is not listed)
+  const list = versionsOf(c.unit), at = stateVersion(c);
+  if (!list.length || !at) return '';
+  const tip = list.length > 1 ? `The versions of this unit: the first one and each one in which its values changed (${list.length} in all). The column shows the unit as it is since the version chosen.`
+    : 'This unit has only one version: it did not change since this game version.';
+  return `<select class="c-ver" data-change="col-version" title="${tip}" ${list.length > 1 ? '' : 'disabled'}>${
+    list.slice().reverse().map(d => `<option value="${esc(d)}" ${d === at ? 'selected' : ''}>since ${esc(versionLabel(versionOf(d)))}</option>`).join('')}</select>`;
 }
 
 // the version comparison: a value is marked if it differs from the same unit in the nearest older version that is shown (the anchor of the column)
@@ -699,7 +704,7 @@ function versionsButton(c) {
   const tip = on ? 'Versions: the other versions of this unit are shown.' + AGAIN
     : more ? `Versions: this unit has ${n} versions. Add the other ${more === 1 ? 'one' : more} as columns right of it (newest first) and make this unit the reference: the values that changed are marked.`
     : n > 1 ? `All ${n} versions of this unit are shown already.` : 'Versions: this unit has only one version (it did not change in any game version).';
-  return toolButton('versions', 'col-versions', tip, on, true) .replace('class="tool versions', `class="tool versions${n > 1 ? ' has' : ''}`);
+  return toolButton('versions', 'col-versions', tip, on, on || n > 1).replace('class="tool versions', `class="tool versions${n > 1 ? ' has' : ''}`);   // only one version: grey (the tooltip says why)
 }
 // a short note next to a button that has nothing to do (instead of a grey button: a press tells why)
 function note(el, text) {
@@ -883,7 +888,7 @@ const actions = {
   versions() { state.versionsMode = !state.versionsMode; keepAddress(); render(); },
   'col-versions'(v, el) {
     const c = columnOf(el);
-    if (!activeOf(c, 'versions') && !missingVersions(c).length) { note(el, versionsOf(c.unit).length > 1 ? 'All versions of this unit are shown already.' : 'Only one version: this unit did not change in any game version.'); return; }
+    if (!activeOf(c, 'versions') && !missingVersions(c).length) { note(el, 'All versions of this unit are shown already.'); return; }
     if (toggleTool(c, 'versions', () => addOlderVersions(c))) { keepAddress(); renderCompare(); renderNav(); }
   },
   'view-table'() { state.table = !state.table; save('table', state.table ? 'yes' : 'no'); keepAddress(); renderCompare(); },

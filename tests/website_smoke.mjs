@@ -134,9 +134,9 @@ try {
       // the button of a unit: grey without another version; with one it adds every newer version right of the unit
       await page.goto(base + `#/compare/${single[0]}?view=graphic`);
       await page.waitForSelector('.c-head');
-      await page.click('.c-head [data-a="col-versions"]');
-      await page.waitForTimeout(200);
-      check(await page.locator('.c-head').count() === 1 && /only one version/i.test(await page.locator('.note-pop').textContent()), 'Versions (unit): a unit with only one version says so (no column is added)', single[0]);
+      const lone = page.locator('.c-head [data-a="col-versions"]');
+      check(await lone.isDisabled() && /only one version/i.test(await lone.getAttribute('title')), 'Versions (unit): grey for a unit with only one version (the tooltip says why)', single[0]);
+      check(await page.locator('select.c-ver').count() === 0 || await page.locator('select.c-ver').isDisabled(), 'a unit with only one version: its version list cannot be opened', single[0]);
       const order = await page.$$eval('.c-tools button', b => b.map(x => x.dataset.a).filter(Boolean));
       check(order.indexOf('col-versions') >= 0 && order.indexOf('col-versions') < order.indexOf('col-counters'), 'Versions (unit): the button is left of Counters', order.join(', '));
       const removedAny = new Set(listing.versions.flatMap(v => read(v).removed || []));
@@ -156,9 +156,10 @@ try {
       check(await page.locator('.c-head').count() === count[unit] && /already/.test(await page.locator('.note-pop').textContent()), 'Versions (unit): on another version column it says that all versions are shown', '');
       check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the older versions are coloured and marked against the reference', '');
       const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
-      check(options.length <= count[unit] + 1, 'a column lists only the versions that matter for its unit', `${options.length}: ${options.join(', ')}`);
+      check(options.length === count[unit], 'a column lists only the versions of its unit (the first one and each change)', `${options.length}: ${options.join(', ')}`);
+      check(cols[0] === options[0] && /^since /.test(await page.locator('select.c-ver >> nth=0').evaluate(s => s.selectedOptions[0].textContent)), 'the newest column shows the version of the last change ("since ...")', cols[0]);
       const beforeChange = await hash();
-      await page.selectOption('select.c-ver >> nth=1', listing.versions[0].dir);   // the second column (not the Ref) to the base version
+      await page.selectOption('select.c-ver >> nth=1', options.find(o => o !== cols[1]));   // the second column (not the Ref) to another version of its unit
       check((await hash()) !== beforeChange, 'a column can show another game version', await hash());
       await page.click('[data-a="undo"]');
       check((await hash()) === beforeChange, 'Undo takes the version change of a column back', `${await hash()} / ${beforeChange}`);

@@ -135,7 +135,9 @@ img { display: block; }
 .c-title { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }
 .c-title b { font-size: 28px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
-.c-tools .x { margin-left: auto; color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
+/* the grip at the left, the tools together at the right: Versions, Counters, Counterparts, Ref and the X right of Ref */
+.c-tools .tool.versions { margin-left: auto; }
+.c-tools .x { color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
 .ref, .counters, .versions { white-space: nowrap; padding: 5px 11px; border: 1px solid #444; background: #0b0b0b; font-size: 13px; }
 .ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
@@ -304,7 +306,8 @@ img { display: block; }
 .fav-extra { color: var(--muted); font-style: normal; font-size: 12px; margin-left: 6px; white-space: nowrap; }
 #nav-links a, .fav-open { white-space: nowrap; }
 /* game versions: the version of a column, the units that differ from the base version, the values that changed */
-.c-title .c-ver, th .c-ver { margin-left: auto; min-width: 0; max-width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 12px; padding: 2px 4px; }
+/* the version of a column: on a line of its own between the name of the faction and the tools */
+.c-title .c-ver, th .c-ver { margin-left: 0; width: 100%; min-width: 0; max-width: 100%; background: var(--panel); border: 1px solid var(--line); color: var(--muted); font-size: 12px; padding: 2px 4px; }
 th .c-ver { margin: 4px 0 0; display: block; }
 span.c-ver { border: 0; background: none; }
 .chg { position: absolute; top: 34px; left: 8px; z-index: 1; font-size: 10px; padding: 1px 5px; background: #3a2c10; color: var(--gold); }
@@ -440,7 +443,6 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 @media (max-width: 600px) {   /* a phone: all tools of a column in one line */
   .c-tools { gap: 2px; flex-wrap: nowrap; } .c-tools .tool, .c-tools .mv, .c-tools .x { width: 24px; height: 24px; } .c-tools .tool svg { width: 14px; height: 14px; } .c-tools .mv { font-size: 15px; } .c-tools .x { font-size: 11px; }
   .cmp-table .c-tools { flex-wrap: nowrap; gap: 2px; } .cmp-table .c-tools .tool, .cmp-table .c-tools .x { width: 24px; height: 24px; } .cmp-table .c-tools .tool svg { width: 14px; height: 14px; }
-  .cmp-table .c-tools .x { margin-left: 2px; }
   /* the examples of the empty compare: as wide as the screen, the last one not under the button + Add units */
   .examples { flex-direction: column; margin-bottom: 80px; } .example { width: 100%; }
 }
