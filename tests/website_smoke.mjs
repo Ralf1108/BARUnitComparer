@@ -38,6 +38,8 @@ try {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) errors.push(m.text()); });
+  const missing = [];   // a file the page asks for and does not get (a font, a picture, a data file)
+  page.on('response', r => { if (r.status() >= 400) missing.push(`${r.status()} ${r.url().replace(base, '')}`); });
   const hash = () => page.evaluate(() => location.hash);
 
   // catalog: the units of a category, marking with the mouse and the keyboard, the tray
@@ -193,7 +195,8 @@ try {
     const faction = await page.$$eval('.chg-row', r => r.every(x => x.classList.contains('f-arm')));
     check(faction, 'Changes: the faction filter keeps only that faction', '');
     await page.selectOption('[data-change="chg-key"]', 'metal');
-    check((await page.locator('.chg-row .pill', { hasText: 'Metal' }).count()) >= 0 && (await page.locator('.chg-row').count()) <= wide, 'Changes: the value filter narrows the list', '');
+    const metal = await page.$$eval('.chg-row', r => [r.length, r.every(x => /Metal/.test(x.querySelector('.pills').textContent))]);
+    check(metal[0] <= wide && metal[1], 'Changes: the value filter keeps only the units in which that value changed', metal.join(' '));
     await page.selectOption('[data-change="chg-faction"]', 'all'); await page.selectOption('[data-change="chg-key"]', '');
     const first = page.locator('.chg-row.f-arm, .chg-row.f-cor, .chg-row.f-leg').first();
     await first.click();
@@ -299,7 +302,7 @@ try {
   for (let i = 0; i < 6 && !(await page.locator('.more-left').isHidden()); i++) { await page.click('.more-left'); await page.waitForTimeout(700); }
   const back = await page.evaluate(() => `${document.querySelector('.cmp-scroll').scrollLeft} ${document.querySelector('.more-left').hidden} ${document.querySelector('.cmp-scroll').scrollWidth - document.querySelector('.cmp-scroll').clientWidth}`);
   check(back.startsWith('0 true'), 'the left arrow goes back to the start, then it is gone', back);
-  // Ref: the column goes to the left edge and stays there when Ref is switched off; with a Ref every column is coloured against it
+  // Ref: the column stays where it is, also when Ref is switched off; with a Ref every column is coloured against it
   await page.setViewportSize({ width: 1600, height: 900 });
   await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
   await page.waitForSelector('.c-head');
@@ -323,6 +326,109 @@ try {
   await page.waitForSelector('.stats');
   const colours = await page.$$eval('.stats', s => s.map(x => x.querySelectorAll('.fill.diff-good, .fill.diff-bad, .fill.diff-same').length));
   check(colours[0] === 0 && colours[1] > 0 && colours[2] > 0, 'Ref: two versions of another unit are both coloured against the Ref', colours.join(','));
+  // ---- the rest of the page: help, the folded unit selection, Redo, favorites, the catalog views, the game version at the top, drag and drop
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(base + '#/help');
+  await page.waitForSelector('.help');
+  check(await page.locator('.help h2').count() >= 5 && await page.locator('.help li').count() > 20, 'Help: the page lists the steps, the buttons and the values', await page.locator('.help li').count());
+
+  await page.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
+  await page.reload();   // a fresh page: no columns, no Undo steps from before
+  await page.waitForSelector('.c-head');
+  await page.click('.chooser .toggle-pick');   // fold the unit selection away
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+  await page.waitForTimeout(200);
+  check(await page.locator('.chooser.collapsed').count() === 1 && await page.evaluate(() => document.querySelector('.cmp-body').style.minHeight !== ''), 'the unit selection folded away: the compare is still laid out', errors.join(' | '));
+  await page.click('.chooser .toggle-pick');
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+
+  await page.click('.c-head >> nth=2 >> [data-a="remove-column"]');
+  await page.click('[data-a="undo"]');
+  const undone = await page.locator('.c-head').count();
+  await page.click('[data-a="redo"]');
+  check(undone === 3 && await page.locator('.c-head').count() === 2, 'Undo brings a removed column back, Redo removes it again', `${undone} / ${await page.locator('.c-head').count()}`);
+  await page.click('[data-a="undo"]');
+
+  await page.dragAndDrop('.c-head >> nth=0 >> .grip', '.c-unit >> nth=2', { targetPosition: { x: 300, y: 100 } });
+  await page.waitForTimeout(200);
+  check((await hash()).startsWith('#/compare/corak,leggob,armpw'), 'drag and drop moves a column behind another one', await hash());
+
+  await page.evaluate(() => localStorage.removeItem('barunit.favorites'));
+  await page.reload(); await page.waitForSelector('.c-head');
+  await page.click('[data-a="fav-save"]');
+  await page.click('[data-a="fav-menu"]');
+  const favs = await page.locator('.fav-item').count();
+  await page.click('[data-a="fav-del"] >> nth=0');
+  check(favs === 1 && await page.locator('.fav-item').count() === 0, 'a favorite can be deleted', `${favs} / ${await page.locator('.fav-item').count()}`);
+  await page.keyboard.press('Escape');
+
+  // a click on a difference shows the value itself (a phone has no tooltip)
+  await page.goto(base + '#/compare/armpw,corak?view=graphic&ref=armpw');
+  await page.waitForSelector('.c-head.is-ref');
+  await page.click('.stats:not(.is-ref) .val span >> nth=0');
+  check(/\(Ref: /.test(await page.locator('.note-pop').textContent()), 'a click on a difference shows the value and the one of the Ref', await page.locator('.note-pop').textContent());
+
+  // the catalog: list view, tech filter, Ctrl+Z, only the categories a faction has
+  await page.goto(base + '#/catalog/arm/bots');
+  await page.reload();
+  await page.waitForSelector('.card');
+  await page.click('.card >> nth=0');
+  await page.keyboard.press('Control+z');
+  check(await page.locator('.card.selected').count() === 0, 'catalog: Ctrl+Z takes a marked unit back', await page.locator('.card.selected').count());
+  await page.click('[data-a="view"][data-v="list"]');
+  const listed = await page.locator('.row:not(.head)').count();
+  await page.click('[data-a="tier"][data-v="2"]');
+  const tiers = await page.$$eval('.row:not(.head) .tier', t => [...new Set(t.map(x => x.textContent))]);
+  check(listed > 10 && tiers.join() === 'T2', 'catalog: the list view and the tech filter', `${listed} / ${tiers.join()}`);
+  await page.click('[data-a="tier"][data-v="2"]');
+  await page.click('[data-a="view"][data-v="grid"]');
+  const tabs = async f => { await page.goto(base + `#/catalog/${f}/bots`); await page.waitForSelector('.tabs a'); return page.locator('.tabs a').count(); };
+  const armTabs = await tabs('arm'), rapTabs = await tabs('rap');
+  check(armTabs === 8 && rapTabs < armTabs, 'catalog: a category without units of the faction is not offered', `${armTabs} / ${rapTabs}`);
+
+  if (versions.length > 1) {
+    const newest = versions[versions.length - 1].dir, oldest = versions[0].dir;
+    // the page Changes: the base cannot be the To version; search; Scavenger copies
+    await page.goto(base + '#/changes/' + oldest);
+    await page.waitForSelector('[data-change="chg-to"]');
+    const toList = await page.$$eval('[data-change="chg-to"] option', o => o.map(x => x.value));
+    check(!toList.includes(oldest) && await page.inputValue('[data-change="chg-to"]') === newest, 'Changes: the base cannot be the To version (the newest one is shown)', await page.inputValue('[data-change="chg-to"]'));
+    await page.selectOption('[data-change="chg-from"]', oldest);
+    await page.waitForFunction(() => /from=/.test(location.hash));
+    await page.waitForSelector('.chg-row');
+    const plain = await page.locator('.chg-row').count();
+    await page.check('[data-change="chg-scav"]', { force: true });
+    const withCopies = await page.locator('.chg-row').count();
+    await page.uncheck('[data-change="chg-scav"]', { force: true });
+    await page.fill('[data-input="chg-search"]', '<arm');
+    const codes = await page.$$eval('.chg-row small', s => s.map(x => x.textContent));
+    check(withCopies >= plain && codes.length > 0 && codes.length < plain && codes.every(c => c.includes('arm')), 'Changes: the switch Scavenger copies and the search', `${plain} / ${withCopies} / ${codes.length}`);
+    await page.fill('[data-input="chg-search"]', '');
+
+    // the game version at the top: in the link, and a step of Undo
+    await page.goto(base + '#/compare/armpw?view=graphic');
+    await page.reload();
+    await page.waitForSelector('.c-head');
+    await page.selectOption('select[data-change="version"]', oldest);
+    const older = await hash();
+    await page.click('[data-a="undo"]');
+    check(older.includes('v=' + oldest) && !/[?&]v=/.test(await hash()) && await page.inputValue('select[data-change="version"]') === newest, 'the game version at the top: in the link, and Undo brings the old one back', `${older} / ${await hash()}`);
+    await page.goto(base + `#/compare/armpw?view=graphic&v=${oldest}`);
+    await page.reload();
+    await page.waitForSelector('.c-head');
+    check(await page.inputValue('select[data-change="version"]') === oldest, 'a link with a game version opens that version', await page.inputValue('select[data-change="version"]'));
+
+    // a column set to another version of its unit and back is free again (no version of its own in the link)
+    const many = await page.evaluate(() => Object.keys(state.unitVersions).find(n => state.unitVersions[n].length > 1 && state.merged[state.versions[state.versions.length - 1].dir][n]));
+    await page.goto(base + `#/compare/${many}?view=graphic`);
+    await page.reload();
+    await page.waitForSelector('select.c-ver');
+    await page.selectOption('select.c-ver', { index: 1 });
+    const pinned = await hash();
+    await page.selectOption('select.c-ver', { index: 0 });
+    check(pinned.includes('@') && !(await hash()).includes('@'), 'a column set back to its newest version has no version of its own', `${pinned} / ${await hash()}`);
+  }
+  check(missing.length === 0, 'no file of the page is missing (no 404)', missing.join(' | '));
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
   check(false, 'the test ran through', e.message);

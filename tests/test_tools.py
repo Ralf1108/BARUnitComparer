@@ -106,7 +106,7 @@ class Game(unittest.TestCase):
 
 
 class Versions(unittest.TestCase):
-    def test_server_versions(self):
+    def test_parse_versions(self):
         fields = [['byar:test', 'a', '', 'Beyond All Reason test-9-aaaaaaa'],        # a tag, not a commit
                   ['byar:git:2', 'b', '', 'Beyond All Reason test-20-bbbbbbb'],
                   ['byar:git:1', 'c', '', 'Beyond All Reason test-3-ccccccc'],

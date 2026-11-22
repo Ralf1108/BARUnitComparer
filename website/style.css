@@ -139,7 +139,6 @@ img { display: block; }
 .c-tools .tool.versions { margin-left: auto; }
 .c-tools .x { color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
-.ref, .counters, .versions { white-space: nowrap; padding: 5px 11px; border: 1px solid #444; background: #0b0b0b; font-size: 13px; }
 .ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
 .counters:disabled, .versions:disabled { color: #4a4a4a; border-color: #222; border-style: dashed; background: none; cursor: not-allowed; }
 .ref.active { background: var(--gold); border-color: var(--gold); color: #000; font-weight: 500; }
@@ -262,7 +261,7 @@ img { display: block; }
   .cmp-body { padding: 8px 12px; }
   .cmp-grid { --colmin: 280px; --gap: 20px; }
   .more { width: 44px; font-size: 34px; }
-  .c-title b { font-size: 22px; } .c-tools { gap: 6px; } .ref, .counters, .versions { padding: 4px 9px; font-size: 12px; } .x { width: 30px; height: 30px; font-size: 13px; }
+  .c-title b { font-size: 22px; } .c-tools { gap: 6px; } .x { width: 30px; height: 30px; font-size: 13px; }
   .c-name { font-size: 20px; } .c-desc { font-size: 14px; } .c-eq { font-size: 11px; } .c-eq button { padding: 1px 7px; }
   .stats { padding-top: 10px; } .stat { grid-template-columns: 94px 1fr; height: 26px; font-size: 12px; } .two .right .stat { grid-template-columns: 1fr 94px; } .weapons { font-size: 13px; }
   .c-factions button, .c-cats button, .c-searchrow .toggle-pick { font-size: 13px; padding: 4px 9px; } .pick { font-size: 12px; }
@@ -339,7 +338,7 @@ span.c-ver { border: 0; background: none; }
 .chg-name b { color: var(--accent-text, var(--text)); font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .chg-name small { color: var(--muted); font-size: 11px; }
 .chg-kind { font-size: 10px; text-transform: uppercase; letter-spacing: .04em; margin-left: auto; }
-.k-changed { color: var(--gold); } .k-new { color: #7bd88f; } .k-gone { color: #e0776b; }
+.k-new { color: #7bd88f; } .k-gone { color: #e0776b; }
 .pills { display: flex; flex-wrap: wrap; gap: 4px 6px; }
 .pill { font-size: 12px; background: #1a1a1a; border: 1px solid var(--line); border-radius: 12px; padding: 1px 9px; white-space: nowrap; }
 .pill s { color: var(--muted); } .pill b { color: var(--gold); font-weight: 500; } .pill.muted { color: var(--muted); }
@@ -398,7 +397,7 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
   .cmp-body { padding: 8px 8px 70px; }
   .cmp-grid { --colmin: calc(50vw - 16px); --gap: 10px; }
   .c-head { padding-bottom: 6px; } .c-title { gap: 2px 6px; } .c-title b { font-size: 17px; letter-spacing: -.5px; } .c-title .c-ver { margin-left: 0; width: 100%; font-size: 11px; }
-  .c-tools { flex-wrap: wrap; gap: 4px; padding: 4px 0 2px; } .ref, .counters, .versions { padding: 4px 7px; font-size: 11px; } .x { width: 28px; height: 28px; font-size: 12px; } .mv { width: 26px; height: 26px; }
+  .c-tools { flex-wrap: wrap; gap: 4px; padding: 4px 0 2px; } .x { width: 28px; height: 28px; font-size: 12px; } .mv { width: 26px; height: 26px; }
   .c-name { font-size: 16px; line-height: 1.15; } .c-desc { font-size: 12px; } .c-desc .tier { margin-left: 4px; font-size: 10px; padding: 1px 4px; }
   .c-eq { gap: 3px; padding-top: 6px; font-size: 10px; } .c-eq button { padding: 1px 5px; }
   .stats { padding-top: 8px; }
@@ -457,3 +456,5 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 .c-tools .tool.versions.has::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 2px; box-sizing: border-box; border-radius: 7px;
   background: var(--gold); color: #000; font: 700 10px/14px sans-serif; text-align: center; pointer-events: none; }
 .note-pop { position: fixed; z-index: 60; max-width: 260px; padding: 7px 11px; background: #1b1508; border: 1px solid #6b5420; color: #f0dca8; font-size: 13px; border-radius: 6px; box-shadow: 0 6px 18px #000; pointer-events: none; }
+/* a difference to the Ref: a click shows the value itself */
+.val [title], .cmp-table td [title] { cursor: help; }

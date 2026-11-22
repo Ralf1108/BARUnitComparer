@@ -55,11 +55,6 @@ def server_fields():
     return bar_common.rapid_lines(bar_common.http_get(VERSIONS, timeout=120))
 
 
-def server_versions():
-    """The versions on the package server of BAR."""
-    return parse_versions(server_fields())
-
-
 def year_versions(dates, start=START, fields=None):
     """[(number, version, commit hash)], oldest first: the versions whose commit is on the branch `stable` (dates: git_history.commit_dates) and dated `start` or later."""
     fields = fields if fields is not None else server_fields()

@@ -34,9 +34,10 @@ jobs:
       - name: Smoke test of the page
         run: node tests/website_smoke.mjs
 
-      # the real data has only the base version for now: a copy of the site with a made-up chain of versions tries the version code of the page and of the data tests
+      # a copy of the site with a small made-up chain of versions: the cases the real data need not have (a unit that is gone, a change of the engine, few versions).
+      # Only the data tests depend on the data folder; the other Python tests ran above.
       - name: A chain of game versions
         run: |
           python3 tests/make_chain_site.py "$RUNNER_TEMP/chain"
-          BARUNIT_ASSETS="$RUNNER_TEMP/chain/assets" python3 -m unittest discover -s tests -v
+          BARUNIT_ASSETS="$RUNNER_TEMP/chain/assets" python3 -m unittest discover -s tests -p "test_data.py" -v
           BARUNIT_SITE="$RUNNER_TEMP/chain" node tests/website_smoke.mjs
