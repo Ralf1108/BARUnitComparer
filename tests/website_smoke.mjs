@@ -215,6 +215,15 @@ try {
   await fresh.click('[data-a="undo"]');
   const b3 = await badges();
   check(b0 === '-/-' && b2 === '2/-' && b3 === '1/1', 'Undo / Redo: a badge counts the steps (none without a step)', `${b0} ${b2} ${b3}`);
+  // Clear asks first; Cancel keeps everything, Clear all removes the units and the Undo and Redo steps
+  await fresh.click('[data-a="clear-all"]');
+  const asked = await fresh.locator('.ask').count();
+  await fresh.click('.ask [data-a="overlay-close"] >> nth=-1');
+  const kept = await fresh.evaluate(() => document.querySelectorAll('.c-head').length);
+  await fresh.click('[data-a="clear-all"]');
+  await fresh.click('.ask [data-a="clear-yes"]');
+  const cleared = await fresh.evaluate(() => [document.querySelectorAll('.c-head').length, undoStack.length, redoStack.length, !!document.querySelector('.ask')].join());
+  check(asked === 1 && kept === 2 && cleared === '0,0,0,false', 'Clear: asks first, Cancel keeps the units, Clear all removes them and the Undo and Redo steps', `${asked} ${kept} ${cleared}`);
   await freshContext.close();
   // changes (the version compare): what changed between two versions, filters, a click opens the unit compare
   if (versions.length > 1) {
@@ -392,8 +401,14 @@ try {
   await page.waitForSelector('.stats');
   const verdicts = await page.$$eval('.stats', s => s.map(x => [...x.querySelectorAll('.fill')].map(f => (f.className.match(/diff-(good|bad|same)/) || ['', 'none'])[1])));
   check(verdicts[0].every(v => v === 'none') && verdicts[1].includes('same') && verdicts[1].some(v => v === 'good' || v === 'bad') && !verdicts[1].includes('none'), 'Ref: better green, worse red, equal greyed out, the reference itself uncoloured', JSON.stringify(verdicts));
-  const signs = await page.$$eval('.stats:not(.is-ref) .fill', f => f.map(x => [(x.className.match(/diff-(good|bad|same)/) || [])[1], x.nextElementSibling.textContent.trim()[0]]));
-  check(signs.length > 0 && signs.every(([v, ch]) => (v === 'good' && ch === '+') || (v === 'bad' && ch === '−') || (v === 'same' && ch === '±')), 'Ref: the other columns show the difference (+ better, − worse, ±0 equal)', JSON.stringify(signs));
+  // the sign says more or less than the Ref (the colour says better or worse): the Scavenger copy costs more metal, +, in red
+  const signs = await page.$$eval('.stats', s => { const label = x => x.closest('.stat').querySelector('label').textContent.trim();
+    const ref = Object.fromEntries([...s[0].querySelectorAll('.fill')].map(f => [label(f), Number(f.nextElementSibling.textContent.replace(/[^\d.]/g, ''))]));
+    return [...s[1].querySelectorAll('.fill')].map(f => [label(f), (f.className.match(/diff-(good|bad|same)/) || [])[1], f.nextElementSibling.textContent.trim()[0],
+      Number((f.closest('.stat').querySelector('.abs') || {}).textContent?.replace(/[^\d.]/g, '')), ref[label(f)]]); });
+  const signOk = ([, v, ch, own, r]) => v === 'same' ? ch === '±' : isNaN(own) || isNaN(r) || ch === (own > r ? '+' : '−');
+  const metal = signs.find(x => x[0] === 'Metal');
+  check(signs.length > 0 && signs.every(signOk) && metal && metal[1] === 'bad' && metal[2] === '+', 'Ref: the difference has the sign of more (+) or less (−), the colour says better or worse (more metal: + in red)', JSON.stringify(signs));
   await page.waitForFunction(() => [...document.querySelectorAll('.stats.is-ref .fill')].every(x => x.isConnected && getComputedStyle(x).backgroundColor));   // after a render the page may draw once more
   const refFills = await page.$$eval('.stats.is-ref .fill', f => [...new Set(f.map(x => getComputedStyle(x).backgroundColor))]);
   check(refFills.length === 1 && refFills[0] === 'rgb(255, 212, 138)', 'Ref: all bars of the reference column are yellow', JSON.stringify(refFills));

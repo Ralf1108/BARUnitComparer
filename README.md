@@ -14,7 +14,7 @@ Look up and compare the units of [Beyond All Reason](https://www.beyondallreason
 
 [![The catalog: the bots of Armada](docs/catalog.png)](https://ralf1108.github.io/BARUnitComparer/)
 
-**Compare:** every unit is a column, every value a bar (or a row of the table). Add more units from the selection at the right (**Changed units only** lists just the units that some patch changed).
+**Compare:** every unit is a column, every value a bar (or a row of the table). Add more units from **Select units** at the right (**Changed units only** lists just the units that some patch changed; **Hide** folds it away for more room).
 
 **Changes:** what a patch changed: every unit whose values differ between two game versions, old value → new value. One column per faction, so a unit and its counterparts in the other factions stand side by side. **◀ Older / Newer ▶** steps through the patches one by one.
 
@@ -24,7 +24,7 @@ Look up and compare the units of [Beyond All Reason](https://www.beyondallreason
 
 | Above each unit | |
 |---|---|
-| **Ref** (balance) | this unit is the reference: the others show the difference to it, green **+** better, red **−** worse, equal values grey |
+| **Ref** (balance) | this unit is the reference: the others show the difference to it (**+** more, **−** less), green if that is better, red if it is worse (more metal: **+** in red), equal values grey |
 | **Versions** (clock, beside the list of versions) | every other game version of this unit next to it, the changed values marked; the list (white: several versions) shows the unit as it was in one of them |
 | **Counterparts** (arrows) | the units of the other factions that do the same job |
 | **Counters** (swords) | the units that are good against this unit |
@@ -33,7 +33,7 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 
 | At the top | |
 |---|---|
-| **Undo / Clear / Redo** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again |
+| **Undo / Clear / Redo** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again (it asks first) |
 | **Graphic / Table** | bars with pictures, or a compact table |
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Save / Share** | keep the selection as a favorite, or share its link (the link holds everything: units, view, Ref, game version) |

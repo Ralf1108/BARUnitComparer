@@ -621,3 +621,18 @@ select.c-ver:disabled { color: #666; }
 /* the heading of the unit selection of the compare: bold like the names of the factions above the columns, in gold */
 .c-pick-title { margin: 0 0 10px; color: var(--gold); font-size: 28px; font-weight: 700; letter-spacing: -1px; line-height: 1.2; }
 @media (max-width: 900px) { .c-pick-title { font-size: 20px; letter-spacing: -.5px; margin-bottom: 6px; } }
+/* the unit selection can be folded away to the right: Hide next to its heading; folded, a strip with the word Select units brings it back */
+.c-pick-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.c-pick-head .c-pick-title { margin: 0; }
+.c-pick-head .toggle-pick { padding: 6px 12px; border: 1px solid #333; border-radius: 8px; background: #111; color: #ddd; font-size: 13px; white-space: nowrap; }
+.c-pick-head .toggle-pick:hover { background: #1d1d1d; color: #fff; border-color: #555; }
+.chooser.collapsed { width: 48px; }
+.chooser.collapsed .toggle-pick { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 14px; width: 48px; padding: 14px 0; border: 1px solid #2e2e2e; border-radius: 8px; background: #0e0e0e; color: var(--gold); }
+.chooser.collapsed .toggle-pick:hover { background: #1a1a1a; border-color: var(--gold); }
+.tp-arrow { font-size: 14px; } .tp-word { writing-mode: vertical-rl; transform: rotate(180deg); font-size: 18px; font-weight: 700; letter-spacing: -.3px; white-space: nowrap; }
+
+/* Clear asks first */
+.detail.ask { width: min(400px, calc(100vw - 16px)); }
+.ask h3 { margin: 0 0 8px; font-size: 22px; font-weight: 500; } .ask p { margin: 0; color: #ccc; font-size: 14px; line-height: 1.5; }
+.ask .btn.danger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: #3a1212; border-color: #8a3030; color: #ff9a90; }
+.ask .btn.danger:hover, .ask .btn.danger:focus-visible { background: #5a1a1a; color: #fff; }

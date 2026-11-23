@@ -88,7 +88,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 **Layout:** the toolbar (`toolbarHtml`), the columns, at the right the unit selection (it can be folded away; remembered). Columns and selection fill the window: the pictures shrink (60 to 300 px) so that the page needs no scrollbar. Without units the page says what to do and offers examples (`emptyCompareHtml`).
 
-**The toolbar,** groups of buttons with icons (`ICONS`), a lit button is on: **Undo** / **Clear** / **Redo** (a gold badge with the number of steps; no step: no badge) · **Graphic / Table** · **+ Scav** · **Save** (star, filled for a favorite) / **Share**. A button that cannot be used now is grey. On a phone only the icons, in one line.
+**The toolbar,** groups of buttons with icons (`ICONS`), a lit button is on: **Undo** / **Clear** / **Redo** (a gold badge with the number of steps; no step: no badge; **Clear** asks first, `askHtml`, then removes all units and the Undo and Redo steps) · **Graphic / Table** · **+ Scav** · **Save** (star, filled for a favorite) / **Share**. A button that cannot be used now is grey. On a phone only the icons, in one line.
 
 **Graphic view:** a column is a unit: faction, the list of its versions, its tools, picture, name, description, tech level, counterparts, then the values as bars, scaled to the largest value of the row; a row is shown only if a unit has the value. Two columns: the bars are mirrored. Each label has a tooltip (`tip` in `STATS`). Columns are 360 px wide at least, a little narrower (down to 280 px) when that saves a few pixels of scrolling (`fitColumns`); arrows at the edges show hidden columns and scroll to the next one.
 
@@ -98,7 +98,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 **The tools of a column** (`toolButton`): at the left the grip (drag to move; arrow keys), at the right **Counters** (swords), **Counterparts** (arrows), **Ref** (balance), × (remove). Versions, Counters and Counterparts are lit while what they added is shown; pressed again they take it out and bring back what they put aside (`toggleTool`; only the newest one, older ones with Undo).
 
-- **Ref:** one unit at a time. Every other column is coloured against it (green better, red worse; less is better for costs and build time; equal values grey) and shows the difference instead of the value (`valueText`: **+** better, **−** worse, ±0), the value itself small beside it (`absText`), both in the tooltip and as a note on a click. The Ref column itself is yellow. It stays at its place; scrolled to the left edge it sticks there and shrinks to a strip with its values (see below).
+- **Ref:** one unit at a time. Every other column is coloured against it (green better, red worse; less is better for costs and build time; equal values grey) and shows the difference instead of the value (`valueText`: **+** more, **−** less, ±0; the colour says better or worse, so 86 metal more is **+86** in red), the value itself small beside it (`absText`), both in the tooltip and as a note on a click. The Ref column itself is yellow. It stays at its place; scrolled to the left edge it sticks there and shrinks to a strip with its values (see below).
 - **Versions:** adds every other version of the unit as columns right of it and makes it the Ref. A column shows the newest version of its unit that is not newer than its game version (`stateVersion`). Values that differ between versions of a unit are marked gold (`anchorOf`, `cellChanged`).
 - **Counters:** replaces the other columns with the units that counter this unit (`counters.json`; grey if none is known).
 - **Counterparts:** adds the units of the other factions with the same group in `counterparts.json`; also one button per counterpart under the description.
@@ -112,7 +112,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 - **Share:** copies the link and says so; on a touch device it opens the share menu (`navigator.share`).
 - **Sorting:** a click on the name of a value orders the columns by it, the best first, again: the other way round (`state.sort`, an Undo step).
 
-**The unit selection:** the heading **Select units** (gold, bold like the faction names of the columns), the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
+**The unit selection:** the heading **Select units** (gold, bold like the faction names of the columns) with **Hide ▶** at the right: it folds the selection away to a narrow strip at the right edge (the word Select units written upwards; a click brings it back; remembered in the browser), the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
 
 **Search** (everywhere): a text finds the start of a word in the name or description (`pawn`: Pawn, Pawn Launcher); `<armpw` finds a part of the code name (the field turns green).
 

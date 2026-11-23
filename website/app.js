@@ -517,17 +517,18 @@ function renderHelp() {
       ${item('Ctrl+Z', 'takes back the last click (Ctrl+Y: repeats it).')}</ul>
     <h2>The compare</h2>
     <ul>${[
-      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> better, <b>&minus;</b> worse, ±0 equal; the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> more, <b>&minus;</b> less, ±0 equal (green or red says whether that is better or worse: 86 metal more is +86 in red); the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
-      ['Unit selection', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. The arrow folds the selection away.'],
+      ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back.'],
       ['Table view', 'the same values as a compact table.'],
       ['&#9734;', 'saves the selection as a favorite (in your browser).'],
-      ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog).'],
+      ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog). The number on them: how many steps there are.'],
+      ['Clear', '(between Undo and Redo) starts again: removes all units and the Undo and Redo steps. It asks first.'],
       [`${ICONS.share} Share`, 'copies the link of the comparison, to send it to someone (on a phone: opens the share menu).'],
       ['The name of a value', 'click it (Metal, Hitpoints, ...) to sort the columns by this value, the best first; again: the worst first.'],
       ['&#8942;&#8942;', 'drag it to move a column (on a phone: Move left / Move right in the menu of the column).'],
@@ -629,7 +630,7 @@ function toolbarHtml() {
     ? `<button class="btn on" title="${label} view (shown)" aria-pressed="true">${icon}<span class="lb">${label}</span></button>`
     : `<button class="btn" data-a="view-table" title="${tip}" aria-pressed="false">${icon}<span class="lb">${label}</span></button>`;
   return `<div class="cmp-clear">
-    ${(([undo, redo]) => group(undo, btn('clear-all', ICONS.trash, 'Clear', 'Remove all units from the comparison and start again', { off: !!any, cls: 'danger' }), redo))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
+    ${(([undo, redo]) => group(undo, btn('clear-all', ICONS.trash, 'Clear', 'Start again: remove all units and the Undo and Redo steps (asks first)', { off: !!any, cls: 'danger' }), redo))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
       // a badge with the number of steps that can be taken back (or repeated); none: no badge
       btn(a, icon, label, `${tip}${stack.length ? ` - ${stack.length} step${stack.length === 1 ? '' : 's'}` : ''}`, { off: !stack.length }).replace('<button class="btn', `<button ${stack.length ? `data-n="${stack.length}" ` : ''}class="btn${stack.length ? ' n-steps' : ''}`)))}
     ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}
@@ -679,7 +680,7 @@ function emptyCompareHtml() {
   return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
     <ol class="steps"><li><b>Pick units</b> ${isNarrow() ? 'with <b>+ Add units</b> at the bottom' : `in the list ${state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}`}: every click adds a column. The search finds units of all factions.</li>
       <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
-      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it, green (better, +) or red (worse, &minus;); equal values are greyed out.</li></ol>
+      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it (+ more, &minus; less), green if that is better, red if it is worse; equal values are greyed out.</li></ol>
     ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 4).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
     <p class="hint">More: <a href="#/help">how the page works</a></p></div>`;
 }
@@ -863,10 +864,11 @@ function columnHtml(c, col, side, max, reference, stats) {
 // the unit selection at the right edge: a click on a unit adds a column
 function chooserHtml() {
   const p = state.pick, narrow = isNarrow();
-  if (!state.pickOpen && !narrow) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
+  // folded away (a wide window): a narrow strip at the right edge that brings it back
+  if (!state.pickOpen && !narrow) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection"><span class="tp-arrow">&#9664;</span><span class="tp-word">Select units</span></button></div>`;
   return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
-    <h2 class="c-pick-title">Select units</h2>
-    <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="${narrow ? 'Close the unit selection' : 'Hide the unit selection (to the right)'}">${narrow ? 'Done' : '&#9654;'}</button></div>
+    <div class="c-pick-head"><h2 class="c-pick-title">Select units</h2>${narrow ? '' : `<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection: more room for the columns (a strip at the right edge brings it back)">Hide &#9654;</button>`}</div>
+    <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>${narrow ? '<button class="toggle-pick" data-a="pick-toggle" title="Close the unit selection">Done</button>' : ''}</div>
     ${state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
     ${filterHtml({ small: true, faction: p.search ? '' : p.faction, category: p.search ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}
     <div class="picker">${pickerHtml()}</div></div>`;
@@ -953,17 +955,18 @@ function verdictOf(s, v, ref) {
   return (s.lower ? v > r : v < r) ? ' diff-bad' : ' diff-good';
 }
 
-// with a Ref the other columns show the difference to it instead of the value: + better, − worse (for the costs and the build time less is better), ±0 equal;
+// with a Ref the other columns show the difference to it instead of the value: + more, − less, ±0 equal (the colour of the bar says better or worse:
+// for the costs and the build time less is better);
 // the value itself is in the tooltip. Without a Ref, in the version comparison, or if the Ref has no such value: the value
 function valueText(s, v, ref) {
   const r = ref && !ref.anchor ? ref[s.key] : 0;
   if (!r) return s.show(v);
   const title = ` title="${esc(s.show(v))} (Ref: ${esc(s.show(r))})"`;
   if (v === r) return `<span${title}>±0</span>`;
-  const d = Math.abs(v - r), better = s.lower ? v < r : v > r;
+  const d = Math.abs(v - r);
   let t = s.show(d);
   if (/^[0:.]*$/.test(t)) t = d < 1 ? String(Number(d.toPrecision(1))) : t;   // a small difference that the format would show as 0
-  return `<span${title}>${better ? '+' : '−'}${t}</span>`;
+  return `<span${title}>${v > r ? '+' : '−'}${t}</span>`;   // the sign: more or less than the Ref; the colour says better or worse
 }
 
 // with a Ref: the value itself, small, next to the difference
@@ -1050,8 +1053,18 @@ function renderOverlay() {
   const c = state.menu && state.page === 'compare' ? displayColumns().find(o => o.id === state.menu) : null;
   if (!c) state.menu = null;
   if (state.detail && !pickUnit(state.detail)) state.detail = null;
-  overlay.innerHTML = state.detail ? detailHtml(state.detail) : c ? menuHtml(c) : '';
+  if (state.ask && state.page !== 'compare') state.ask = null;
+  overlay.innerHTML = state.ask ? askHtml() : state.detail ? detailHtml(state.detail) : c ? menuHtml(c) : '';
+  if (state.ask) overlay.querySelector('[data-a="clear-yes"]').focus();
   document.body.classList.toggle('modal', overlay.innerHTML !== '');
+}
+// Clear asks first: all units and the Undo and Redo steps go, it cannot be taken back
+function askHtml() {
+  const n = state.columns.length;
+  return `<div class="sheet-back" data-a="overlay-close"></div><div class="detail ask" role="alertdialog" aria-label="Clear the comparison">
+    <h3>Clear the comparison?</h3>
+    <p>All ${n} unit${n === 1 ? '' : 's'} and the Undo and Redo steps are removed. This cannot be taken back.</p>
+    <div class="d-actions"><button class="btn" data-a="overlay-close">Cancel</button><button class="btn danger" data-a="clear-yes">${ICONS.trash} Clear all</button></div></div>`;
 }
 // the menu of a column: what the icon buttons of a wide window do, each with its name and a line that says what happens
 function menuHtml(c) {
@@ -1107,7 +1120,7 @@ const showLastColumn = () => { const s = app.querySelector('.cmp-scroll'); s.scr
 
 const actions = {
   'col-menu'(v, el) { state.menu = columnOf(el).id; renderOverlay(); },
-  'overlay-close'() { state.menu = state.detail = null; renderOverlay(); },
+  'overlay-close'() { state.menu = state.detail = state.ask = null; renderOverlay(); },
   detail(v) { state.detail = v; state.menu = null; renderOverlay(); },
   'detail-toggle'() {
     const n = state.detail;
@@ -1167,7 +1180,11 @@ const actions = {
     renderCompare();
   },
   move(v, el) { moveColumn(columnOf(el), Number(v)); },
-  'clear-all'() { remember(); state.columns = []; keepAddress(); render(); },
+  'clear-all'() { state.ask = 'clear'; renderOverlay(); },   // asks first (askHtml): it cannot be taken back
+  'clear-yes'() {   // start again: no units, no Undo and Redo steps
+    state.ask = null; state.sort = null; state.columns = []; undoStack.length = 0; redoStack.length = 0;
+    keepAddress(); render(); renderOverlay();
+  },
   clear() { remember(); state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
@@ -1283,7 +1300,7 @@ document.addEventListener('keydown', e => {
 
 // the keyboard: Enter / Space press a card or row of the catalog (they are no <button>), the arrow keys move a column whose grip has the focus, Escape closes the favorites
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && (state.menu || state.detail)) { actions['overlay-close'](); return; }
+  if (e.key === 'Escape' && (state.menu || state.detail || state.ask)) { actions['overlay-close'](); return; }
   if (e.key === 'Escape' && state.favOpen) { state.favOpen = false; renderNav(); document.querySelector('.fav-open').focus(); return; }
   const grip = e.target.closest && e.target.closest('.grip');
   if (grip && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
