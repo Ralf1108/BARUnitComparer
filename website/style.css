@@ -651,3 +651,9 @@ select.c-wpn.on:disabled { color: #a08a5a; border-color: #5a4a28; }
 .pill.w { border-style: dashed; }
 @media (max-width: 600px) { select.c-wpn { font-size: 11px; } .c-wrow { padding-right: 0; }
   .cmp-grid .c-head { flex-wrap: wrap; } .cmp-grid .c-head .c-wrow { order: 3; flex: 1 0 100%; margin-top: 4px; } select.c-wpn { min-height: 30px; } }   /* a line of its own below the faction and the buttons */
+
+/* the tech levels of the choice of units: wide buttons, easy to hit (catalog and Changes about 2.5 times as wide; the unit selection: the whole width) */
+.filt-row .seg.small button { min-width: 80px; justify-content: center; }
+.filt.small .filt-row .seg.small { flex: 1 0 100%; display: flex; }
+.filt.small .filt-row .seg.small button { flex: 1; min-width: 0; }
+@media (max-width: 600px) { .filt-row .seg.small button { min-width: 64px; } }
