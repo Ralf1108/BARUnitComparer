@@ -176,7 +176,7 @@ img { display: block; }
 .c-unit { text-align: center; }
 /* the picture shrinks with the height of the window, so that the stats and the footer fit without a scrollbar */
 .c-pic { position: relative; width: var(--pic, 300px); max-width: 100%; margin: 0 auto; }
-.c-pic img { width: 100%; }
+.c-pic img { width: 100%; aspect-ratio: 1; object-fit: contain; }   /* square, also before it is loaded: the layout is fitted to the window at once */
 .c-name { font-size: 26px; font-weight: 300; letter-spacing: -.5px; }
 .c-desc { color: var(--gold); font-size: 16px; letter-spacing: -.3px; }
 .c-desc .tier { margin-left: 8px; vertical-align: 2px; }
@@ -458,3 +458,88 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 .note-pop { position: fixed; z-index: 60; max-width: 260px; padding: 7px 11px; background: #1b1508; border: 1px solid #6b5420; color: #f0dca8; font-size: 13px; border-radius: 6px; box-shadow: 0 6px 18px #000; pointer-events: none; }
 /* a difference to the Ref: a click shows the value itself */
 .val [title], .cmp-table td [title] { cursor: help; }
+
+/* ------------------------------------------------ the bar at the bottom of the catalog lies over the cards (their tech level and role icon have a z-index) */
+#tray { z-index: 30; }
+.btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
+.c-tools .tool.menu svg { stroke-width: 2.8; }
+.c-filter { padding: 0 0 6px; } .c-filter .btn { font-size: 13px; padding: 6px 10px; }
+
+/* with a Ref: the value itself, small, at the other end of the bar (the table: behind the difference) */
+.abs { position: absolute; right: 3px; top: 1px; height: 13px; padding: 0 5px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #b5b5b5; font-size: 11px; line-height: 13px; font-variant-numeric: tabular-nums; }
+.two .left .abs { right: auto; left: 3px; }
+.cmp-table td .abs { position: static; height: auto; padding: 0; margin-left: 8px; background: none; color: #777; font-weight: 400; line-height: inherit; }
+/* the weapons of the reference column as a strip: one line, cut off (not broken in the middle of a word) */
+.scrolled .cmp-table td.ref-col.wpn { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; overflow-wrap: normal; }
+
+/* a click on the name of a value sorts the columns by it */
+[data-a="sort"] { cursor: pointer; }
+.stat label[data-a="sort"]:hover, .cmp-table tbody th[data-a="sort"]:hover { color: var(--text); }
+.sorted { font-style: normal; color: var(--gold); margin-left: 4px; }
+
+/* scrolled down: the names of the units in a line at the top of the window, above their columns (updatePin) */
+.pin { position: fixed; top: 0; height: 36px; z-index: 25; overflow: hidden; background: rgba(0, 0, 0, .95); border-bottom: 1px solid #333; pointer-events: none; }
+.pin[hidden] { display: none; }
+.pin-u { position: absolute; top: 0; bottom: 0; box-sizing: border-box; display: flex; align-items: center; gap: 6px; padding: 0 4px; overflow: hidden; white-space: nowrap; font-size: 13px; color: var(--accent-text); }
+.pin-u img { width: 30px; height: 30px; object-fit: contain; flex: none; }
+.pin-u span { overflow: hidden; text-overflow: ellipsis; }
+.pin-u.is-ref { z-index: 1; background: #000; color: var(--gold); box-shadow: 8px 0 8px -6px #000; }
+
+/* over the page: the menu of a column (a sheet from the bottom edge) and all values of one unit (a card in the middle) */
+#overlay:empty { display: none; }
+body.modal { overflow: hidden; }
+.sheet-back { position: fixed; inset: 0; z-index: 50; background: rgba(0, 0, 0, .65); }
+.col-menu, .detail { position: fixed; z-index: 51; box-sizing: border-box; background: #0e0e0e; border: 1px solid #444; box-shadow: 0 12px 40px #000; overflow-y: auto; }
+.col-menu { left: 0; right: 0; bottom: 0; max-height: 90vh; padding: 10px; border-width: 2px 0 0; border-top-color: var(--gold); display: flex; flex-direction: column; gap: 4px; }
+.m-head { display: flex; align-items: center; gap: 10px; padding-bottom: 6px; }
+.m-head img { width: 48px; height: 48px; object-fit: contain; flex: none; }
+.m-text { display: flex; flex-direction: column; flex: 1; min-width: 0; text-align: left; }
+.m-text b { font-weight: 500; } .m-head .m-text b { color: var(--accent-text); font-size: 16px; }
+.m-text small { color: var(--muted); font-size: 12px; line-height: 1.3; }
+.m-item { display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 6px 10px; background: #161616; border: 1px solid #262626; text-align: left; font-size: 14px; }
+.m-item:disabled { opacity: .4; }
+.m-item.on { border-color: var(--gold); background: #2a210d; }
+.m-item.danger, .m-item.danger b { color: #ff8a80; } .m-item.danger { border-color: #6b2a2a; background: #2a1010; }
+.m-icon { width: 24px; flex: none; display: grid; place-items: center; font-size: 15px; }
+.m-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.m-row { display: flex; gap: 4px; } .m-row .m-item { flex: 1; justify-content: center; }
+.m-ver { display: flex; flex-direction: column; gap: 4px; padding: 6px 2px; color: var(--muted); font-size: 12px; }
+.m-ver select.c-ver { width: 100%; min-height: 40px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); color: var(--text); font-size: 14px; }
+.detail { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(460px, calc(100vw - 16px)); max-height: calc(100vh - 16px); padding: 16px; border-radius: 8px; }
+.d-close { position: absolute; top: 8px; right: 8px; width: 36px; height: 36px; border-radius: 50%; background: #1a1a1a; border: 1px solid #333; }
+.d-head { display: flex; align-items: center; gap: 12px; padding-right: 36px; }
+.d-pic { width: 110px; height: 110px; object-fit: contain; flex: none; }
+.d-fac { color: var(--accent-text); font-weight: 700; } .d-head h3 { margin: 2px 0; font-size: 22px; font-weight: 300; } .d-head p { margin: 0; color: var(--gold); font-size: 14px; }
+.d-rows { margin: 12px 0; }
+.d-row { display: flex; justify-content: space-between; gap: 16px; padding: 5px 2px; border-bottom: 1px solid #1c1c1c; font-size: 14px; }
+.d-row span { color: var(--muted); } .d-row b { font-weight: 500; text-align: right; font-variant-numeric: tabular-nums; }
+.d-more { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; padding: 4px 0; font-size: 12px; color: var(--muted); } .d-more span { width: 100%; }
+.d-more button { padding: 4px 10px; background: #111; border: 1px solid var(--accent-line); color: var(--accent-text); font-size: 13px; }
+.d-actions { display: flex; gap: 8px; padding-top: 12px; } .d-actions .btn { flex: 1; min-height: 40px; } .d-actions .btn:disabled { opacity: .4; }
+/* a unit that is held shows its values: no text selection, no picture menu of the phone */
+.card, .row, .pick { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
+
+@media (max-width: 600px) {
+  /* header: brand, game version and GitHub in one line */
+  #version select { max-width: 44vw; font-size: 11px; }
+  /* catalog: the row of categories fades out at the right edge (there is more to swipe to) */
+  .tabs { padding-right: 40px; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent); }
+  /* compare: the buttons above the columns in one line, big enough for a finger */
+  .cmp-clear { flex-wrap: nowrap; gap: 4px; padding: 8px 8px 0; } .cmp-clear .lb { display: none; }
+  .cmp-clear .btn { min-width: 38px; min-height: 36px; padding: 4px 9px; font-size: 13px; white-space: nowrap; }
+  /* the head of a column: the faction at the left, Ref and the menu at the right; the values start on the first screen */
+  .cmp-grid .c-head { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+  .c-title { min-width: 0; flex-direction: column; flex-wrap: nowrap; align-items: flex-start; gap: 0; } .c-title b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .c-title span.c-ver, th span.c-ver { width: auto; padding: 0; font-size: 10px; }
+  .c-tools, .cmp-table .c-tools { flex: none; gap: 6px; padding: 0; } .cmp-table .c-tools { padding-top: 6px; }
+  .c-tools .tool, .cmp-table .c-tools .tool { width: 36px; height: 36px; } .c-tools .tool svg, .cmp-table .c-tools .tool svg { width: 18px; height: 18px; }
+  .c-eq { display: none; }   /* the counterparts are in the menu of the column */
+  .stat label { padding-top: 2px; }
+}
+/* a low window (a phone held sideways): less above the columns */
+@media (max-height: 500px) and (max-width: 900px) {
+  .nav { padding: 4px 12px; } .cmp-kicker { display: none; } .cmp-clear { padding-top: 6px; } .cmp-clear .lb { display: none; }
+  .c-name { font-size: 16px; } .c-desc { font-size: 12px; } .c-eq { display: none; }
+}
+/* the table on a narrow window with a Ref: room behind the last column, so that it can be scrolled right beside the strip of the reference column */
+.cmp-table thead th.t-pad { min-width: 0; padding: 0; border: 0; }   /* its width: updateMore */

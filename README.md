@@ -10,7 +10,7 @@ Look up and compare the units of [Beyond All Reason](https://www.beyondallreason
 
 ## How to use it
 
-**1. Pick units in the catalog.** Choose a faction and a category and click the units you want.
+**1. Pick units in the catalog.** Choose a faction and a category and click the units you want. Hold a unit (or right-click it) to see all its values first.
 
 [![The catalog: the bots of Armada](docs/catalog.png)](https://ralf1108.github.io/BARUnitComparer/)
 
@@ -18,12 +18,16 @@ Look up and compare the units of [Beyond All Reason](https://www.beyondallreason
 
 | Icon | What it does |
 |---|---|
-| **Ref** (balance) | makes this unit the reference: the values of the others turn green (better) or red (worse), equal values are greyed out |
+| **Ref** (balance) | makes this unit the reference: the others show the difference to it, green (better, +) or red (worse, −), equal values are greyed out |
 | **Versions** (clock) | adds every other game version of this unit next to it, the changed values marked |
 | **Counterparts** (arrows) | adds the units of the other factions that do the same job |
 | **Counters** (swords) | shows the units that are good against this unit |
 
-Pressed again, an icon takes back what it added. Columns can be moved by drag and drop (on a phone with the two arrow buttons).
+Pressed again, an icon takes back what it added. Columns can be moved by drag and drop. A click on the name of a value (Metal, Hitpoints, ...) sorts the columns by it.
+
+**On a phone** each unit has **Ref** and a menu (three dots) with all of this in words.
+
+<a href="https://ralf1108.github.io/BARUnitComparer/"><img src="docs/phone.png" width="260" alt="The compare page on a phone: two units, Pawn as the reference"></a>
 
 **3. See what a patch changed.** The page **Changes** lists every unit whose values changed between two game versions, old value → new value.
 
@@ -36,15 +40,17 @@ The page **Help** on the website explains every button and value.
 | | |
 |---|---|
 | **Catalog** | all units by faction and category, as grid or list, with search and tech level filter |
-| **Compare** | any number of units side by side, as bars or as a compact table; columns can be moved by drag and drop |
-| **Ref** | one unit is the reference: the others show the difference to it, green (better, +) or red (worse, −), a click on a number shows the value itself; it stays where it is and, scrolled to the left edge, stays in view as a narrow strip of values |
+| **Compare** | any number of units side by side, as bars or as a compact table; columns can be moved by drag and drop and sorted by any value |
+| **Value for cost** | hitpoints per metal and DPS per metal next to the plain values |
+| **Unit card** | hold or right-click a unit: all its values, its counterparts and its counters, without adding it to the comparison |
+| **Ref** | one unit is the reference: the others show the difference to it, green (better, +) or red (worse, −), the value itself small beside it; scrolled to the left edge, the reference stays in view as a narrow strip of values |
 | **Counterparts** | the units of the other factions that do the same job; one click adds them all, a second takes them out |
 | **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info); a second click brings the old columns back |
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Changes** | what changed between any two game versions of the year (from 2026-01-01): changed values, new and removed units |
 | **Versions** | all versions of a unit as columns next to each other, the changed values marked |
-| **Share and keep** | the link holds the whole comparison (units, view, Ref, game version); **Favorites** keep selections in your browser; **Undo / Redo** |
-| **Phone** | two units on the screen, the unit selection comes up from the bottom (**+ Add units**), swipe sideways for more |
+| **Share and keep** | **Share** copies the link (on a phone: the share menu); it holds the whole comparison (units, view, Ref, game version); **Favorites** keep selections in your browser; **Undo / Redo** |
+| **Phone** | two units on the screen with their values in view at once, a menu with words instead of small icons, the unit selection comes up from the bottom (**+ Add units**), swipe sideways for more |
 
 Only values count as a change: a new model or texture alone is not listed.
 

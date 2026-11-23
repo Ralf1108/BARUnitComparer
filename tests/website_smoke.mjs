@@ -229,9 +229,38 @@ try {
   check(await page.locator('.chooser.sheet.open').count() === 1, 'phone: a unit is added from the sheet, which stays open for the next one', '');
   await page.click('.chooser .toggle-pick');
   await page.waitForSelector('.fab');
-  await page.click('.c-head >> nth=0 >> [data-a="move"][data-v="1"]');
+  // a phone: the tools of a column are in its menu (three dots), each entry with its name; the buttons above the columns fit in one line
+  const tools = await page.$$eval('.c-head >> nth=0 >> .c-tools button', b => b.map(x => [x.dataset.a, Math.round(x.getBoundingClientRect().width)]));
+  check(tools.map(x => x[0]).join() === 'col-ref,col-menu' && tools.every(x => x[1] >= 36), 'phone: a column has Ref and a menu, big enough for a finger', JSON.stringify(tools));
+  const bar = await page.$$eval('.cmp-clear .btn', b => [new Set(b.map(x => Math.round(x.getBoundingClientRect().top))).size, Math.min(...b.map(x => Math.round(x.getBoundingClientRect().height)))]);
+  check(bar[0] === 1 && bar[1] >= 36, 'phone: the buttons above the columns are in one line', bar.join(' / '));
+  const firstValue = await page.evaluate(() => Math.round(document.querySelector('.stats .stat').getBoundingClientRect().top));
+  check(firstValue < 420, 'phone: the values start in the upper half of the screen', firstValue);
+  await page.click('.c-head >> nth=0 >> [data-a="col-menu"]');
+  await page.waitForSelector('.col-menu');
+  const entries = await page.$$eval('.col-menu [data-a]', b => b.map(x => x.dataset.a));
+  check(['col-ref', 'detail', 'col-versions', 'add-counterparts', 'col-counters', 'move', 'remove-column'].every(a => entries.includes(a)) && await page.locator('.col-menu .m-text small').count() >= 6, 'phone: the menu lists every tool with a line that explains it', entries.join());
+  await page.click('.col-menu [data-a="move"][data-v="1"]');
   await page.waitForFunction(() => location.hash.startsWith('#/compare/corak,armpw'));
-  check((await hash()).startsWith('#/compare/corak,armpw'), 'phone: the button moves the column', await hash());
+  check((await hash()).startsWith('#/compare/corak,armpw') && await page.locator('.col-menu').count() === 1, 'phone: the menu moves the column (and stays open to move on)', await hash());
+  await page.click('.col-menu [data-a="col-ref"]');
+  check(await page.locator('.col-menu').count() === 0 && /ref=armpw/.test(await hash()), 'phone: Ref from the menu, the menu closes', await hash());
+  await page.click('.c-head.is-ref [data-a="col-menu"]');
+  await page.click('.col-menu [data-a="detail"]');
+  check(await page.locator('.detail .d-row').count() >= 5 && await page.locator('.col-menu').count() === 0, 'phone: the menu shows all values of the unit', await page.locator('.detail .d-row').count());
+  await page.keyboard.press('Escape');
+  check(await page.locator('.detail').count() === 0, 'Escape closes the values of the unit', '');
+  await page.click('.c-head.is-ref [data-a="col-ref"]');
+  // scrolled down: the names of the units stay at the top of the window
+  await page.setViewportSize({ width: 390, height: 420 });   // a low screen: the page is long enough to scroll the names out of view
+  await page.evaluate(() => window.scrollTo(0, document.querySelector('.stats').getBoundingClientRect().top + window.scrollY + 40));
+  await page.waitForTimeout(200);
+  const pinned = await page.$$eval('.pin:not([hidden]) .pin-u', p => p.map(x => x.textContent));
+  check(pinned.length === 3 && pinned[0] === 'Grunt', 'phone, scrolled down: the names of the units stay at the top', pinned.join());
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.waitForTimeout(200);
+  check(await page.locator('.pin[hidden]').count() === 1, 'at the top the line of names is hidden', '');
+  await page.setViewportSize({ width: 390, height: 800 });
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'phone: the page is not wider than the screen', '');
   await page.goto(base + '#/catalog/arm/bots');
   await page.waitForSelector('.card');
@@ -428,6 +457,81 @@ try {
     await page.selectOption('select.c-ver', { index: 0 });
     check(pinned.includes('@') && !(await hash()).includes('@'), 'a column set back to its newest version has no version of its own', `${pinned} / ${await hash()}`);
   }
+  // ---- sort by a value, the value next to the difference, the values per metal, share, all values of a unit (right-click or a long press)
+  await page.setViewportSize({ width: 1600, height: 900 });
+  await page.goto(base + '#/compare/armpw,armflea,corak?view=graphic');
+  await page.reload();
+  await page.waitForSelector('.c-head');
+  await page.click('.stats >> nth=0 >> label[data-v="metal"]');
+  const cheap = await hash();
+  await page.click('.stats >> nth=0 >> label[data-v="metal"]');
+  const dear = await hash();
+  const costs = await page.evaluate(() => state.columns.map(c => unitOf(c).metal));
+  check(cheap.startsWith('#/compare/armflea,') && costs.every((m, i) => !i || m <= costs[i - 1]) && cheap !== dear, 'a click on the name of a value sorts the columns (the best first, again: the other way round)', `${cheap} / ${dear} / ${costs}`);
+  check(await page.locator('.stat label .sorted').count() === 3 && /Sorted by Metal/.test(await page.locator('.note-pop').textContent()), 'the value the columns are sorted by is marked', await page.locator('.stat label .sorted').count());
+  await page.click('[data-a="undo"]'); await page.click('[data-a="undo"]');
+  check((await hash()).startsWith('#/compare/armpw,armflea,corak') && await page.locator('.sorted').count() === 0, 'Undo takes the sorting back', await hash());
+  const perMetal = await page.evaluate(() => { const u = state.units.armpw, row = [...document.querySelectorAll('.stats')][0].querySelector('label[data-v="hpPerMetal"]').parentElement; return [row.querySelector('.val').textContent, (u.hitpoints / u.metal).toFixed(2)]; });
+  check(perMetal[0] === perMetal[1] && await page.locator('label[data-v="dpsPerMetal"]').count() === 3, 'the values per metal: hitpoints and DPS for the cost', perMetal.join(' / '));
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+  const both = await page.evaluate(() => { const bar = document.querySelectorAll('.stats')[2].querySelector('.bar'); return [bar.querySelector('.val').textContent, bar.querySelector('.abs').textContent, String(Math.round(state.units.corak.metal))]; });
+  check(/^[+−±]/.test(both[0]) && both[1] === both[2] && await page.locator('.stats.is-ref .abs').count() === 0, 'with a Ref the value itself stands next to the difference', both.join(' / '));
+  await page.click('[data-a="view-table"]');
+  check(await page.locator('.cmp-table td .abs').count() > 5, 'the table shows the value behind the difference', await page.locator('.cmp-table td .abs').count());
+  await page.click('.cmp-table tbody th[data-v="hitpoints"]');
+  const hp = await page.evaluate(() => state.columns.map(c => unitOf(c).hitpoints));
+  check(hp.every((h, i) => !i || h <= hp[i - 1]), 'the table: a click on the name of a row sorts the columns', hp.join());
+  await page.click('[data-a="view-table"]');
+  await page.click('[data-a="share"]');
+  await page.waitForFunction(() => /Link copied|Copy the address/.test((document.querySelector('.note-pop') || {}).textContent || ''), null, { timeout: 5000 }).catch(() => {});
+  check(/Link copied|Copy the address/.test(await page.locator('.note-pop').textContent()), 'Share copies the link (or says how to)', await page.locator('.note-pop').textContent());
+  await page.goto(base + '#/changes');
+  if (versions.length > 1) {
+    await page.waitForSelector('[data-change="chg-key"]');
+    const keys = await page.$$eval('[data-change="chg-key"] option', o => o.map(x => x.textContent).join());
+    check(!/per metal/.test(keys), 'Changes does not list the values worked out per metal', keys);
+  }
+  await page.goto(base + '#/catalog/arm/bots');
+  await page.reload();
+  await page.waitForSelector('.card');
+  const marked = await page.locator('.card.selected').count();
+  await page.click('.card[data-v="armpw"]', { button: 'right' });
+  await page.waitForSelector('.detail');
+  const shownValues = await page.$$eval('.detail .d-row', r => r.map(x => x.textContent).join(' | '));
+  check(/Metal/.test(shownValues) && /HP per metal/.test(shownValues) && await page.locator('.detail h3').textContent() === 'Pawn' && await page.locator('.card.selected').count() === marked, 'a right-click on a unit shows all its values without marking it', shownValues);
+  check(await page.locator('.detail .d-more button').count() >= 2, 'the values of a unit list its counterparts', await page.locator('.detail .d-more button').count());
+  await page.click('.detail .d-more button >> nth=0');
+  check(await page.locator('.detail h3').textContent() !== 'Pawn', 'a counterpart there opens its values', await page.locator('.detail h3').textContent());
+  await page.click('.detail [data-a="detail-toggle"]');
+  check(await page.locator('.detail').count() === 0 && (await page.textContent('.tray span')).length > 0 && await page.evaluate(() => state.columns.length) === marked + 1, 'the unit shown can be added to the comparison from there', await page.evaluate(() => state.columns.length));
+  await page.keyboard.press('Control+z');
+  // a phone: the bar at the bottom of the catalog lies over the cards, a long press shows the values of a unit
+  await page.setViewportSize({ width: 390, height: 800 });
+  await page.goto(base + '#/catalog/arm/bots');
+  await page.waitForSelector('.card');
+  await page.click('.card >> nth=0');
+  const over = await page.evaluate(() => { const tray = document.querySelector('.tray').getBoundingClientRect(); return [...document.querySelectorAll('.card .tier, .card .role, .card .check')].filter(e => { const r = e.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2; return x > tray.left && x < tray.right && y > tray.top && y < tray.bottom && !document.elementFromPoint(x, y).closest('.tray'); }).length; });
+  check(over === 0, 'phone: the bar at the bottom of the catalog lies over the cards', over);
+  await page.click('.card >> nth=0');
+  const card = await page.locator('.card >> nth=1').boundingBox();
+  const touch = (type, x, y) => page.evaluate(([type, x, y]) => { const el = document.elementFromPoint(x, y), t = new Touch({ identifier: 1, target: el, clientX: x, clientY: y }); el.dispatchEvent(new TouchEvent(type, { bubbles: true, touches: type === 'touchend' ? [] : [t], changedTouches: [t] })); }, [type, x, y]);
+  await touch('touchstart', card.x + 40, card.y + 60);
+  await page.waitForTimeout(750);
+  await touch('touchend', card.x + 40, card.y + 60);
+  check(await page.locator('.detail').count() === 1 && await page.locator('.card.selected').count() === 0, 'phone: a long press on a unit shows its values', await page.locator('.detail').count());
+  await page.waitForTimeout(600);
+  await page.click('.detail [data-a="overlay-close"] >> nth=0');
+  check(await page.locator('.detail').count() === 0, 'the values of a unit can be closed', '');
+  // a phone, the table with a Ref: after a swipe no column rests under the strip of the reference column
+  await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=table&ref=armpw');
+  await page.waitForSelector('.cmp-table');
+  await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 170; });
+  await page.waitForTimeout(1200);
+  const rest = await page.evaluate(() => { const strip = document.querySelector('th.is-ref').getBoundingClientRect().right; return [...document.querySelectorAll('thead th[data-col]:not(.is-ref)')].map(h => Math.round(h.getBoundingClientRect().left - strip)).filter(x => x > -40)[0]; });
+  check(Math.abs(rest) <= 3, 'phone, table: after a swipe a column sits right beside the strip of the reference column', rest);
+  const clipped = await page.evaluate(() => { const td = [...document.querySelectorAll('td.ref-col.wpn')][0]; return !td || td.getBoundingClientRect().height < 30; });
+  check(clipped, 'phone, table: the weapons of the strip stay in one line', clipped);
+  await page.setViewportSize({ width: 1600, height: 900 });
   check(missing.length === 0, 'no file of the page is missing (no 404)', missing.join(' | '));
   check(errors.length === 0, 'no errors on the page', errors.join(' | '));
 } catch (e) {
