@@ -110,7 +110,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 - **Share:** copies the link and says so; on a touch device it opens the share menu (`navigator.share`).
 - **Sorting:** a click on the name of a value orders the columns by it, the best first, again: the other way round (`state.sort`, an Undo step).
 
-**The unit selection:** the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
+**The unit selection:** the heading **Select units** (gold, bold like the faction names of the columns), the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
 
 **Search** (everywhere): a text finds the start of a word in the name or description (`pawn`: Pawn, Pawn Launcher); `<armpw` finds a part of the code name (the field turns green).
 

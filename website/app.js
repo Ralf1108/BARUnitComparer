@@ -863,6 +863,7 @@ function chooserHtml() {
   const p = state.pick, narrow = isNarrow();
   if (!state.pickOpen && !narrow) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
+    <h2 class="c-pick-title">Select units</h2>
     <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="${narrow ? 'Close the unit selection' : 'Hide the unit selection (to the right)'}">${narrow ? 'Done' : '&#9654;'}</button></div>
     ${state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
     ${filterHtml({ small: true, faction: p.search ? '' : p.faction, category: p.search ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}

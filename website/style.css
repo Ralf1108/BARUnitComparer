@@ -618,3 +618,6 @@ select.c-ver:disabled { color: #666; }
 /* Undo / Redo: a badge with the number of steps (no step: no badge) */
 .tb-group .btn.n-steps { position: relative; overflow: visible; }
 .tb-group .btn.n-steps::after { content: attr(data-n); position: absolute; top: -7px; right: -6px; z-index: 2; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--gold); color: #000; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; }
+/* the heading of the unit selection of the compare: bold like the names of the factions above the columns, in gold */
+.c-pick-title { margin: 0 0 10px; color: var(--gold); font-size: 28px; font-weight: 700; letter-spacing: -1px; line-height: 1.2; }
+@media (max-width: 900px) { .c-pick-title { font-size: 20px; letter-spacing: -.5px; margin-bottom: 6px; } }
