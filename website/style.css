@@ -343,7 +343,7 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 
 /* the line for the first visit (catalog), the code name of units with the same name */
 .intro { display: flex; align-items: center; gap: 12px; width: fit-content; max-width: calc(100% - 32px); margin: 4px auto 0; padding: 8px 10px 8px 16px; background: #14110a; border: 1px solid #4a3a1a; border-radius: 8px; color: #d8d8d8; font-size: 14px; }
-.intro b { color: var(--gold); font-weight: 500; } .intro a { text-decoration: underline; white-space: nowrap; }
+.intro b { color: var(--gold); font-weight: 500; } .intro a { color: var(--gold); font-weight: 500; text-decoration: underline; white-space: nowrap; }
 .intro button { color: var(--muted); padding: 2px 6px; } .intro button:hover { color: var(--text); }
 .code { display: block; color: var(--muted); font-size: 11px; font-weight: 400; } .row .code { display: inline; margin-left: 4px; }
 

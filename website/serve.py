@@ -16,6 +16,11 @@ mimetypes.add_type('text/javascript', '.js')
 class Handler(http.server.SimpleHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'   # keeps the connections: one per picture would use up the buffers of Windows on a page with hundreds of pictures (ERR_NO_BUFFER_SPACE)
 
+    def end_headers(self):   # the page, its style and script and the data are asked for again on every load (answer 304 if unchanged):
+        if not self.path.split('?')[0].lower().endswith(('.avif', '.webp', '.png', '.jpg', '.woff2')):   # without this the browser shows an old style after a change
+            self.send_header('Cache-Control', 'no-cache')
+        super().end_headers()
+
     def log_message(self, *args):   # no line per request (hundreds of pictures)
         pass
 
