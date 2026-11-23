@@ -119,10 +119,10 @@ img { display: block; }
 .cmp-empty h3 { color: var(--text); font-size: 24px; font-weight: 300; margin: 0 0 12px; }
 .cmp-empty .hint { color: var(--muted); font-size: 13px; } .cmp-empty a { text-decoration: underline; } .cmp-empty .example { text-decoration: none; }
 .steps { padding-left: 22px; margin: 0 0 18px; } .steps li { margin: 6px 0; } .steps b, .help li b { color: var(--text); font-weight: 500; }
-.examples { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 18px; }
-.example { display: flex; align-items: center; gap: 2px; padding: 4px 14px 4px 6px; background: var(--card); border: 1px solid var(--line); color: var(--text); font-weight: 400; }
+.examples { display: flex; flex-direction: column; width: max-content; max-width: 100%; gap: 8px; margin: 8px 0 18px; }   /* one example per line, all as wide as the widest */
+.example { display: grid; grid-template-columns: repeat(4, 44px) auto; align-items: center; gap: 2px; padding: 4px 14px 4px 6px; background: var(--card); border: 1px solid var(--line); color: var(--text); font-weight: 400; }   /* room for 4 pictures: the names line up */
 .example:hover { background: var(--panel); border-color: #555; }
-.example img { width: 44px; height: 44px; object-fit: contain; } .example span { margin-left: 8px; }
+.example img { width: 44px; height: 44px; object-fit: contain; } .example span { grid-column: 5; margin-left: 8px; }
 .none { color: #555; }
 .chooser { flex: none; width: clamp(340px, 28vw, 500px); margin-left: 24px; display: flex; flex-direction: column; }
 .chooser .picker { flex: 1 1 0; min-height: 120px; height: auto; margin: 12px 0 0; }
