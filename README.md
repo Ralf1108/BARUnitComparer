@@ -6,17 +6,23 @@
 
 Look up and compare the units of [Beyond All Reason](https://www.beyondallreason.info/) (BAR): every unit of Armada, Cortex, Legion, Scavengers and Raptors, with pictures and values, side by side, and what each patch of the game changed. It runs in the browser, also on a phone. An unofficial fan project.
 
-[![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/)
-
 ## Three pages
 
-**Catalog:** pick a faction, a tech level and a kind of unit, click the units you want, press **Compare**. Hold a unit (or right-click it) to see all its values first.
+### Catalog
+
+Pick a faction, a tech level and a kind of unit, click the units you want, press **Compare**. Hold a unit (or right-click it) to see all its values first. The search finds units of all factions; **Versions** lists only the units that some patch changed.
 
 [![The catalog: the bots of Armada](docs/catalog.png)](https://ralf1108.github.io/BARUnitComparer/)
 
-**Compare:** every unit is a column, every value a bar (or a row of the table). Add more units from **Select units** at the right (**Changed units only** lists just the units that some patch changed; **Hide** folds it away for more room).
+### Compare
 
-**Changes:** what a patch changed: every unit whose values differ between two game versions, old value → new value. One column per faction, so a unit and its counterparts in the other factions stand side by side. **◀ Older / Newer ▶** steps through the patches one by one.
+Every unit is a column, every value a bar (or a row of the table). Add more units from **Select units** at the right (**Changed units only** lists just the units that some patch changed; **Hide** folds it away for more room). The buttons are explained [below](#the-buttons-of-the-compare).
+
+[![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/#/compare)
+
+### Changes
+
+What a patch changed: every unit whose values differ between two game versions, old value → new value. One column per faction, so a unit and its counterparts in the other factions stand side by side. **◀ Older / Newer ▶** steps through the patches one by one; the search, the kind of value and the same choice of faction, tech level and kind of unit as in the catalog narrow the list.
 
 [![The page Changes: the units that changed between two game versions](docs/changes.png)](https://ralf1108.github.io/BARUnitComparer/#/changes)
 
