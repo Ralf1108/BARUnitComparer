@@ -42,7 +42,7 @@ One unit per line, sorted by unit name, keys sorted (two exports of the same gam
 | `model` | model as the game names it, e.g. `objects3d/Units/ARMLLT.s3o` (in the pool in lower case) |
 | `buildpic` | file name of the in-game picture, e.g. `ARMLLT.DDS` (`unitpics/<lower case>`, 256 x 256, DDS) |
 | `shotDamage`, `shotsPerSecond`, `antiAir` | the main weapon (`Shared.shotInfo`) |
-| `weapons` | one entry per weapon: all fields of the weapon definition plus `damages` (damage per armor class name: `default`, `vtol`, ...) |
+| `weapons` | one entry per weapon: all fields of the weapon definition plus `damages` (damage per armor class name: `default`, `vtol`, ...) and `onlyTargets` (the categories of the units that the weapon's mount may aim at, `UnitDefs[].weapons[i].onlyTargets`, e.g. `vtol`, `notsub`, `surface`; the page works out from them whether the weapon hits aircraft) |
 | `builds` | unit names this unit can build |
 
 Damage per second of a weapon: `damages.default * projectiles * salvoSize / reload` (anti-air weapons: class `vtol`).

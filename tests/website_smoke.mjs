@@ -224,6 +224,23 @@ try {
   await fresh.click('.ask [data-a="clear-yes"]');
   const cleared = await fresh.evaluate(() => [document.querySelectorAll('.c-head').length, undoStack.length, redoStack.length, !!document.querySelector('.ask')].join());
   check(asked === 1 && kept === 2 && cleared === '0,0,0,false', 'Clear: asks first, Cancel keeps the units, Clear all removes them and the Undo and Redo steps', `${asked} ${kept} ${cleared}`);
+  // the weapons of a column: a unit with several weapons has the list (All weapons first), one weapon puts its values in place of the totals and is part of the link
+  await fresh.goto(base + '#/compare/corcom,armpw?view=graphic');
+  await fresh.waitForSelector('.c-head');
+  const wpn = await fresh.evaluate(() => [...document.querySelectorAll('.c-head')].map(h => { const s = h.querySelector('select.c-wpn'); return s ? [s.disabled, [...s.options].map(o => o.value)] : null; }));
+  check(wpn[0] && !wpn[0][0] && wpn[0][1].length >= 3 && wpn[0][1][0] === '' && wpn[1] && wpn[1][0] && wpn[1][1].length === 1,
+    'weapons: the commander has the list of its weapons (All weapons first), the Pawn its one weapon, grey', JSON.stringify(wpn));
+  const laser = await fresh.evaluate(() => state.units.corcom.weaponList.find(w => !w.kind));
+  await fresh.selectOption('.c-head >> nth=0 >> select.c-wpn', laser.id);
+  const chosen = await fresh.evaluate(() => [location.hash, unitOf(state.columns[0]).dps, unitOf(state.columns[0]).range, document.querySelector('select.c-wpn').classList.contains('on'),
+    [...document.querySelectorAll('.stats')[0].querySelectorAll('.stat')].find(r => r.querySelector('label').textContent.trim() === 'DPS').textContent]);
+  check(chosen[0].includes(`corcom~${laser.id}`) && chosen[1] === laser.dps && chosen[2] === laser.range && chosen[3] && chosen[4].includes(String(Math.round(laser.dps))),
+    'weapons: one weapon chosen shows its own DPS and range, gold, in the link', JSON.stringify([chosen, laser]));
+  await fresh.click('[data-a="undo"]');
+  check(!(await fresh.evaluate(() => location.hash)).includes('~'), 'weapons: Undo goes back to all weapons', await fresh.evaluate(() => location.hash));
+  await fresh.goto(base + `#/compare/corcom~${laser.id}?view=table`);
+  await fresh.waitForSelector('th select.c-wpn');
+  check(await fresh.$eval('th select.c-wpn', s => s.value) === laser.id, 'weapons: a link with a weapon opens with it chosen (table view)', await fresh.$eval('th select.c-wpn', s => s.value));
   await freshContext.close();
   // changes (the version compare): what changed between two versions, filters, a click opens the unit compare
   if (versions.length > 1) {

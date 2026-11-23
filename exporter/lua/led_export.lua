@@ -218,7 +218,9 @@ return function(host)
 	end
 
 	-- all fields of a weapon: the raw values of the definition, the damage by armor class name
-	local function weaponEntry(wd)
+	-- mount: the weapon as the unit carries it (UnitDefs[].weapons[i]): the categories of the units it may aim at ("onlyTargets": "VTOL" = aircraft;
+	-- none named: every unit), so that the page knows whether the weapon hits aircraft
+	local function weaponEntry(wd, mount)
 		local t = fields(wd, WEAPON_FIELDS)
 		t.damages = nil
 		local text = enc(t, 1, SKIP)
@@ -235,7 +237,14 @@ return function(host)
 			end
 		end
 		table.sort(dmg)
-		return text:sub(1, -2) .. ',"damages":{' .. table.concat(dmg, ",") .. "}}"
+		local targets = {}
+		for name, on in pairs((mount and mount.onlyTargets) or {}) do
+			if on and type(name) == "string" then
+				targets[#targets + 1] = quote(name)
+			end
+		end
+		table.sort(targets)
+		return text:sub(1, -2) .. ',"damages":{' .. table.concat(dmg, ",") .. '},"onlyTargets":[' .. table.concat(targets, ",") .. "]}"
 	end
 
 	-- one unit: "game" = the fields of the unit definition as they are, plus what the editor adds ("editor"): faction, type, tech level, the weapons with all
@@ -247,7 +256,7 @@ return function(host)
 		local weapons, builds = {}, {}
 		for _, w in ipairs(ud.weapons or {}) do
 			local wd = WeaponDefs[w.weaponDef]
-			local t = wd and weaponEntry(wd)
+			local t = wd and weaponEntry(wd, w)
 			if t then
 				weapons[#weapons + 1] = t
 			end

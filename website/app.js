@@ -28,10 +28,12 @@ const STATS = [
   { key: 'radar', label: 'Radar range', fill: 'radar', show: whole, tip: 'Radar range, in the length unit of the game (elmos).' },
   { key: 'speed', label: 'Speed', fill: 'speed', show: v => String(Math.floor(v)), tip: 'Top speed of the unit.' },
   { key: 'weapons', label: 'Weapons', tip: 'The kinds of weapons the unit has.' },
-  { key: 'shotDamage', label: 'Damage per shot', fill: 'dps', show: whole, tip: 'Damage of one shot of its weapons together (all projectiles of a salvo). Damage per shot times shots per second is the DPS.' },
+  { key: 'shotDamage', label: 'Damage per shot', fill: 'dps', show: whole, tip: 'Damage of one shot of its weapons together, or of the weapon chosen above the unit (all projectiles of a salvo). Damage per shot times shots per second is the DPS.' },
   { key: 'shotsPerSecond', label: 'Shots per second', fill: 'dps', show: v => v >= 10 ? whole(v) : v.toFixed(2), tip: 'How often the unit fires per second (1 / the time to the next shot; with several weapons: the rate that gives their DPS together).' },
-  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together: damage per shot times shots per second.' },
-  { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons, in the length unit of the game (elmos).' },
+  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together (or of the weapon chosen): damage per shot times shots per second. Left out of the total: D-gun, nukes, anti-nukes and EMP weapons (choose them above the unit).' },
+  { key: 'airDps', label: 'DPS vs air', fill: 'dps', show: whole, tip: 'Damage per second against aircraft: only the weapons that can aim at them (no bombs, no torpedoes), with their damage to aircraft.' },
+  { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons (or the range of the weapon chosen), in the length unit of the game (elmos).' },
+  { key: 'aoe', label: 'Area of effect', fill: 'range', show: whole, tip: 'Radius of the explosion of a shot, in elmos: the largest of its weapons (or that of the weapon chosen). Small: the shot hits one target.' },
   // what a unit gives for its cost (worked out here, derive): not part of the page Changes
   { key: 'hpPerMetal', label: 'HP per metal', fill: 'hp', show: ratio, derived: true, tip: 'Hitpoints per metal: how much staying power the unit gives for its cost. Higher is better.' },
   { key: 'dpsPerMetal', label: 'DPS per metal', fill: 'dps', show: ratio, derived: true, tip: 'Damage per second per metal: how much firepower the unit gives for its cost. Higher is better.' },
@@ -254,19 +256,33 @@ function route() {
   render();
 }
 
-// a column shows a unit in the chosen game version of the page (version null), or in a version of its own (version = the folder of that version)
-function newColumn(unit, version = null) {
-  return { id: nextColumn++, unit, version, faction: unitsOf(version || state.versionDir)[unit].faction };
+// a column shows a unit in the chosen game version of the page (version null), or in a version of its own (version = the folder of that version);
+// weapon: the id of one of its weapons (its values instead of those of all weapons together), null: all weapons
+function newColumn(unit, version = null, weapon = null) {
+  return { id: nextColumn++, unit, version, weapon, faction: unitsOf(version || state.versionDir)[unit].faction };
 }
-const unitOf = c => unitsOf(c.version || state.versionDir)[c.unit];
-// a column in the link and in a favorite: "armpw", or "armpw@test-31450-6562fb1" with a version of its own
-const tokenOf = c => c.version ? `${c.unit}@${c.version}` : c.unit;
+const unitOf = c => withWeapon(unitsOf(c.version || state.versionDir)[c.unit], c.weapon);
+// the unit with the values of one weapon (weaponList of the data) in place of the totals; a weapon that this version of the unit does not have: the totals
+const weaponCache = new WeakMap();
+function withWeapon(u, id) {
+  const w = id && u && (u.weaponList || []).find(x => x.id === id);
+  if (!w) return u;
+  let m = weaponCache.get(u);
+  if (!m) weaponCache.set(u, m = {});
+  return m[id] ||= { ...u, shotDamage: w.shotDamage, shotsPerSecond: w.shotsPerSecond, dps: w.dps, airDps: w.airDps, range: w.range, aoe: w.aoe, weapons: [w.type], dpsPerMetal: u.metal ? w.dps / u.metal : 0, weapon: w };
+}
+// the name of a weapon in the list: the game's name, its kind if the name is one word ("J7Laser (BeamLaser)"), how many are mounted, what the total leaves out;
+// two weapons of the unit with the same name (a cannon with a high and a low trajectory: plasma, plasma_high) get their id in brackets
+const KIND_NAMES = { dgun: 'D-gun', nuke: 'nuke', antinuke: 'anti-nuke', emp: 'EMP' };
+const weaponLabel = (w, list = []) => `${w.n > 1 ? `${w.n}× ` : ''}${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}${list.some(o => o !== w && o.name === w.name) ? ` [${w.id}]` : ''}${w.kind ? ` · ${KIND_NAMES[w.kind]}` : ''}`;
+// a column in the link and in a favorite: "armpw", "armpw@test-31450-6562fb1" with a version of its own, "corcom~corcomlaser" with one weapon
+const tokenOf = c => `${c.unit}${c.version ? `@${c.version}` : ''}${c.weapon ? `~${c.weapon}` : ''}`;
 function columnFromToken(t) {
-  const [unit, version = null] = t.split('@');
+  const [main, weapon = null] = t.split('~'), [unit, version = null] = main.split('@');
   if (version && !versionOf(version)) return null;
-  return unitsOf(version || state.versionDir)[unit] ? newColumn(unit, version) : null;
+  return unitsOf(version || state.versionDir)[unit] ? newColumn(unit, version, weapon) : null;
 }
-const tokenUnit = t => t.split('@')[0];
+const tokenUnit = t => t.split(/[@~]/)[0];
 
 const chosenUnits = () => state.columns.map(tokenOf);
 const newestDir = () => state.versions[state.versions.length - 1].dir;
@@ -410,7 +426,22 @@ function renderTray() {
 // the values that are compared (the numbers as they are, the weapons as text) and what else can change
 const CHANGE_KEYS = [...STATS.filter(s => !s.derived), { key: 'tech', label: 'Tech' }, { key: 'name', label: 'Name' }, { key: 'description', label: 'Description' }];
 const rawOf = (u, key) => key === 'weapons' ? (u.weapons || []).join(', ') : u[key];
-const shownOf = (u, key) => { const s = STATS.find(o => o.key === key), v = rawOf(u, key); return v === undefined || v === '' ? '–' : s && s.show ? s.show(v) : String(v); };
+// a field of the list: a value of the unit, or (val) one of a weapon
+const fieldOf = (u, s) => s.val ? s.val(u) : rawOf(u, s.key);
+const shownOf = (u, s) => { const v = fieldOf(u, s), f = STATS.find(o => o.key === s.key); return v === undefined || v === '' ? '–' : s.key === 'weapons' ? String(v) : f && f.show ? f.show(v) : String(v); };
+// the values of each weapon that changed (a unit with more than one weapon; with one weapon its values are the totals already), and the weapons that came or went
+const WEAPON_KEYS = ['shotDamage', 'shotsPerSecond', 'dps', 'airDps', 'range', 'aoe'];
+function weaponFields(a, b) {
+  const A = a.weaponList || [], B = b.weaponList || [];
+  if (A.length < 2 && B.length < 2) return [];
+  const out = [], find = (u, id) => (u.weaponList || []).find(w => w.id === id);
+  for (const id of new Set([...A, ...B].map(w => w.id))) {
+    const wa = find(a, id), wb = find(b, id), name = weaponLabel(wb || wa, wb ? B : A);
+    if (!wa || !wb) { out.push({ key: 'weapons', label: `Weapon ${wa ? 'removed' : 'added'}`, val: u => find(u, id) ? name : undefined }); continue; }
+    for (const k of WEAPON_KEYS) if (wa[k] !== wb[k]) { const s = STATS.find(o => o.key === k); out.push({ ...s, label: `${name}: ${s.label}`, val: u => (find(u, id) || {})[k] }); }
+  }
+  return out;
+}
 // every unit that differs between two versions of the chain: new, gone, or changed (values listed, picture); a unit that changed twice shows the total
 function rangeChanges(from, to) {
   const A = unitsOf(from), B = unitsOf(to), out = [];
@@ -419,7 +450,7 @@ function rangeChanges(from, to) {
     if (!a) out.push({ unit: n, kind: 'new', u: b, fields: [] });
     else if (!b) out.push({ unit: n, kind: 'gone', u: a, fields: [] });
     else {
-      const fields = CHANGE_KEYS.filter(s => rawOf(a, s.key) !== rawOf(b, s.key));
+      const fields = [...CHANGE_KEYS.filter(s => rawOf(a, s.key) !== rawOf(b, s.key)), ...weaponFields(a, b)];
       if (fields.length || a.pic !== b.pic) out.push({ unit: n, kind: 'changed', u: b, a, fields, picture: a.pic !== b.pic });
     }
   }
@@ -430,8 +461,8 @@ const changesLink = (to, from) => `#/changes/${to}?from=${from}`;
 function changeRow(c, from, to) {
   const tokens = c.kind === 'new' ? [`${c.unit}@${to}`] : c.kind === 'gone' ? [`${c.unit}@${from}`] : [`${c.unit}@${from}`, `${c.unit}@${to}`];
   // a number that got better for the unit is green, one that got worse red (cost and build time: lower is better)
-  const verdict = s => { const a = c.a[s.key], b = c.u[s.key]; return !s.fill || typeof a !== 'number' || typeof b !== 'number' || a === b ? '' : (s.lower ? b < a : b > a) ? 'good' : 'bad'; };
-  const pills = c.fields.map(s => `<span class="pill" title="${esc(s.label)}: ${esc(shownOf(c.a, s.key))} → ${esc(shownOf(c.u, s.key))}${verdict(s) ? ` (${verdict(s) === 'good' ? 'better' : 'worse'} for the unit)` : ''}">${esc(s.label)} <s>${esc(shownOf(c.a, s.key))}</s> → <b class="${verdict(s)}">${esc(shownOf(c.u, s.key))}</b></span>`);
+  const verdict = s => { const a = fieldOf(c.a, s), b = fieldOf(c.u, s); return !s.fill || typeof a !== 'number' || typeof b !== 'number' || a === b ? '' : (s.lower ? b < a : b > a) ? 'good' : 'bad'; };
+  const pills = c.fields.map(s => `<span class="pill${s.val ? ' w' : ''}" title="${esc(s.label)}: ${esc(shownOf(c.a, s))} → ${esc(shownOf(c.u, s))}${verdict(s) ? ` (${verdict(s) === 'good' ? 'better' : 'worse'} for the unit)` : ''}">${esc(s.label)} <s>${esc(shownOf(c.a, s))}</s> → <b class="${verdict(s)}">${esc(shownOf(c.u, s))}</b></span>`);
   if (c.picture) pills.push('<span class="pill" title="The picture changed">Picture</span>');
   return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
     ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-main"><span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small>${c.kind === 'changed' ? '' : `<span class="chg-kind k-${c.kind}">${c.kind === 'new' ? 'new unit' : 'removed'}</span>`}</span><span class="pills">${pills.join('') || (c.kind === 'changed' ? '<span class="pill muted">a value that is not listed here</span>' : '')}</span></span></a>`;
@@ -523,6 +554,7 @@ function renderHelp() {
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
+      ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons: choose them to see their values. A chosen weapon is gold; it is part of the link.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back.'],
       ['Table view', 'the same values as a compact table.'],
@@ -547,7 +579,8 @@ function renderHelp() {
       ${item('From / To', 'the two game versions that are compared. At first: the newest version against the one before. A wider range shows the total of all changes in between.')}
       ${item('The columns', 'one column per faction, Armada at the left. A unit and its counterparts in the other factions stand in one row: you see at once when the same unit was changed for several factions. The rows are sorted by name.')}
       ${item('<s>old</s> → new', 'the values that changed. <b class="good">Green</b>: better for the unit, <b class="bad">red</b>: worse (cost and build time: lower is better). New and removed units are marked.')}
-      ${item('Value', 'only the units in which this value changed (for example Hitpoints).')}
+      ${item('A weapon', 'a unit with several weapons also lists what changed in each of them, with the name of the weapon in front (framed with a dashed line), for example <i>J7Laser (BeamLaser): DPS</i>, and the weapons it got or lost.')}
+      ${item('Value', 'only the units in which this value changed (for example Hitpoints; DPS also finds a change of the DPS of one weapon).')}
       ${item('Scavenger copies', 'every unit has a Scavenger copy that changes with it. Off, the copies are left out; the faction Scavengers lists them.')}
       ${item('Click a unit', 'opens the compare with the unit before and after the change, side by side.')}</ul>
     <h2>Game versions</h2>
@@ -780,7 +813,7 @@ function updateMore() {
 }
 
 function scavengerHead(c, at, sticky) {
-  return `<div class="c-head f-scv${sticky}" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b>${columnVersion(c)}</div>
+  return `<div class="c-head f-scv${sticky}" data-col="${c.id}" ${at(1)}><div class="c-title"><b>Scavengers</b>${columnVersion(c)}</div>${weaponSelect(c)}
     <div class="c-tools">${columnTools(c)}</div></div>`;
 }
 // the tools of a column. A phone: only Ref and a menu with the rest, each entry with its name (small icons in a row are hard to hit, and a phone shows no tooltip)
@@ -790,6 +823,20 @@ const columnTools = c => c.scavOf ? refButton(c)
 // the version list of a column; a phone has it in the menu and shows only a version that the column has of its own
 // wide: the list of the versions of the unit and the button Versions right of it (it adds the other versions as columns)
 const columnVersion = c => !isPhone() ? ((s => s && !c.scavOf ? `<span class="c-verrow">${s}${versionsButton(c)}</span>` : s)(versionSelect(c))) : c.version && !c.scavOf ? `<span class="c-ver">${esc(shortVersion(stateVersion(c) || c.version))}</span>` : '';
+
+// the weapons of a column, always shown: more than one weapon: a white list, All weapons (the totals) or one of them; one weapon: its name, grey (nothing to
+// choose); none: "No weapons", grey. A Scavenger column shows the weapon of its unit
+function weaponSelect(c) {
+  const list = (unitsOf(c.version || state.versionDir)[c.unit] || {}).weaponList || [];
+  if (list.length < 2) {
+    const text = list.length ? weaponLabel(list[0]) : 'No weapons';
+    return `<div class="c-wrow"><select class="c-wpn" disabled title="${list.length ? 'This unit has only this weapon: its values are those of the unit' : 'This unit has no weapons'}" aria-label="Weapon"><option>${esc(text)}</option></select></div>`;
+  }
+  const on = list.find(w => w.id === c.weapon);
+  if (c.scavOf) return `<div class="c-wrow"><select class="c-wpn${on ? ' on' : ''}" disabled title="The Scavenger copy shows the weapon chosen for its unit" aria-label="Weapon"><option>${esc(on ? weaponLabel(on, list) : 'All weapons')}</option></select></div>`;
+  return `<div class="c-wrow"><select class="c-wpn${on ? ' on' : ''}" data-change="col-weapon" title="The weapons of this unit: All weapons shows them together (D-gun, nukes and EMP left out), one weapon shows its own values" aria-label="Weapon">
+    <option value="">All weapons (${list.length})</option>${list.map(w => `<option value="${esc(w.id)}" ${w === on ? 'selected' : ''}>${esc(weaponLabel(w, list))}</option>`).join('')}</select></div>`;
+}
 
 // the game version of a column: a list of the versions that have the unit (a Scavenger column shows the version of its unit); only with more than one version
 const shortVersion = dir => versionLabel(versionOf(dir)).split(' · ')[0];
@@ -834,7 +881,7 @@ const refButton = c => toolButton('ref', 'col-ref', c.ref ? 'Reference (on): the
 function tableHtml(columns, stats, max, reference) {
   const head = c => {
     const u = unitOf(c);
-    return `<th class="f-${c.faction}${c.ref ? ' is-ref ref-col' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${columnVersion(c)}<div class="c-tools">${columnTools(c)}</div></th>`;
+    return `<th class="f-${c.faction}${c.ref ? ' is-ref ref-col' : ''}" data-col="${c.id}"><div class="t-pic">${pictureTag(c.unit, '', u)}</div><div class="t-fac">${c.scavOf ? 'Scavengers' : factionName(c.faction)}</div><div class="t-name">${esc(u.name)} <span class="tier t${u.tech}">T${u.tech}</span></div><div class="t-desc">${esc(u.description)}</div>${columnVersion(c)}${weaponSelect(c)}<div class="c-tools">${columnTools(c)}</div></th>`;
   };
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
@@ -854,7 +901,7 @@ function columnHtml(c, col, side, max, reference, stats) {
   const at = r => `style="grid-column:${col + 1};grid-row:${r}${c.ref ? `;--i:${col}` : ''}"`;
   const sticky = c.ref ? ' is-ref' : '';
   const head = c.scavOf ? scavengerHead(c, at, sticky) : `<div class="c-head f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(1)}>
-      <div class="c-title"><b>${factionName(c.faction)}</b>${columnVersion(c)}</div>
+      <div class="c-title"><b>${factionName(c.faction)}</b>${columnVersion(c)}</div>${weaponSelect(c)}
       <div class="c-tools">${columnTools(c)}</div>
     </div>`;
   return head + `<div class="c-unit f-${c.faction} ${side}${sticky}" data-col="${c.id}" ${at(2)}>${unitHtml(c, u)}</div>
@@ -1012,7 +1059,7 @@ function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit))
 
 // the button Versions of a column: every other version of its unit as a column right of it (the ones that are shown already are left out), and the column is the Ref
 function addOtherVersions(c) {
-  const more = missingVersions(c).map(d => newColumn(c.unit, d));
+  const more = missingVersions(c).map(d => newColumn(c.unit, d, c.weapon));   // with the weapon of the column: the versions of that weapon
   if (!more.length) return false;
   let after = state.columns.indexOf(c);   // behind the columns of this unit that follow it already
   while (state.columns[after + 1] && state.columns[after + 1].unit === c.unit) after++;
@@ -1110,6 +1157,7 @@ function displayColumns() {
     const s = c.scavColumn = c.scavColumn || { id: nextColumn++, faction: 'scv', scavOf: c.id };
     s.unit = c.unit + '_scav';
     s.version = c.version;   // the Scavenger copy in the same game version
+    s.weapon = c.weapon;   // ... with the same weapon (the copy has the same weapons)
     return [c, s];
   });
   return list;   // the reference column stays where it is (it sticks to the left edge only when it is scrolled there)
@@ -1372,6 +1420,12 @@ document.addEventListener('change', async e => {
     selectVersion(e.target.value);
     state.columns = state.columns.filter(c => unitOf(c));   // a unit that this version does not have
     keepAddress(); render();
+  }
+  if (kind === 'col-weapon') {   // a column shows one weapon of its unit, or all together
+    const c = columnOf(e.target);
+    remember();
+    c.weapon = e.target.value || null;
+    keepAddress(); renderCompare(); renderNav();
   }
   if (kind === 'col-version') {   // a column shows its unit in another game version
     const c = columnOf(e.target);

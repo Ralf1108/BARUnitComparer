@@ -16,7 +16,7 @@ import unit_rules as ru  # noqa: E402   (category, dps, texts, reduce_unit, natu
 import reduce_units  # noqa: E402   (the chain: compare)
 import bar_common  # noqa: E402
 
-FIELDS = {'name', 'description', 'faction', 'category', 'tech', 'metal', 'energy', 'buildTime', 'buildPower', 'energyMake', 'hitpoints', 'radar', 'speed', 'weapons', 'shotDamage', 'shotsPerSecond', 'dps', 'range'}
+FIELDS = {'name', 'description', 'faction', 'category', 'tech', 'metal', 'energy', 'buildTime', 'buildPower', 'energyMake', 'hitpoints', 'radar', 'speed', 'weapons', 'shotDamage', 'shotsPerSecond', 'dps', 'airDps', 'range', 'aoe', 'weaponList'}
 CATEGORIES = {'bots', 'vehicles', 'air', 'sea', 'hover', 'factories', 'defense', 'buildings'}
 
 
@@ -46,6 +46,25 @@ class Rules(unittest.TestCase):
         self.assertEqual(shot, 200)
         self.assertAlmostEqual(shot * rate, ru.dps([weapon(reload=1.0), weapon(reload=0.5)]))   # damage per shot times shots per second is the DPS
         self.assertEqual(ru.shots([weapon(paralyzer=True)]), (0, 0))
+
+    def test_air(self):
+        self.assertTrue(ru.hits_air(weapon(onlyTargets=['notsub'])))   # every aircraft is notsub
+        self.assertTrue(ru.hits_air(weapon()))   # no targets named (an export without them): every unit
+        self.assertFalse(ru.hits_air(weapon(onlyTargets=['surface'])))
+        self.assertFalse(ru.hits_air(weapon(type='AircraftBomb', onlyTargets=['notsub'])))   # a bomb falls
+        ws = [weapon(damages={'default': 100, 'vtol': 20}, onlyTargets=['notsub']), weapon(damages={'default': 50, 'vtol': 50}, onlyTargets=['surface'], damageAreaOfEffect=48)]
+        self.assertEqual((ru.air_dps(ws), ru.area(ws)), (20, 48))
+
+    def test_weapon_list(self):
+        ws = [weapon(name='corcom_laser', description='J7Laser', reload=0.5, onlyTargets=['notsub']), weapon(name='corcom_dgun', description='Disintegrator', type='DGun', manualFire=True),
+              weapon(name='corcom_kick', customParams={'bogus': 1}), weapon(name='corcom_aim', damages={'default': 0}), weapon(name='corcom_gate', type='Shield', isShield=True),
+              weapon(name='corcom_bats', description='Plasma', projectiles=2), weapon(name='corcom_bats', description='Plasma', projectiles=2)]
+        got = ru.weapon_list('corcom', ws)
+        self.assertEqual([w['id'] for w in got], ['laser', 'dgun', 'bats'])   # no bogus weapon, none without damage, no shield; the unit's name taken off
+        self.assertEqual({k: got[0][k] for k in ('name', 'type', 'shotDamage', 'shotsPerSecond', 'dps')}, {'name': 'J7Laser', 'type': 'BeamLaser', 'shotDamage': 100, 'shotsPerSecond': 2, 'dps': 200})
+        self.assertEqual(got[1]['kind'], 'dgun')   # left out of the totals, marked in the list
+        self.assertEqual((got[2]['n'], got[2]['shotDamage'], got[2]['dps']), (2, 400, 400))   # mounted twice: one entry, both mounts counted
+        self.assertEqual([w['id'] for w in ru.weapon_list('corcom_scav', [weapon(name='corcom_scav_laser')])], ['laser'])   # the same id in the Scavenger copy
 
     def test_texts(self):
         self.assertEqual(ru.texts('armx', {'humanName': 'Pawn', 'description': 'Fast bot'}), ('Pawn', 'Fast bot'))

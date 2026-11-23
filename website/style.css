@@ -412,14 +412,14 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 /* scrolled sideways: the reference column shrinks to a narrow strip with its values only, the names of the table rows get smaller (the class is set in updateMore) */
 .cmp-scroll { --strip: 88px; }
 .cmp-scroll.scrolled .cmp-grid .is-ref { width: var(--refw, 88px); min-width: 0; }
-.scrolled .cmp-grid .c-head.is-ref .c-title, .scrolled .cmp-grid .c-head.is-ref .c-tools > :not(.ref),
+.scrolled .cmp-grid .c-head.is-ref .c-title, .scrolled .cmp-grid .c-head.is-ref .c-wrow, .scrolled .cmp-grid .c-head.is-ref .c-tools > :not(.ref),
 .scrolled .cmp-grid .c-unit.is-ref .c-name, .scrolled .cmp-grid .c-unit.is-ref .c-desc, .scrolled .cmp-grid .c-unit.is-ref .c-eq { display: none; }
 .scrolled .cmp-grid .c-unit.is-ref .c-pic { width: 60px; }
 .scrolled .cmp-grid .stats.is-ref .stat { grid-template-columns: 0 1fr; gap: 0; }
 .scrolled .cmp-grid .stats.is-ref .stat label { visibility: hidden; overflow: hidden; }
 .scrolled .cmp-grid .stats.is-ref .weapons { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scrolled .cmp-table thead th.ref-col { min-width: 0; width: 64px; max-width: 64px; padding: 4px; }
-.scrolled .cmp-table th.ref-col .t-fac, .scrolled .cmp-table th.ref-col .t-name, .scrolled .cmp-table th.ref-col .t-desc, .scrolled .cmp-table th.ref-col .c-ver, .scrolled .cmp-table th.ref-col .c-tools > :not(.ref) { display: none; }
+.scrolled .cmp-table th.ref-col .t-fac, .scrolled .cmp-table th.ref-col .t-name, .scrolled .cmp-table th.ref-col .t-desc, .scrolled .cmp-table th.ref-col .c-ver, .scrolled .cmp-table th.ref-col .c-wrow, .scrolled .cmp-table th.ref-col .c-tools > :not(.ref) { display: none; }
 .scrolled .cmp-table th.ref-col .t-pic img { width: 44px; height: 44px; }
 .scrolled .cmp-table td.ref-col { width: 64px; max-width: 64px; padding: 4px; font-size: 12px; overflow-wrap: anywhere; }
 .scrolled .cmp-table tbody th { font-size: 11px; padding: 4px 6px; }
@@ -635,3 +635,15 @@ select.c-ver:disabled { color: #666; }
 .ask h3 { margin: 0 0 8px; font-size: 22px; font-weight: 500; } .ask p { margin: 0; color: #ccc; font-size: 14px; line-height: 1.5; }
 .ask .btn.danger { display: inline-flex; align-items: center; justify-content: center; gap: 7px; background: #3a1212; border-color: #8a3030; color: #ff9a90; }
 .ask .btn.danger:hover, .ask .btn.danger:focus-visible { background: #5a1a1a; color: #fff; }
+
+/* the weapons of a column (weaponSelect): below its version, all weapons or one of them */
+.c-wrow { display: flex; width: 100%; min-width: 0; margin-top: 4px; padding-right: 6px; box-sizing: border-box; }
+.c-head .c-wrow { grid-column: 1 / -1; }
+select.c-wpn { flex: 1; min-width: 0; width: 100%; max-width: 100%; padding: 2px 4px; background: var(--panel); border: 1px solid #555; color: var(--text); font-size: 12px; cursor: pointer; text-overflow: ellipsis; }
+select.c-wpn.on { border-color: var(--gold); color: var(--gold); background: #2a210d; }
+select.c-wpn option { color: var(--text); background: var(--panel); }
+select.c-wpn:disabled { border-color: var(--line); color: #666; cursor: default; opacity: 1; }   /* one weapon or none: nothing to choose, grey like a version list with one version */
+select.c-wpn.on:disabled { color: #a08a5a; border-color: #5a4a28; }
+.pill.w { border-style: dashed; }
+@media (max-width: 600px) { select.c-wpn { font-size: 11px; } .c-wrow { padding-right: 0; }
+  .cmp-grid .c-head { flex-wrap: wrap; } .cmp-grid .c-head .c-wrow { order: 3; flex: 1 0 100%; margin-top: 4px; } select.c-wpn { min-height: 30px; } }   /* a line of its own below the faction and the buttons */

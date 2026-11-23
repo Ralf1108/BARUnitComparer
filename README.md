@@ -22,7 +22,7 @@ Every unit is a column, every value a bar (or a row of the table). Add more unit
 
 ### Changes
 
-What a patch changed: every unit whose values differ between two game versions, old value → new value. One column per faction, so a unit and its counterparts in the other factions stand side by side. **◀ Older / Newer ▶** steps through the patches one by one; the search, the kind of value and the same choice of faction, tech level and kind of unit as in the catalog narrow the list.
+What a patch changed: every unit whose values differ between two game versions, old value → new value, for a unit with several weapons also per weapon. One column per faction, so a unit and its counterparts in the other factions stand side by side. **◀ Older / Newer ▶** steps through the patches one by one; the search, the kind of value and the same choice of faction, tech level and kind of unit as in the catalog narrow the list.
 
 [![The page Changes: the units that changed between two game versions](docs/changes.png)](https://ralf1108.github.io/BARUnitComparer/#/changes)
 
@@ -32,6 +32,7 @@ What a patch changed: every unit whose values differ between two game versions, 
 |---|---|
 | **Ref** (balance) | this unit is the reference: the others show the difference to it (**+** more, **−** less), green if that is better, red if it is worse (more metal: **+** in red), equal values grey |
 | **Versions** (clock, beside the list of versions) | every other game version of this unit next to it, the changed values marked; the list (white: several versions) shows the unit as it was in one of them |
+| **Weapon list** (below the version) | one weapon: its name, grey; several weapons: a white list, **All weapons** (the default) or one of them, e.g. the laser of a commander against the laser of another one; D-gun, nukes and EMP are left out of All weapons but can be chosen |
 | **Counterparts** (arrows) | the units of the other factions that do the same job |
 | **Counters** (swords) | the units that are good against this unit |
 
@@ -44,7 +45,7 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Save / Share** | keep the selection as a favorite, or share its link (the link holds everything: units, view, Ref, game version) |
 
-Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides cost, hitpoints, speed and range the page shows **damage per shot**, **shots per second** and **DPS**, and **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch.
+Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides cost, hitpoints, speed and range the page shows **damage per shot**, **shots per second**, **DPS**, **DPS vs air** and the **area of effect**, and **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch.
 
 **On a phone:** two units fit on the screen, swipe for more; **Ref** and a menu (three dots) with all tools in words; **+ Add units** opens the selection.
 

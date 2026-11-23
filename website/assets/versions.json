@@ -13,7 +13,7 @@
    "dir": "test-29241-5b8d492",
    "file": "units-test-29241-5b8d492.diff.json.gz",
    "date": "2026-01-08",
-   "changed": 584,
+   "changed": 588,
    "engine": "2025.06.12"
   },
   {
@@ -77,7 +77,7 @@
    "dir": "test-29605-16d46ef",
    "file": "units-test-29605-16d46ef.diff.json.gz",
    "date": "2026-03-08",
-   "changed": 1,
+   "changed": 5,
    "engine": "2025.06.19"
   },
   {
@@ -101,7 +101,7 @@
    "dir": "test-29801-2a39648",
    "file": "units-test-29801-2a39648.diff.json.gz",
    "date": "2026-03-31",
-   "changed": 20,
+   "changed": 22,
    "engine": "2025.06.19"
   },
   {
@@ -157,7 +157,7 @@
    "dir": "test-30236-cdfd0a0",
    "file": "units-test-30236-cdfd0a0.diff.json.gz",
    "date": "2026-05-29",
-   "changed": 38,
+   "changed": 41,
    "engine": "2025.06.24"
   },
   {
@@ -218,6 +218,166 @@
       8250000015.4,
       -21474836.5
      ]
+    },
+    "corves": {
+     "airDps": [
+      0.0,
+      266.7
+     ],
+     "weaponList": [
+      [
+       {
+        "id": "corlevlr_weapon",
+        "name": "Huge g2g plasma cannon",
+        "type": "Cannon",
+        "range": 1000,
+        "aoe": 175,
+        "shotDamage": 8000,
+        "shotsPerSecond": 0.22,
+        "dps": 1777.8,
+        "airDps": 0.0
+       },
+       {
+        "id": "banisher",
+        "name": "Banisher",
+        "type": "MissileLauncher",
+        "range": 800,
+        "aoe": 64,
+        "shotDamage": 2000,
+        "shotsPerSecond": 0.13,
+        "dps": 266.7,
+        "airDps": 0.0,
+        "n": 2
+       },
+       {
+        "id": "flamethrower",
+        "name": "Demon's Maw; Heavy long range AoE flamethrower",
+        "type": "Flame",
+        "range": 400,
+        "aoe": 64,
+        "shotDamage": 576,
+        "shotsPerSecond": 2.5,
+        "dps": 1440.0,
+        "airDps": 0.0
+       }
+      ],
+      [
+       {
+        "id": "corlevlr_weapon",
+        "name": "Huge g2g plasma cannon",
+        "type": "Cannon",
+        "range": 1000,
+        "aoe": 175,
+        "shotDamage": 8000,
+        "shotsPerSecond": 0.22,
+        "dps": 1777.8,
+        "airDps": 0.0
+       },
+       {
+        "id": "banisher",
+        "name": "Banisher",
+        "type": "MissileLauncher",
+        "range": 800,
+        "aoe": 64,
+        "shotDamage": 2000,
+        "shotsPerSecond": 0.13,
+        "dps": 266.7,
+        "airDps": 266.7,
+        "n": 2
+       },
+       {
+        "id": "flamethrower",
+        "name": "Demon's Maw; Heavy long range AoE flamethrower",
+        "type": "Flame",
+        "range": 400,
+        "aoe": 64,
+        "shotDamage": 576,
+        "shotsPerSecond": 2.5,
+        "dps": 1440.0,
+        "airDps": 0.0
+       }
+      ]
+     ]
+    },
+    "corves_scav": {
+     "airDps": [
+      0.0,
+      266.7
+     ],
+     "weaponList": [
+      [
+       {
+        "id": "corlevlr_weapon",
+        "name": "Huge g2g plasma cannon",
+        "type": "Cannon",
+        "range": 1000,
+        "aoe": 175,
+        "shotDamage": 8000,
+        "shotsPerSecond": 0.22,
+        "dps": 1777.8,
+        "airDps": 0.0
+       },
+       {
+        "id": "banisher",
+        "name": "Banisher",
+        "type": "MissileLauncher",
+        "range": 800,
+        "aoe": 64,
+        "shotDamage": 2000,
+        "shotsPerSecond": 0.13,
+        "dps": 266.7,
+        "airDps": 0.0,
+        "n": 2
+       },
+       {
+        "id": "flamethrower",
+        "name": "Demon's Maw; Heavy long range AoE flamethrower",
+        "type": "Flame",
+        "range": 400,
+        "aoe": 64,
+        "shotDamage": 576,
+        "shotsPerSecond": 2.5,
+        "dps": 1440.0,
+        "airDps": 0.0
+       }
+      ],
+      [
+       {
+        "id": "corlevlr_weapon",
+        "name": "Huge g2g plasma cannon",
+        "type": "Cannon",
+        "range": 1000,
+        "aoe": 175,
+        "shotDamage": 8000,
+        "shotsPerSecond": 0.22,
+        "dps": 1777.8,
+        "airDps": 0.0
+       },
+       {
+        "id": "banisher",
+        "name": "Banisher",
+        "type": "MissileLauncher",
+        "range": 800,
+        "aoe": 64,
+        "shotDamage": 2000,
+        "shotsPerSecond": 0.13,
+        "dps": 266.7,
+        "airDps": 266.7,
+        "n": 2
+       },
+       {
+        "id": "flamethrower",
+        "name": "Demon's Maw; Heavy long range AoE flamethrower",
+        "type": "Flame",
+        "range": 400,
+        "aoe": 64,
+        "shotDamage": 576,
+        "shotsPerSecond": 2.5,
+        "dps": 1440.0,
+        "airDps": 0.0
+       }
+      ]
+     ]
     }
    },
    "engine": "2026.06.11"
@@ -227,7 +387,7 @@
    "dir": "test-30642-0d21a5e",
    "file": "units-test-30642-0d21a5e.diff.json.gz",
    "date": "2026-07-14",
-   "changed": 3,
+   "changed": 10,
    "engine": "2026.06.11"
   },
   {
@@ -324,7 +484,7 @@
    "dir": "test-31075-1913fe9",
    "file": "units-test-31075-1913fe9.diff.json.gz",
    "date": "2026-08-25",
-   "changed": 40,
+   "changed": 46,
    "engine": "2026.07.04"
   },
   {
@@ -348,7 +508,7 @@
    "dir": "test-31193-76ced98",
    "file": "units-test-31193-76ced98.diff.json.gz",
    "date": "2026-09-03",
-   "changed": 20,
+   "changed": 29,
    "engine": "2026.07.04"
   },
   {
@@ -364,7 +524,7 @@
    "dir": "test-31357-b06bb1a",
    "file": "units-test-31357-b06bb1a.diff.json.gz",
    "date": "2026-09-19",
-   "changed": 22,
+   "changed": 98,
    "engine": "2026.07.04"
   },
   {
@@ -421,7 +581,7 @@
    "dir": "test-31720-0f97aa5",
    "file": "units-test-31720-0f97aa5.diff.json.gz",
    "date": "2026-10-23",
-   "changed": 6,
+   "changed": 8,
    "engine": "2026.07.04"
   },
   {
@@ -437,7 +597,7 @@
    "dir": "test-31891-0460365",
    "file": "units-test-31891-0460365.diff.json.gz",
    "date": "2026-11-08",
-   "changed": 62,
+   "changed": 68,
    "engine": "2026.07.04"
   }
  ],

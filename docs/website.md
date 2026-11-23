@@ -55,7 +55,10 @@ website/assets/
 | `shotDamage` | Damage per shot | sum over the counted weapons of one shot: `max(damages.default, damages.vtol) * projectiles * salvoSize` (counted: all but bogus weapons, shields, interceptors, paralyzers, stockpile and manual-fire weapons; `counted` in `unit_rules.py`) |
 | `shotsPerSecond` | Shots per second | `dps / shotDamage`: with one weapon 1 / `reload`; with several of different reload the rate that gives their DPS together |
 | `dps` | DPS | sum over the counted weapons of one shot / `reload` (= damage per shot × shots per second) |
+| `airDps` | DPS vs air | like `dps`, with `damages.vtol`, only the counted weapons that can hit aircraft (`hits_air`: the targets of the weapon's mount, `onlyTargets`, share a category with every aircraft: `all`, `mobile`, `notsub`, `nothover`, `notship`, `vtol`, `t4air`, `lightairscout`; none named: all; never `AircraftBomb` or `TorpedoLauncher`) |
 | `range` | Weapon range | `game.maxWeaponRange` |
+| `aoe` | Area of effect | the largest `damageAreaOfEffect` (radius, elmos) of the counted weapons |
+| `weaponList` | the list of weapons of a column; Changes | every real weapon (`weapon_list`: no bogus weapons, no shields, none without damage; the same weapon mounted twice is one entry with `n`, its values count all mounts): `id` (the weapon's name without the unit's name in front, the same in the Scavenger copy and in every version), `name` (`description`), `type`, `shotDamage`, `shotsPerSecond`, `dps`, `airDps`, `range`, `aoe`, `kind` for what the totals leave out (`dgun`, `nuke`, `antinuke`, `emp`) |
 | (worked out) | HP per metal, DPS per metal | `derive` in `app.js` (`derived` in `STATS`); not listed on Changes |
 
 Checked against beyondallreason.info: `armwar` (Centurion) 270 metal, 3100 energy, 00:42, 1590 hitpoints, speed 45, BeamLaser, DPS 183, range 325.
@@ -84,7 +87,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 ## 4. Compare
 
-**The link** `#/compare/<unit>,<unit>@<version>,...?view=table&scav=1&ref=<unit>&versions=1&v=<version>` holds the units in their order, the view, **+ Scav**, the Ref, the filter and the game version at the top (`v`, if not the newest); `<unit>@<version folder>` is a column with a game version of its own. It is kept up to date without new history entries.
+**The link** `#/compare/<unit>,<unit>@<version>,<unit>~<weapon>,...?view=table&scav=1&ref=<unit>&versions=1&v=<version>` holds the units in their order, the view, **+ Scav**, the Ref, the filter and the game version at the top (`v`, if not the newest); `<unit>@<version folder>` is a column with a game version of its own, `~<weapon id>` a column that shows one weapon (`tokenOf`, `columnFromToken`). It is kept up to date without new history entries.
 
 **Layout:** the toolbar (`toolbarHtml`), the columns, at the right the unit selection (it can be folded away; remembered). Columns and selection fill the window: the pictures shrink (60 to 300 px) so that the page needs no scrollbar. Without units the page says what to do and offers examples (`emptyCompareHtml`).
 
@@ -95,6 +98,8 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 **Table view:** one row per value, one column per unit, the largest value bold, the row names stay at the left. The view is remembered in the browser.
 
 **The versions of a column:** below the faction the list of the versions of its unit (`versionSelect`: the first version and each one in which its values changed, by date, "29 May 2026 · test-30236"; white if there are several, grey with one), right of it **Versions** (a clock with the number of versions; it adds the others as columns, see below).
+
+**The weapons of a column** (`weaponSelect`, always shown below the version): one weapon: its name, grey; no weapon: "No weapons", grey; more than one in `weaponList`: a white list, **All weapons** (the totals, the default) or one weapon by its name (`weaponLabel`: the type in brackets if the name is one word, "2×" if mounted twice, "· D-gun" / nuke / anti-nuke / EMP for what the totals leave out). A chosen weapon (gold) puts its values in place of the totals: damage per shot, shots per second, DPS, DPS vs air, range, area of effect, DPS per metal (`withWeapon` in `unitOf`). It is part of the link, of Undo / Redo and of a favorite; the Scavenger copy and the columns added by Versions take the same weapon; a version of the unit without that weapon shows the totals.
 
 **The tools of a column** (`toolButton`): at the left the grip (drag to move; arrow keys), at the right **Counters** (swords), **Counterparts** (arrows), **Ref** (balance), × (remove). Versions, Counters and Counterparts are lit while what they added is shown; pressed again they take it out and bring back what they put aside (`toggleTool`; only the newest one, older ones with Undo).
 
@@ -135,6 +140,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 - **◀ Older / Newer ▶** move From and To by one version together (`chg-step`), to click through the patches; **From / To** choose any range (default: the newest version against the one before). The address holds the range.
 - **The list:** every changed unit with its changed values as `old → new` (green: better for the unit, red: worse), a changed picture, new and gone units. One column per faction (`.chg-grid`, Armada at the left): a unit and its counterparts in one row (`changeGroup`), the rows by name, first the ones with an Armada unit. One faction only, or up to 900 px: a plain list.
 - **Filters:** the choice of units (section 3; all five factions always offered, one without an entry pale), **Value** (only units in which it changed), the search, **Scavenger copies** (off: a copy that changes with its unit is left out and counted). Not part of the address.
+- **Weapons:** a unit with more than one weapon also lists the changes of each weapon (`weaponFields`: "J7Laser (BeamLaser): DPS", a dashed frame) and the weapons it got or lost; **Value** finds them by the value (DPS finds the DPS of a weapon too).
 - **Engine only:** values that differ only because the engine changed (`engineOnly`) are named in a note, not listed.
 - **A click on a unit** opens the compare with the unit before and after, side by side.
 - Code: `rangeChanges`, `changeRow`, `changeGroup`, `changesListHtml`, `renderChanges`.
