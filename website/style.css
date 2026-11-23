@@ -576,3 +576,4 @@ body.modal { overflow: hidden; }
   .filt-row { padding: 4px 8px 0; gap: 4px 10px; } .filt-fac :is(a, button) { padding: 5px 9px; font-size: 14px; }
   .filt.small .tabs { padding: 6px 0 2px; }
 }
+.f-none .tabs .active { font-weight: 500; }
