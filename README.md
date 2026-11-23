@@ -38,7 +38,7 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Save / Share** | keep the selection as a favorite, or share its link (the link holds everything: units, view, Ref, game version) |
 
-Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides the game's values the page shows **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch.
+Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides cost, hitpoints, speed and range the page shows **damage per shot**, **shots per second** and **DPS**, and **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch.
 
 **On a phone:** two units fit on the screen, swipe for more; **Ref** and a menu (three dots) with all tools in words; **+ Add units** opens the selection.
 

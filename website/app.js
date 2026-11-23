@@ -28,7 +28,9 @@ const STATS = [
   { key: 'radar', label: 'Radar range', fill: 'radar', show: whole, tip: 'Radar range, in the length unit of the game (elmos).' },
   { key: 'speed', label: 'Speed', fill: 'speed', show: v => String(Math.floor(v)), tip: 'Top speed of the unit.' },
   { key: 'weapons', label: 'Weapons', tip: 'The kinds of weapons the unit has.' },
-  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together.' },
+  { key: 'shotDamage', label: 'Damage per shot', fill: 'dps', show: whole, tip: 'Damage of one shot of its weapons together (all projectiles of a salvo). Damage per shot times shots per second is the DPS.' },
+  { key: 'shotsPerSecond', label: 'Shots per second', fill: 'dps', show: v => v >= 10 ? whole(v) : v.toFixed(2), tip: 'How often the unit fires per second (1 / the time to the next shot; with several weapons: the rate that gives their DPS together).' },
+  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together: damage per shot times shots per second.' },
   { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons, in the length unit of the game (elmos).' },
   // what a unit gives for its cost (worked out here, derive): not part of the page Changes
   { key: 'hpPerMetal', label: 'HP per metal', fill: 'hp', show: ratio, derived: true, tip: 'Hitpoints per metal: how much staying power the unit gives for its cost. Higher is better.' },

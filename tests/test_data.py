@@ -16,7 +16,7 @@ import unit_rules as ru  # noqa: E402   (category, dps, texts, reduce_unit, natu
 import reduce_units  # noqa: E402   (the chain: compare)
 import bar_common  # noqa: E402
 
-FIELDS = {'name', 'description', 'faction', 'category', 'tech', 'metal', 'energy', 'buildTime', 'buildPower', 'energyMake', 'hitpoints', 'radar', 'speed', 'weapons', 'dps', 'range'}
+FIELDS = {'name', 'description', 'faction', 'category', 'tech', 'metal', 'energy', 'buildTime', 'buildPower', 'energyMake', 'hitpoints', 'radar', 'speed', 'weapons', 'shotDamage', 'shotsPerSecond', 'dps', 'range'}
 CATEGORIES = {'bots', 'vehicles', 'air', 'sea', 'hover', 'factories', 'defense', 'buildings'}
 
 
@@ -38,6 +38,14 @@ class Rules(unittest.TestCase):
         for left_out in ({'paralyzer': True}, {'stockpile': True}, {'manualFire': True}, {'interceptor': 1}, {'isShield': True}, {'customParams': {'bogus': 1}}):
             self.assertEqual(ru.dps([weapon(**left_out)]), 0, left_out)
         self.assertEqual(ru.dps([weapon(reload=0)]), 0)
+
+    def test_shots(self):
+        shot, rate = ru.shots([weapon(projectiles=2, salvoSize=3, reload=2.0)])
+        self.assertEqual((shot, rate), (600, 0.5))   # one shot: all projectiles of the salvo; 1 / reload
+        shot, rate = ru.shots([weapon(reload=1.0), weapon(reload=0.5)])   # two weapons: 100 + 100 per shot, 100 + 200 per second
+        self.assertEqual(shot, 200)
+        self.assertAlmostEqual(shot * rate, ru.dps([weapon(reload=1.0), weapon(reload=0.5)]))   # damage per shot times shots per second is the DPS
+        self.assertEqual(ru.shots([weapon(paralyzer=True)]), (0, 0))
 
     def test_texts(self):
         self.assertEqual(ru.texts('armx', {'humanName': 'Pawn', 'description': 'Fast bot'}), ('Pawn', 'Fast bot'))

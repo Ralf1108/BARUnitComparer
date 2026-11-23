@@ -52,7 +52,9 @@ website/assets/
 | `radar` | Radar range | `game.radarDistance` |
 | `speed` | Speed | `game.speed` |
 | `weapons` | Weapons | the different `type` values of the weapons, without `bogus` ones |
-| `dps` | DPS | sum of `max(damages.default, damages.vtol) * projectiles * salvoSize / reload`; without bogus weapons, shields, interceptors, paralyzers, stockpile and manual-fire weapons |
+| `shotDamage` | Damage per shot | sum over the counted weapons of one shot: `max(damages.default, damages.vtol) * projectiles * salvoSize` (counted: all but bogus weapons, shields, interceptors, paralyzers, stockpile and manual-fire weapons; `counted` in `unit_rules.py`) |
+| `shotsPerSecond` | Shots per second | `dps / shotDamage`: with one weapon 1 / `reload`; with several of different reload the rate that gives their DPS together |
+| `dps` | DPS | sum over the counted weapons of one shot / `reload` (= damage per shot × shots per second) |
 | `range` | Weapon range | `game.maxWeaponRange` |
 | (worked out) | HP per metal, DPS per metal | `derive` in `app.js` (`derived` in `STATS`); not listed on Changes |
 

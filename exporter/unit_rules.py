@@ -1,5 +1,5 @@
 """unit_rules.py: the rules that make the values of the website from the exporter's data of a unit (docs/website.md, section "Fields of a unit in the reduced file").
-Pure functions without files: category, dps, texts, reduce_unit; natural is the sort key of game version names. Used by reduce_units.py; tested in tests/test_data.py.
+Pure functions without files: category, counted, dps, shots, texts, reduce_unit; natural is the sort key of game version names. Used by reduce_units.py; tested in tests/test_data.py.
 """
 import re
 
@@ -14,17 +14,31 @@ def category(game, editor):
     return CATEGORY_OF_GROUP.get(editor.get('group'), 'buildings')
 
 
-def dps(weapons):
-    """Damage per second of all weapons that deal damage continuously (docs/website.md)."""
-    total = 0.0
+def counted(weapons):
+    """The weapons that deal damage continuously: (damage of one shot, seconds to the next shot) of each one (docs/website.md). Left out: bogus weapons, shields,
+    interceptors, paralyzers, stockpile weapons (nukes) and manual-fire weapons (D-gun). One shot: all projectiles of a salvo, against ground or air, the larger."""
+    out = []
     for w in weapons:
         if (w.get('customParams') or {}).get('bogus') or w.get('isShield') or w.get('type') == 'Shield' or w.get('interceptor') or w.get('paralyzer') or w.get('stockpile') or w.get('manualFire'):
             continue
         damages = w.get('damages') or {}
         reload = w.get('reload') or 0
         if reload > 0:
-            total += max(damages.get('default') or 0, damages.get('vtol') or 0) * (w.get('projectiles') or 1) * (w.get('salvoSize') or 1) / reload
-    return total
+            out.append((max(damages.get('default') or 0, damages.get('vtol') or 0) * (w.get('projectiles') or 1) * (w.get('salvoSize') or 1), reload))
+    return out
+
+
+def dps(weapons):
+    """Damage per second of all weapons that deal damage continuously."""
+    return sum(shot / reload for shot, reload in counted(weapons))
+
+
+def shots(weapons):
+    """(damage per shot, shots per second): the damage of one shot of all these weapons together, and how often per second they fire; damage per shot times
+    shots per second is the DPS. With one weapon: its shot and 1 / reload; with several of different reload: the rate that gives their DPS together."""
+    w = counted(weapons)
+    shot = sum(s for s, _ in w)
+    return shot, (dps(weapons) / shot if shot else 0)
 
 
 def texts(unit_name, editor):
@@ -45,11 +59,12 @@ def reduce_unit(unit_name, unit):
     name, description = texts(unit_name, editor)
     types = list(dict.fromkeys(w['type'] for w in weapons if w.get('type') and not (w.get('customParams') or {}).get('bogus')))
     energy_make = max(0, (game.get('energyMake') or 0) - (game.get('energyUpkeep') or 0)) + (game.get('windGenerator') or 0) + (game.get('tidalGenerator') or 0)
+    shot, rate = shots(weapons)
     return {
         'name': name, 'description': description, 'faction': editor.get('faction'), 'category': category(game, editor),
         'tech': editor.get('tech') or 1, 'metal': game.get('metalCost') or 0, 'energy': game.get('energyCost') or 0, 'buildTime': round((game.get('buildTime') or 0) / 100, 1),
         'buildPower': game.get('buildSpeed') or 0, 'energyMake': round(energy_make, 1), 'hitpoints': round(game.get('health') or 0, 1), 'radar': game.get('radarDistance') or 0,
-        'speed': round(game.get('speed') or 0, 1), 'weapons': types, 'dps': round(dps(weapons), 1), 'range': game.get('maxWeaponRange') or 0,
+        'speed': round(game.get('speed') or 0, 1), 'weapons': types, 'shotDamage': round(shot, 1), 'shotsPerSecond': round(rate, 2), 'dps': round(dps(weapons), 1), 'range': game.get('maxWeaponRange') or 0,
     }
 
 
