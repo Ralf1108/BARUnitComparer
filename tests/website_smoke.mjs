@@ -238,6 +238,16 @@ try {
     'weapons: one weapon chosen shows its own DPS and range, gold, in the link', JSON.stringify([chosen, laser]));
   await fresh.click('[data-a="undo"]');
   check(!(await fresh.evaluate(() => location.hash)).includes('~'), 'weapons: Undo goes back to all weapons', await fresh.evaluate(() => location.hash));
+  // the weapon filter of the unit selection: every weapon, alphabetical; one chosen lists only the units that have it, of all factions
+  const wf = await fresh.$$eval('select.c-wfilter option', o => o.map(x => x.value));
+  const names = wf.slice(1), sorted = [...names].sort((a, b) => a.localeCompare(b, 'en', { sensitivity: 'base' }));
+  const j7 = names.find(k => k.startsWith(laser.name));
+  await fresh.selectOption('select.c-wfilter', j7);
+  const withIt = await fresh.evaluate(k => [...document.querySelectorAll('.pick')].map(b => [b.dataset.v, state.units[b.dataset.v].weaponList.some(w => weaponKey(w) === k)]), j7);
+  check(wf[0] === '' && names.length > 50 && names.join() === sorted.join() && withIt.length > 0 && withIt.every(([, has]) => has) && withIt.some(([n]) => n === 'corcom'),
+    'weapons: the filter of the unit selection lists every weapon alphabetically and shows only the units with the weapon chosen', JSON.stringify([names.length, j7, withIt]));
+  await fresh.click('[data-a="pick-faction"][data-v="arm"]');
+  check(await fresh.$eval('select.c-wfilter', s => s.value) === '', 'weapons: a faction pressed ends the weapon filter', await fresh.$eval('select.c-wfilter', s => s.value));
   await fresh.goto(base + `#/compare/corcom~${laser.id}?view=table`);
   await fresh.waitForSelector('th select.c-wpn');
   check(await fresh.$eval('th select.c-wpn', s => s.value) === laser.id, 'weapons: a link with a weapon opens with it chosen (table view)', await fresh.$eval('th select.c-wpn', s => s.value));

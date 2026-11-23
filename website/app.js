@@ -44,7 +44,7 @@ const state = {
   units: {}, counterpart: {}, versions: [], version: '', versionDir: '', baseDir: '', diffs: {}, merged: {}, versionsMode: false,
   changes: { faction: 'all', category: '', tiers: new Set(), key: '', search: '', scav: false }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '', tiers: new Set() }, pickOpen: load('pickOpen', 'yes') === 'yes',
+  columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '', tiers: new Set(), weapon: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
 let nextColumn = 1;
 
@@ -556,7 +556,7 @@ function renderHelp() {
       ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
       ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons: choose them to see their values. A chosen weapon is gold; it is part of the link.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
-      ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back.'],
+      ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back. The list <b>Any weapon</b> next to Changed units only holds every weapon of the game, alphabetical, with the number of units that have it: choose one to see only the units with this weapon, of all factions and kinds.'],
       ['Table view', 'the same values as a compact table.'],
       ['&#9734;', 'saves the selection as a favorite (in your browser).'],
       ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog). The number on them: how many steps there are.'],
@@ -610,10 +610,33 @@ function pickUnits() {
   return pool.filter(n => {
     const u = pickUnit(n);
     if (p.tiers.size && !p.tiers.has(u.tech)) return false;
+    if (p.weapon) return !n.endsWith('_scav') && (u.weaponList || []).some(w => weaponKey(w) === p.weapon) && (!search || matchUnit(n, u, search));   // a weapon: all factions and kinds (no Scavenger copies: + Scav)
     if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
     return u.faction === p.faction && u.category === p.category;
   }).sort((a, b) => (pickUnit(a).name === a) - (pickUnit(b).name === b) || byTech(pickUnit(a), pickUnit(b)));   // units without a name last
 }
+// the weapon filter of the unit selection: every weapon of the units of the version shown, by its name ("J7Laser (BeamLaser)"), with the number of units that
+// have it (Scavenger copies not counted), alphabetical
+const weaponKey = w => `${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}`;
+const weaponIndex = new WeakMap();
+function allWeapons() {
+  let list = weaponIndex.get(state.units);
+  if (!list) {
+    const count = new Map();
+    for (const [n, u] of Object.entries(state.units)) if (!n.endsWith('_scav')) for (const k of new Set((u.weaponList || []).map(weaponKey))) count.set(k, (count.get(k) || 0) + 1);
+    list = [...count].sort((a, b) => a[0].localeCompare(b[0], 'en', { sensitivity: 'base' }));
+    weaponIndex.set(state.units, list);
+  }
+  return list;
+}
+function weaponFilterHtml() {
+  const p = state.pick, list = allWeapons();
+  if (!list.length) return '';
+  const on = list.some(([k]) => k === p.weapon);
+  return `<select class="c-wfilter${on ? ' on' : ''}" data-change="pick-weapon" title="Only the units that have this weapon (alone or among their weapons), of all factions and kinds; the number: how many units have it" aria-label="Units with this weapon">
+    <option value="">Any weapon</option>${list.map(([k, n]) => `<option value="${esc(k)}" ${k === p.weapon ? 'selected' : ''}>${esc(k)} (${n})</option>`).join('')}</select>`;
+}
+
 // a unit of the selection: as in the version shown; a unit that this version does not have, as in the newest version that has it
 const pickUnit = n => state.units[n] || state.lastUnit[n];
 
@@ -916,14 +939,14 @@ function chooserHtml() {
   return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
     <div class="c-pick-head"><h2 class="c-pick-title">Select units</h2>${narrow ? '' : `<button class="toggle-pick" data-a="pick-toggle" title="Hide the unit selection: more room for the columns (a strip at the right edge brings it back)">Hide &#9654;</button>`}</div>
     <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div>${narrow ? '<button class="toggle-pick" data-a="pick-toggle" title="Close the unit selection">Done</button>' : ''}</div>
-    ${state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
-    ${filterHtml({ small: true, faction: p.search ? '' : p.faction, category: p.search ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}
+    <div class="c-filter">${versionsFilterButton()}${weaponFilterHtml()}</div>
+    ${filterHtml({ small: true, faction: p.search || p.weapon ? '' : p.faction, category: p.search || p.weapon ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}
     <div class="picker">${pickerHtml()}</div></div>`;
 }
 
 function pickerHtml() {
   const list = pickUnits();
-  if (!list.length) return `<p class="empty">${state.versionsMode ? 'No unit with more than one version here.' : 'No units here.'}</p>`;
+  if (!list.length) return `<p class="empty">${state.pick.weapon ? 'No unit with this weapon here.' : state.versionsMode ? 'No unit with more than one version here.' : 'No units here.'}</p>`;
   return list.map(n => {
     const u = pickUnit(n), on = isShown(n);
     const versions = state.versionsMode ? versionsOf(n) : [];
@@ -1234,8 +1257,8 @@ const actions = {
     keepAddress(); render(); renderOverlay();
   },
   clear() { remember(); state.columns = []; render(); },
-  'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
-  'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
+  'pick-faction'(v) { state.pick.faction = v; state.pick.search = state.pick.weapon = ''; refreshChooser(); },
+  'pick-category'(v) { state.pick.category = v; state.pick.search = state.pick.weapon = ''; refreshChooser(); },
   'pick-tier'(v) { const n = Number(v), s = state.pick.tiers; if (s.has(n)) s.delete(n); else s.add(n); refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) {   // the new column is at the right end: show it
@@ -1401,8 +1424,8 @@ document.addEventListener('input', e => {
     state.pick.search = e.target.value;
     app.querySelector('.picker').innerHTML = pickerHtml();
     app.querySelector('.picker').scrollTop = 0;
-    for (const b of app.querySelectorAll('.chooser .filt-fac [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.faction);
-    for (const b of app.querySelectorAll('.chooser .tabs [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.category);
+    for (const b of app.querySelectorAll('.chooser .filt-fac [data-v]')) b.classList.toggle('active', !state.pick.search && !state.pick.weapon && b.dataset.v === state.pick.faction);
+    for (const b of app.querySelectorAll('.chooser .tabs [data-v]')) b.classList.toggle('active', !state.pick.search && !state.pick.weapon && b.dataset.v === state.pick.category);
   }
 });
 
@@ -1421,6 +1444,7 @@ document.addEventListener('change', async e => {
     state.columns = state.columns.filter(c => unitOf(c));   // a unit that this version does not have
     keepAddress(); render();
   }
+  if (kind === 'pick-weapon') { state.pick.weapon = e.target.value; refreshChooser(); app.querySelector('.picker').scrollTop = 0; }   // the units with this weapon
   if (kind === 'col-weapon') {   // a column shows one weapon of its unit, or all together
     const c = columnOf(e.target);
     remember();

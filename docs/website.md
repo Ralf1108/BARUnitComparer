@@ -117,6 +117,8 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 - **Share:** copies the link and says so; on a touch device it opens the share menu (`navigator.share`).
 - **Sorting:** a click on the name of a value orders the columns by it, the best first, again: the other way round (`state.sort`, an Undo step).
 
+**The weapon filter** (`weaponFilterHtml`, right of Changed units only): every weapon of the units of the version shown, by name (`weaponKey`), alphabetical, with the number of units that have it (`allWeapons`; Scavenger copies not counted); a weapon chosen lists only the units that have it, alone or among their weapons, of all factions and kinds (like the search; tech levels and search still apply; a faction or kind pressed ends it).
+
 **The unit selection:** the heading **Select units** (gold, bold like the faction names of the columns) with **Hide ▶** at the right: it folds the selection away to a narrow strip at the right edge (the word Select units written upwards; a click brings it back; remembered in the browser), the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
 
 **Search** (everywhere): a text finds the start of a word in the name or description (`pawn`: Pawn, Pawn Launcher); `<armpw` finds a part of the code name (the field turns green).

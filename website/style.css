@@ -457,7 +457,11 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 #tray { z-index: 30; }
 .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; }
 .c-tools .tool.menu svg { stroke-width: 2.8; }
-.c-filter { padding: 0 0 6px; } .c-filter .btn { font-size: 13px; padding: 6px 10px; }
+.c-filter { display: flex; align-items: center; gap: 8px; padding: 0 0 6px; } .c-filter .btn { flex: none; font-size: 13px; padding: 6px 10px; }
+/* the weapon filter of the unit selection: white like a list to choose from, gold while a weapon is chosen */
+select.c-wfilter { flex: 1; min-width: 0; height: 34px; padding: 4px 8px; background: #111; border: 1px solid #555; color: var(--text); font-size: 13px; cursor: pointer; text-overflow: ellipsis; }
+select.c-wfilter.on { border-color: var(--gold); color: var(--gold); background: #2a210d; }
+select.c-wfilter option { color: var(--text); background: var(--panel); }
 
 /* with a Ref: the value itself, small, at the other end of the bar (the table: behind the difference) */
 .abs { position: absolute; right: 3px; top: 1px; height: 13px; padding: 0 5px; border-radius: 6px; background: rgba(0, 0, 0, .6); color: #b5b5b5; font-size: 11px; line-height: 13px; font-variant-numeric: tabular-nums; }

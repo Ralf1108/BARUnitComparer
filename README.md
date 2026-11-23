@@ -16,7 +16,7 @@ Pick a faction, a tech level and a kind of unit, click the units you want, press
 
 ### Compare
 
-Every unit is a column, every value a bar (or a row of the table). Add more units from **Select units** at the right (**Changed units only** lists just the units that some patch changed; **Hide** folds it away for more room). The buttons are explained [below](#the-buttons-of-the-compare).
+Every unit is a column, every value a bar (or a row of the table). Add more units from **Select units** at the right (**Changed units only** lists just the units that some patch changed; **Hide** folds it away for more room; **Any weapon** lists every weapon of the game and shows only the units that have the one you choose). The buttons are explained [below](#the-buttons-of-the-compare).
 
 [![The compare page: three units side by side, Pawn as the reference](docs/compare.png)](https://ralf1108.github.io/BARUnitComparer/#/compare)
 
