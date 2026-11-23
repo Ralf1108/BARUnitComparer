@@ -562,7 +562,7 @@ body.modal { overflow: hidden; }
 .filt-fac :is(a, button):hover { background: #161616; }
 .filt-fac .active, .filt-fac .active:hover { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 .filt-fac .zero:not(.active) { opacity: .45; }
-.filt small { font-size: 11px; font-weight: 400; opacity: .7; }
+.filt small { display: inline-block; min-width: 3.3ch; font-size: 11px; font-weight: 400; opacity: .7; font-variant-numeric: tabular-nums; text-align: left; }   /* the counts take the same room whatever the number: the buttons do not move when it changes */
 .filt .tabs { align-self: stretch; }
 .f-none { --accent: var(--arm); --accent-text: var(--text); --on-accent: #fff; --accent-line: var(--arm); }   /* all factions: the blue of the selection on every page */
 /* the unit selection of the compare: the same, smaller and from the left */
