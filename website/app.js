@@ -78,6 +78,14 @@ const ICONS = {
 };
 ICONS.menu = svgIcon('M3 8h.01M8 8h.01M13 8h.01');                                         // three dots: the menu of a column (phone)
 ICONS.info = svgIcon('M8 7.2v4.3M8 4.6h.01M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8z');           // i in a circle: all values of a unit
+ICONS.undo = svgIcon('M5.5 3L2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H7');                          // the toolbar of the compare: undo, redo,
+ICONS.redo = svgIcon('M10.5 3l3 3-3 3M13.5 6h-7a4 4 0 0 0 0 8H9');
+ICONS.graphic = svgIcon('M2 14h12M4 12V8M8 12V3M12 12V6');                                  // bars: the graphic view
+ICONS.table = svgIcon('M2 3h12v10H2zM2 6.5h12M2 10h12M6 3v10');                            // a grid: the table view
+ICONS.scav = svgIcon('M5.5 5.5h8v8h-8zM2.5 10.5v-8h8');                                    // two boxes: the Scavenger copy next to each unit
+ICONS.filter = svgIcon('M2 3h12L9.5 8.3V13l-3-1.4V8.3z');                                   // a funnel: only the changed units
+ICONS.star = svgIcon('M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z');  // a star: favorite
+ICONS.trash = svgIcon('M2.5 4.5h11M6.3 4.5V2.8h3.4v1.7M4 4.5l.7 9h6.6l.7-9');             // a bin: remove all units
 ICONS.share = svgIcon('M8 10V2M5 4.5l3-3 3 3M3.5 8v5.5h9V8');                            // an arrow out of a box: share the link
 const toolButton = (kind, action, tip, on, enabled) => `<button class="tool ${kind}${on ? ' active' : ''}" data-a="${action}" title="${tip}" aria-label="${tip}" aria-pressed="${!!on}" ${enabled ? '' : 'disabled'}>${ICONS[kind]}</button>`;
 const isNarrow = () => window.innerWidth <= 900;
@@ -292,12 +300,20 @@ function favPanelHtml() {
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
 }
 
+// the pages in the header, each with an icon
+const NAV_ICONS = {
+  catalog: svgIcon('M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z'),                       // a grid of units
+  compare: svgIcon('M2 14h12M4 12V6M8 12V3M12 12V8'),                                      // bars side by side
+  changes: svgIcon('M2 5h10l-3-3M14 11H4l3 3'),                                            // old -> new
+  help: svgIcon('M6 6a2 2 0 1 1 2.8 1.8C8.3 8 8 8.5 8 9v.8M8 12.2h.01M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8z'),   // a question mark in a circle
+};
 function renderNav() {
-  document.getElementById('nav-links').innerHTML = `<a href="#/catalog/${state.faction}/${state.category}" class="${state.page === 'catalog' ? 'active' : ''}">Catalog</a>
-    <a href="${compareLink()}" class="${state.page === 'compare' ? 'active' : ''}">Compare${chosenUnits().length ? ` (${chosenUnits().length})` : ''}</a>
-    ${state.versions.length > 1 ? `<a href="#/changes" class="${state.page === 'changes' ? 'active' : ''}" title="What changed in the game: the units that changed between two game versions">Changes</a>` : ''}
-    <a href="#/help" class="${state.page === 'help' ? 'active' : ''}" title="How this page works, in a few lines">Help</a>
-    <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733;<span class="fav-word"> Favorites</span>${state.favorites.length ? ` (${state.favorites.length})` : ''}</button>${favPanelHtml()}</span>`;
+  const link = (page, href, label, tip = '') => `<a href="${href}" class="${state.page === page ? 'active' : ''}"${tip ? ` title="${tip}"` : ''}>${NAV_ICONS[page]}<span>${label}</span></a>`;
+  document.getElementById('nav-links').innerHTML = `${link('catalog', `#/catalog/${state.faction}/${state.category}`, 'Catalog', 'All units by faction and kind')}
+    ${link('compare', compareLink(), 'Compare', 'Units side by side')}
+    ${state.versions.length > 1 ? link('changes', '#/changes', 'Changes', 'What changed in the game: the units that changed between two game versions') : ''}
+    ${link('help', '#/help', 'Help', 'How this page works, in a few lines')}
+    <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733;<span class="fav-word"> Favorites</span></button>${favPanelHtml()}</span>`;
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   // the version list belongs to the catalog and the compare; the page Changes has its own two lists
   document.getElementById('version').innerHTML = state.page === 'changes' || state.page === 'help' ? '' : state.versions.length > 1
@@ -344,7 +360,7 @@ function renderCatalog() {
     <div class="title"><b>${factionName(f)}</b><h1>${cat.name}</h1></div>
     ${filterHtml({ faction: f, category: state.category, tiers: state.tiers, factions: FACTIONS, cats: CATEGORIES.filter(c => c.id === state.category || hasUnits(f, c.id)), tier: 'tier',
       href: (kind, v) => kind === 'faction' ? `#/catalog/${v}/${state.category}` : `#/catalog/${f}/${v}` })}
-    ${load('intro', 'yes') === 'yes' ? `<p class="intro"><span><b>New here?</b> Click the units you want to compare, then press <b>Compare</b> at the bottom of the page. Hold a unit (or right-click it) to see its values. ${state.versions.length > 1 ? 'What a patch changed: <a href="#/changes">Changes</a>. ' : ''}<a href="#/help">How it works</a></span><button data-a="intro-close" title="Hide this line" aria-label="Hide this line">&#10005;</button></p>` : ''}
+    ${load('intro', 'yes') === 'yes' ? `<p class="intro"><span><b>New here?</b> Click the units you want to compare, then press <b>Compare</b> at the bottom of the page. Hold a unit (or right-click it) to see its values.${state.versions.length > 1 ? '<br>What a patch changed: <a href="#/changes">Changes</a>' : ''}<br><a href="#/help">How it works</a></span><button data-a="intro-close" title="Hide this line" aria-label="Hide this line">&#10005;</button></p>` : ''}
     <div class="controls">
       <span class="seg"><button data-a="view" data-v="list" class="${state.view === 'list' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM8 1h18v4H8zM0 8h5v4H0zM8 8h18v4H8zM0 15h5v4H0zM8 15h18v4H8z"/></svg>List</button><button data-a="view" data-v="grid" class="${state.view === 'grid' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM7 1h5v4H7zM14 1h5v4h-5zM21 1h5v4h-5zM0 8h5v4H0zM7 8h5v4H7zM14 8h5v4h-5zM21 8h5v4h-5zM0 15h5v4H0zM7 15h5v4H7zM14 15h5v4h-5zM21 15h5v4h-5z"/></svg>Grid</button></span>
       <label class="toggle"><input type="checkbox" data-change="names" ${state.showNames ? 'checked' : ''}><i></i>Show names</label>
@@ -463,7 +479,10 @@ function renderChanges() {
   const select = (kind, label, options) => `<label>${label} <select data-change="${kind}">${options}</select></label>`;
   app.innerHTML = `<div class="changes"><div class="title"><h1>Changes</h1></div>
     <p class="chg-intro">What changed in the game between two versions. Choose <b>From</b> and <b>To</b>: the list shows every unit whose values differ, one column per faction, a unit and its counterparts in the other factions in one row, as <s>old</s> → <b>new</b> (<b class="good">green</b>: better for the unit, <b class="bad">red</b>: worse). A click on a unit opens both versions side by side.</p>
-    <div class="controls">${select('chg-from', 'From', versionOptions(v => v.base ? ' (base)' : '', state.changesFrom, state.versions.slice(0, -1)))}${select('chg-to', 'To', versionOptions(v => ` (${v.changed} changed)`, state.changesTo, state.versions.slice(1)))}
+    <div class="controls">${(() => {   // one step older or newer: From and To both move by one version (quick to click through the patches)
+      const i = indexOf(state.changesFrom), j = indexOf(state.changesTo), last = state.versions.length - 1;
+      return `<span class="tb-group chg-step"><button class="btn" data-a="chg-step" data-v="-1" title="One version older: From and To one step back" aria-label="One version older" ${i > 0 ? '' : 'disabled'}>&#9664;<span class="lb">Older</span></button><button class="btn" data-a="chg-step" data-v="1" title="One version newer: From and To one step on" aria-label="One version newer" ${j < last ? '' : 'disabled'}><span class="lb">Newer</span>&#9654;</button></span>`;
+    })()}${select('chg-from', 'From', versionOptions(v => v.base ? ' (base)' : '', state.changesFrom, state.versions.slice(0, -1)))}${select('chg-to', 'To', versionOptions(v => ` (${v.changed} changed)`, state.changesTo, state.versions.slice(1)))}
       <label>Value <select data-change="chg-key"><option value="">Any</option>${CHANGE_KEYS.map(s => `<option value="${s.key}" ${c.key === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
       <label class="toggle small" title="Every unit has a Scavenger copy that changes with it: off, the copies are left out of the list"><input type="checkbox" data-change="chg-scav" ${c.scav ? 'checked' : ''}><i></i>Scavenger copies</label>
       <input class="search" data-input="chg-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(c.search)}"></div>
@@ -491,7 +510,7 @@ function renderHelp() {
       ${item(`${ICONS.info} Hold or right-click`, 'a unit: shows all its values, its counterparts and its counters without adding it to the comparison (also in the unit selection of the compare).')}
       ${item('List / Grid', 'pictures in a grid, or a list with the most important values in columns.')}
       ${item('Show names', 'the names under the pictures of the grid; off, the grid shows the pictures only (the name is in the tooltip).')}
-      ${item('Changed units only', 'lists only the units that changed in some game version.')}
+      ${item('Changed units only', '(in the catalog and in the unit selection of the compare) lists only the units that changed in some game version.')}
       ${item('changed', '(a tag on a unit) a value of this unit changed in the game version shown.')}
       ${item('Ctrl+Z', 'takes back the last click (Ctrl+Y: repeats it).')}</ul>
     <h2>The compare</h2>
@@ -501,7 +520,7 @@ function renderHelp() {
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
-      ['since …', '(the list above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. "since 29 May 2026" means the unit is unchanged from that version on.'],
+      ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Unit selection', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. The arrow folds the selection away.'],
       ['Table view', 'the same values as a compact table.'],
@@ -521,7 +540,8 @@ function renderHelp() {
     <h2>The values</h2>
     <ul>${STATS.map(s => item(s.label, esc(s.tip))).join('')}${item('T1, T2, T3', 'the tech level: T1 units come from the first factories, T2 and T3 from the advanced ones.')}</ul>
     <h2>Changes</h2>
-    <ul>${item('From / To', 'the two game versions that are compared. At first: the newest version against the one before. A wider range shows the total of all changes in between.')}
+    <ul>${item('&#9664; Older / Newer &#9654;', 'move From and To by one version: click through the patches one by one.')}
+      ${item('From / To', 'the two game versions that are compared. At first: the newest version against the one before. A wider range shows the total of all changes in between.')}
       ${item('The columns', 'one column per faction, Armada at the left. A unit and its counterparts in the other factions stand in one row: you see at once when the same unit was changed for several factions. The rows are sorted by name.')}
       ${item('<s>old</s> → new', 'the values that changed. <b class="good">Green</b>: better for the unit, <b class="bad">red</b>: worse (cost and build time: lower is better). New and removed units are marked.')}
       ${item('Value', 'only the units in which this value changed (for example Hitpoints).')}
@@ -529,7 +549,7 @@ function renderHelp() {
       ${item('Click a unit', 'opens the compare with the unit before and after the change, side by side.')}</ul>
     <h2>Game versions</h2>
     <ul>${item('Game version', '(at the top) the catalog and the compare show the newest version of the game. Choose an older one to see the units as they were then. Only versions in which a unit value changed are listed.')}
-      ${item('since …', '(above a unit in the compare) the version of this unit: the first one and each one in which its values changed.')}</ul>
+      ${item('The list of a unit', '(above a unit in the compare) its versions: the first one and each one in which its values changed.')}</ul>
     <h2>Search</h2>
     <ul>${item('Words', 'find the start of a word in the name or the description: <i>tank</i>, <i>anti-air</i>.')}
       ${item('&lt;codename', 'finds units by their name in the game files: <i>&lt;armpw</i>.')}</ul></div>`;
@@ -595,10 +615,26 @@ function renderCompare() {
   renderOverlay();
 }
 
-// the buttons above the columns; on a phone they fit in one line (Undo and Redo as icons, short names, the filter is in the unit selection)
+// the buttons above the columns, in groups: history (Undo, Clear, Redo), the view (graphic or table), + Scav, keep (Favorite, Share).
+// Every button has an icon; on a phone only the icons are shown (one line). Changed units only is in the unit selection: it changes only that list
 function toolbarHtml() {
   const fav = currentFavorite() >= 0, any = state.columns.length ? '' : 'disabled';
-  return `<div class="cmp-clear"><button class="btn" data-a="undo" title="Undo the last change of the columns (Ctrl+Z)" aria-label="Undo" ${undoStack.length ? '' : 'disabled'}>&#8630;<span class="lb"> Undo</span></button> <button class="btn" data-a="redo" title="Redo (Ctrl+Y)" aria-label="Redo" ${redoStack.length ? '' : 'disabled'}><span class="lb">Redo </span>&#8631;</button> <button class="btn" data-a="view-table" title="${state.table ? 'Back to the graphic view with pictures and bars' : 'Compact table: one row per value, one column per unit'}">${state.table ? 'Graphic' : 'Table'}<span class="lb"> view</span></button> <button class="btn fav-star ${fav ? 'on' : ''}" data-a="fav-save" title="${fav ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)'}" ${any}>${fav ? '&#9733;' : '&#9734;'}</button> <button class="btn share" data-a="share" title="Share this comparison: copies its link (on a phone: the share menu)" aria-label="Share" ${any}>${ICONS.share}<span class="lb"> Share</span></button> <button class="btn ${state.scav ? 'go' : ''}" data-a="scav" title="Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.">+ Scav</button>${isPhone() ? '' : versionsFilterButton(true)} <button class="btn" data-a="clear-all" title="Remove all units from the comparison and start again" ${any}>Clear<span class="lb"> all units</span></button></div>`;
+  const btn = (a, icon, label, tip, { on = false, off = false, cls = '' } = {}) =>
+    `<button class="btn${on ? ' on' : ''}${cls ? ' ' + cls : ''}" ${a ? `data-a="${a}"` : ''} title="${tip}" aria-label="${label}"${on !== undefined && cls.includes('tg') ? ` aria-pressed="${on}"` : ''} ${off ? 'disabled' : ''}>${icon}<span class="lb">${label}</span></button>`;
+  const group = (...b) => `<span class="tb-group">${b.join('')}</span>`;
+  // the view: two buttons side by side, the one shown is lit; only the other one does something
+  const view = (table, icon, label, tip) => state.table === table
+    ? `<button class="btn on" title="${label} view (shown)" aria-pressed="true">${icon}<span class="lb">${label}</span></button>`
+    : `<button class="btn" data-a="view-table" title="${tip}" aria-pressed="false">${icon}<span class="lb">${label}</span></button>`;
+  return `<div class="cmp-clear">
+    ${(([undo, redo]) => group(undo, btn('clear-all', ICONS.trash, 'Clear', 'Remove all units from the comparison and start again', { off: !!any, cls: 'danger' }), redo))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
+      // a badge with the number of steps that can be taken back (or repeated); none: no badge
+      btn(a, icon, label, `${tip}${stack.length ? ` - ${stack.length} step${stack.length === 1 ? '' : 's'}` : ''}`, { off: !stack.length }).replace('<button class="btn', `<button ${stack.length ? `data-n="${stack.length}" ` : ''}class="btn${stack.length ? ' n-steps' : ''}`)))}
+    ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}
+    ${group(btn('scav', ICONS.scav, '+ Scav', 'Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.', { on: state.scav, cls: 'tg' }))}
+    ${group(btn('fav-save', ICONS.star, fav ? 'Favorite' : 'Save', fav ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)', { on: fav, off: !!any, cls: 'fav-star tg' }),
+      btn('share', ICONS.share, 'Share', 'Share this comparison: copies its link (on a phone: the share menu)', { off: !!any, cls: 'share' }))}
+    </div>`;
 }
 
 // scrolled down, the names of the units are out of view: a narrow line at the top of the window says which column is which (it follows the columns sideways)
@@ -747,9 +783,10 @@ function scavengerHead(c, at, sticky) {
 // the tools of a column. A phone: only Ref and a menu with the rest, each entry with its name (small icons in a row are hard to hit, and a phone shows no tooltip)
 const columnTools = c => c.scavOf ? refButton(c)
   : isPhone() ? `${refButton(c)}${toolButton('menu', 'col-menu', 'More: all values, versions, counterparts, counters, move, remove', false, true)}`
-  : `${gripHtml()}${versionsButton(c)}${countersButton(c)}${counterpartsButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
+  : `${gripHtml()}${countersButton(c)}${counterpartsButton(c)}${refButton(c)}<button class="x" data-a="remove-column" title="Remove this column" aria-label="Remove this column">&#10005;</button>`;
 // the version list of a column; a phone has it in the menu and shows only a version that the column has of its own
-const columnVersion = c => !isPhone() ? versionSelect(c) : c.version && !c.scavOf ? `<span class="c-ver">${esc(shortVersion(stateVersion(c) || c.version))}</span>` : '';
+// wide: the list of the versions of the unit and the button Versions right of it (it adds the other versions as columns)
+const columnVersion = c => !isPhone() ? ((s => s && !c.scavOf ? `<span class="c-verrow">${s}${versionsButton(c)}</span>` : s)(versionSelect(c))) : c.version && !c.scavOf ? `<span class="c-ver">${esc(shortVersion(stateVersion(c) || c.version))}</span>` : '';
 
 // the game version of a column: a list of the versions that have the unit (a Scavenger column shows the version of its unit); only with more than one version
 const shortVersion = dir => versionLabel(versionOf(dir)).split(' · ')[0];
@@ -758,13 +795,13 @@ function versionSelect(c) {
   const own = c.version || state.versionDir;
   if (c.scavOf) return `<span class="c-ver">${esc(shortVersion(own))}</span>`;
   // only the versions of the unit: the first one that has it and every one in which it changed. The column shows the newest of them that is not newer than its
-  // game version (stateVersion): "since 29 May 2026" means the unit is the same from that version on (a later version without a change is not listed)
+  // game version (stateVersion): "29 May 2026" means the unit is the same from that version on (a later version without a change is not listed)
   const list = versionsOf(c.unit), at = stateVersion(c);
   if (!list.length || !at) return '';
-  const tip = list.length > 1 ? `The versions of this unit: the first one and each one in which its values changed (${list.length} in all). The column shows the unit as it is since the version chosen.`
-    : 'This unit has only one version: it did not change since this game version.';
-  return `<select class="c-ver" data-change="col-version" title="${tip}" ${list.length > 1 ? '' : 'disabled'}>${
-    list.slice().reverse().map(d => `<option value="${esc(d)}" ${d === at ? 'selected' : ''}>since ${esc(versionLabel(versionOf(d)))}</option>`).join('')}</select>`;
+  const tip = list.length > 1 ? `The versions of this unit: the first one and each one in which its values changed (${list.length} in all). Choose one to see the unit as it was then.`
+    : 'This unit has only one version: its values never changed.';
+  return `<select class="c-ver${list.length > 1 ? ' many' : ''}" data-change="col-version" title="${tip}" ${list.length > 1 ? '' : 'disabled'}>${
+    list.slice().reverse().map(d => `<option value="${esc(d)}" ${d === at ? 'selected' : ''}>${esc(versionLabel(versionOf(d)))}</option>`).join('')}</select>`;
 }
 
 // the version comparison: a value is marked if it differs from the same unit in the nearest older version that is shown (the anchor of the column)
@@ -827,7 +864,7 @@ function chooserHtml() {
   if (!state.pickOpen && !narrow) return `<div class="chooser collapsed"><button class="toggle-pick" data-a="pick-toggle" title="Show the unit selection">&#9664;</button></div>`;
   return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
     <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="${narrow ? 'Close the unit selection' : 'Hide the unit selection (to the right)'}">${narrow ? 'Done' : '&#9654;'}</button></div>
-    ${isPhone() && state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
+    ${state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
     ${filterHtml({ small: true, faction: p.search ? '' : p.faction, category: p.search ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}
     <div class="picker">${pickerHtml()}</div></div>`;
 }
@@ -846,7 +883,7 @@ function pickerHtml() {
 // the button Versions at the top: only the units with at least 2 versions are listed (the catalog and the unit selection of the compare)
 function versionsFilterButton(lead = false) {
   if (state.versions.length < 2) return '';
-  return `${lead ? ' ' : ''}<button class="btn ${state.versionsMode ? 'go' : ''}" data-a="versions" title="Only show the units that changed in some game version (they have at least 2 versions). Press again to show all units. The icon Versions of a unit adds its other versions as columns.">Changed units only</button>`;
+  return `${lead ? ' ' : ''}<button class="btn tg${state.versionsMode ? ' on' : ''}" data-a="versions" aria-pressed="${state.versionsMode}" title="Only show the units that changed in some game version (they have at least 2 versions). Press again to show all units. The icon Versions of a unit adds its other versions as columns.">${ICONS.filter}<span class="lb">Changed units only</span></button>`;
 }
 // the button Versions of a column: every other version of its unit as columns right of it, the unit is the Ref; grey with only one version; all shown already: a note says so
 // pressed once a tool adds columns; pressed again (while it is lit) it takes them out again (activeOf, toggleTool)
@@ -1094,6 +1131,11 @@ const actions = {
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   'intro-close'() { save('intro', 'no'); renderCatalog(); },
   // the page Changes: the buttons above the list (a faction, a kind of unit, the tech levels)
+  'chg-step'(v) {   // From and To one version older or newer (the filters stay)
+    const by = Number(v), i = indexOf(state.changesFrom) + by, j = indexOf(state.changesTo) + by;
+    if (i < 0 || j >= state.versions.length) return;
+    location.hash = changesLink(state.versions[j].dir, state.versions[i].dir);
+  },
   'chg-faction'(v) { state.changes.faction = v; document.getElementById('chg-body').innerHTML = changesListHtml(); },
   'chg-category'(v) { state.changes.category = v; document.getElementById('chg-body').innerHTML = changesListHtml(); },
   'chg-tier'(v) { const t = Number(v), s = state.changes.tiers; if (s.has(t)) s.delete(t); else s.add(t); document.getElementById('chg-body').innerHTML = changesListHtml(); },

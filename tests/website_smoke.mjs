@@ -119,19 +119,19 @@ try {
       await page.waitForSelector('.c-head');
       await page.fill('[data-input="pick-search"]', '<a');   // all factions and categories
       const all = await page.locator('[data-a="pick-add"]').count();
-      await page.click('.cmp-clear [data-a="versions"]');
-      check(/versions=1/.test(await hash()), 'Versions (top): the link has versions=1', await hash());
+      await page.click('.chooser [data-a="versions"]');   // in the unit selection, the only list it changes
+      check(/versions=1/.test(await hash()), 'Changed units only: the link has versions=1', await hash());
       const n = await page.locator('[data-a="pick-add"]').count();
-      check(n > 0 && n < all && (await page.locator('.pick .pick-ver').count()) === n, 'Versions (top): the selection shows only units with at least 2 versions', `${n} / ${all}`);
+      check(n > 0 && n < all && (await page.locator('.pick .pick-ver').count()) === n, 'Changed units only: the selection shows only units with at least 2 versions', `${n} / ${all}`);
       const counts = await page.$$eval('.pick .pick-ver', e => e.map(x => Number(x.textContent)));
-      check(counts.every(c => c >= 2), 'Versions (top): every unit shown has at least 2 versions', counts.slice(0, 8).join(','));
+      check(counts.every(c => c >= 2), 'Changed units only: every unit shown has at least 2 versions', counts.slice(0, 8).join(','));
       await page.fill('[data-input="pick-search"]', `<${single[0]}>`);
-      check(await page.locator('[data-a="pick-add"]').count() === 0, 'Versions (top): a unit with only one version is not listed', single[0]);
+      check(await page.locator('[data-a="pick-add"]').count() === 0, 'Changed units only: a unit with only one version is not listed', single[0]);
       await page.goto(base + '#/catalog/arm/bots'); await page.waitForSelector('.card');
       const catalogFiltered = await page.locator('.card').count();   // the filter is still on in the catalog
       await page.click('.controls [data-a="versions"]');   // off: all units
       const catalogAll = await page.locator('.card').count();
-      check(catalogFiltered < catalogAll, 'Versions (top): the catalog shows fewer units than without the filter', `${catalogFiltered} / ${catalogAll}`);
+      check(catalogFiltered < catalogAll, 'Changed units only: the catalog shows fewer units than without the filter', `${catalogFiltered} / ${catalogAll}`);
 
       // the button of a unit: grey without another version; with one it adds every newer version right of the unit
       await page.goto(base + `#/compare/${single[0]}?view=graphic`);
@@ -139,8 +139,8 @@ try {
       const lone = page.locator('.c-head [data-a="col-versions"]');
       check(await lone.isDisabled() && /only one version/i.test(await lone.getAttribute('title')), 'Versions (unit): grey for a unit with only one version (the tooltip says why)', single[0]);
       check(await page.locator('select.c-ver').count() === 0 || await page.locator('select.c-ver').isDisabled(), 'a unit with only one version: its version list cannot be opened', single[0]);
-      const order = await page.$$eval('.c-tools button', b => b.map(x => x.dataset.a).filter(Boolean));
-      check(order.indexOf('col-versions') >= 0 && order.indexOf('col-versions') < order.indexOf('col-counters'), 'Versions (unit): the button is left of Counters', order.join(', '));
+      const beside = await page.$$eval('.c-head .c-verrow', r => r.length && r.every(x => x.querySelector('select.c-ver') && x.querySelector('[data-a="col-versions"]')));
+      check(beside && await page.locator('.c-tools [data-a="col-versions"]').count() === 0, 'Versions (unit): the button is right of the list of versions', '');
       const removedAny = new Set(listing.versions.flatMap(v => read(v).removed || []));
       const unit = multi.find(u => !removedAny.has(u) && count[u] >= 3) || multi.find(u => !removedAny.has(u));   // more than one version, and still there in the newest game version (which the page shows)
       await page.goto(base + `#/compare/${unit}?view=graphic`);
@@ -161,7 +161,7 @@ try {
       check(await page.locator('.stats .fill.diff-good, .stats .fill.diff-bad').count() > 0 || await page.locator('.stats .stat.changed').count() > 0, 'Versions (unit): the older versions are coloured and marked against the reference', '');
       const options = await page.$$eval('select.c-ver', s => [...s.at(-1).options].map(o => o.value));
       check(options.length === count[unit], 'a column lists only the versions of its unit (the first one and each change)', `${options.length}: ${options.join(', ')}`);
-      check(cols[0] === options[0] && /^since /.test(await page.locator('select.c-ver >> nth=0').evaluate(s => s.selectedOptions[0].textContent)), 'the newest column shows the version of the last change ("since ...")', cols[0]);
+      check(cols[0] === options[0] && !/since/.test(await page.locator('select.c-ver >> nth=0').evaluate(s => s.selectedOptions[0].textContent)), 'the newest column shows the version of the last change (its date, no "since")', cols[0]);
       const beforeChange = await hash();
       await page.selectOption('select.c-ver >> nth=1', options.find(o => o !== cols[1]));   // the second column (not the Ref) to another version of its unit
       check((await hash()) !== beforeChange, 'a column can show another game version', await hash());
@@ -204,6 +204,17 @@ try {
     check(inChanges[0] === 6 && inChanges[1] === 3 && inChanges[3] && await fresh.locator('[data-a="chg-faction"][data-v="scv"]').count() === 1 && await fresh.locator('[data-a="chg-faction"][data-v="rap"]').count() === 1,
       'Changes: the same choice of units, all factions always offered (also Scavengers and Raptors)', inChanges.join());
   }
+  // Undo / Redo: a badge with the number of steps, none without a step
+  await fresh.goto(base + '#/compare/armpw,corak,leggob?view=graphic');
+  await fresh.waitForSelector('.c-head');
+  const badges = () => fresh.evaluate(() => ['undo', 'redo'].map(a => document.querySelector(`[data-a="${a}"]`).dataset.n || '-').join('/'));
+  const b0 = await badges();
+  await fresh.click('.c-head >> nth=2 >> [data-a="remove-column"]');
+  await fresh.click('.c-head >> nth=1 >> [data-a="remove-column"]');
+  const b2 = await badges();
+  await fresh.click('[data-a="undo"]');
+  const b3 = await badges();
+  check(b0 === '-/-' && b2 === '2/-' && b3 === '1/1', 'Undo / Redo: a badge counts the steps (none without a step)', `${b0} ${b2} ${b3}`);
   await freshContext.close();
   // changes (the version compare): what changed between two versions, filters, a click opens the unit compare
   if (versions.length > 1) {
@@ -211,6 +222,16 @@ try {
     await page.waitForSelector('.chg-row');
     const rows = await page.locator('.chg-row').count();
     check(rows > 0 && /\d+ changed/.test(await page.textContent('.chg-sum')), 'Changes: the newest version against the one before lists the units', `${rows} ${await page.textContent('.chg-sum')}`);
+    // Older / Newer: From and To move by one version together
+    const range0 = await page.evaluate(() => [indexOf(state.changesFrom), indexOf(state.changesTo)]);
+    const newestOff = await page.locator('[data-a="chg-step"][data-v="1"]:disabled').count() === 1;   // To is the newest version: there is no newer one
+    await page.click('[data-a="chg-step"][data-v="-1"]');
+    await page.waitForFunction(r => indexOf(state.changesFrom) === r[0] - 1, range0);
+    const range1 = await page.evaluate(() => [indexOf(state.changesFrom), indexOf(state.changesTo)]);
+    await page.click('[data-a="chg-step"][data-v="1"]');
+    await page.waitForFunction(r => indexOf(state.changesFrom) === r[0], range0);
+    check(newestOff && range1[0] === range0[0] - 1 && range1[1] === range0[1] - 1 && await page.evaluate(() => indexOf(state.changesTo)) === range0[1], 'Changes: Older and Newer move From and To by one version (Newer off at the newest)', `${range0} -> ${range1} ${newestOff}`);
+    await page.waitForSelector('.chg-row');
     await page.selectOption('[data-change="chg-from"]', versions[0].dir);   // a range: from the base to the newest version
     await page.waitForFunction(() => /from=/.test(location.hash));
     await page.waitForSelector('.chg-row');
@@ -373,7 +394,8 @@ try {
   check(verdicts[0].every(v => v === 'none') && verdicts[1].includes('same') && verdicts[1].some(v => v === 'good' || v === 'bad') && !verdicts[1].includes('none'), 'Ref: better green, worse red, equal greyed out, the reference itself uncoloured', JSON.stringify(verdicts));
   const signs = await page.$$eval('.stats:not(.is-ref) .fill', f => f.map(x => [(x.className.match(/diff-(good|bad|same)/) || [])[1], x.nextElementSibling.textContent.trim()[0]]));
   check(signs.length > 0 && signs.every(([v, ch]) => (v === 'good' && ch === '+') || (v === 'bad' && ch === '−') || (v === 'same' && ch === '±')), 'Ref: the other columns show the difference (+ better, − worse, ±0 equal)', JSON.stringify(signs));
-  const refFills =await page.$$eval('.stats.is-ref .fill', f => [...new Set(f.map(x => getComputedStyle(x).backgroundColor))]);
+  await page.waitForFunction(() => [...document.querySelectorAll('.stats.is-ref .fill')].every(x => x.isConnected && getComputedStyle(x).backgroundColor));   // after a render the page may draw once more
+  const refFills = await page.$$eval('.stats.is-ref .fill', f => [...new Set(f.map(x => getComputedStyle(x).backgroundColor))]);
   check(refFills.length === 1 && refFills[0] === 'rgb(255, 212, 138)', 'Ref: all bars of the reference column are yellow', JSON.stringify(refFills));
   // the tools of a column: icons; Counters and Counterparts pressed again take out what they added and bring back what they put aside
   await page.setViewportSize({ width: 1400, height: 900 });

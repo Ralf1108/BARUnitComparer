@@ -1,249 +1,178 @@
 # Unit comparison website
 
-The website of the project: a unit catalog and a comparison of any number of units. The tools that produce its content are described in the other documents ([README](README.md)); the reduced data comes from `exporter/reduce_units.py` (the rules: `exporter/unit_rules.py`). Look and layout follow the unit pages and the compare page of beyondallreason.info (black background, Poppins, faction colours). The sizes in `style.css` are a little smaller than on that site, so that more units fit next to each other; below 900 px width the unit selection goes under the columns, below 600 px (phones) everything is a step smaller and the header has two lines.
+The website of the project: a unit catalog, a comparison of any number of units and the changes between game versions. Plain HTML, CSS and JavaScript, no build step. Look and layout follow beyondallreason.info (black background, Poppins, faction colours), a little smaller so that more units fit; phones get their own layout (section 4c). The data comes from `exporter/reduce_units.py` (the rules: `exporter/unit_rules.py`).
 
 | Part | What it is |
 |---|---|
-| `website/index.html`, `style.css`, `app.js` | the page: plain HTML, CSS and JavaScript, no build step |
-| `website/fonts/`, `favicon.svg`, `preview.png` | the font Poppins (self-hosted), the icon of the tab, the picture for link previews (Open Graph tags in `index.html`) |
-| `website/serve.py`, `serve.bat` | small local web server for testing (a page opened from a file cannot load its data) |
+| `website/index.html`, `style.css`, `app.js` | the page |
+| `website/fonts/`, `favicon.svg`, `preview.png` | the font Poppins (self-hosted, SIL OFL 1.1: the page loads nothing from other servers), the tab icon, the picture for link previews |
+| `website/serve.py`, `serve.bat` | the local web server (a page opened from a file cannot load its data) |
+
+**Pages** (the address uses `#`, so the site works in a sub folder): `#/catalog/<faction>/<category>` (section 3), `#/compare/...` (4), `#/changes/...` (4b), `#/help`. The header has Catalog, Compare, Changes (with more than one version) and Help, each with an icon (`NAV_ICONS`), the star **Favorites**, the game version (catalog and compare only) and GitHub.
 
 ## 1. Data
 
-The page reads everything from `website/assets/` (in Git; the full `units-<version>.json` of any version stays local, `.gitignore`, and is not published, section 6; base version and differences: [versions.md](versions.md)):
+Everything is in `website/assets/` (base version and differences: [versions.md](versions.md)):
 
 ```
-website/assets/                                everything the tools make
-  counterparts.json                            unit name -> counterpart id, for all versions; groups of beyondallreason.info win, the rest can be corrected by hand (exporter/export_counterparts.py)
-  counters.json                                unit name -> the units that counter it, from the counter charts of beyondallreason.info (exporter/export_counters.py)
-  versions.json                                the game versions shown, oldest first, with date, engine and counts (the first is the base version); `history` (the name of the next file); `checkedUpTo` (the newest version looked at)
-  history.json.gz                              the diff files of all versions after the base in ONE file (made by reduce_units.py; the page loads it with one request)
-  <base version>/                              the base version (the first of the year, test-29183): everything
-    data/units-<version>.json                  all data of the exporter (local only, not in Git: .gitignore)
-    data/units-<version>.reduced.json.gz       what the website shows
-    data/pictures.json                         the fingerprint of every unit's picture (model, textures, hidden pieces, faction)
-    images/<unit>.<format>                     the pictures
-    images/icons/<file>.png                    the role icons of the game version
-  <later version>/                             every later version: only what changed against the version before it (nothing changed: no files, not shown)
-    data/units-<version>.json                  all data of the exporter (local only, not in Git: .gitignore)
-    data/units-<version>.diff.json.gz          the units whose values, picture or icon changed, the new units, the names of the units that are gone
-    data/pictures.json                         the fingerprints of the pictures that changed
-    images/<unit>.<format>                     only the pictures that changed
-    images/icons/<file>.png                    only the icons that changed
+website/assets/
+  versions.json                          the game versions shown, oldest first (the first is the base): date, engine, number of changed units,
+                                         `engineOnly`; `history` (the name of the next file); `checkedUpTo` (the newest version looked at)
+  history.json.gz                        the diff files of all versions after the base in one file (one request)
+  counterparts.json                      unit -> counterpart group (exporter/export_counterparts.py)
+  counters.json                          unit -> the units that counter it, from the counter charts of beyondallreason.info (exporter/export_counters.py)
+  <base version>/                        everything of the base version (test-29183)
+    data/units-<version>.reduced.json.gz what the page shows
+    data/pictures.json                   the fingerprint of every picture (model, textures, hidden pieces, faction)
+    images/<unit>.avif, images/icons/    the pictures, the role icons
+    data/units-<version>.json            all data of the exporter: local only (.gitignore), not published
+  <later version>/                       only what changed against the version before (nothing changed: no folder, not shown)
+    data/units-<version>.diff.json.gz    changed and new units, the names of the gone ones
+    data/pictures.json, images/          only the pictures and icons that changed
 ```
 
-A missing AVIF picture: the page tries WebP, PNG and JPEG, and all of them once more a moment later (a failed request is not always a missing file). The reduced file has 55 KB (the full file 15.7 MB).
+- **Loading:** the page has no unit data of its own. It reads `versions.json`, the reduced file of the base and `history.json.gz` (without `history`: one diff file per version). The units of a version are the base's with the changes of every version up to it. A picture and an icon come from the folder of the version in which they last changed (`ownPicture`, `ownIcon`). A missing AVIF picture: the page tries WebP, PNG and JPEG, and all of them once more a moment later.
+- **The reduced file:** JSON, one unit per line, gzip written with Zopfli (55 KB instead of 15.7 MB; `pip install zopfli`, else `gzip -9`). Not Brotli or zstd, though smaller: a browser unpacks them only with a `Content-Encoding` header, which GitHub Pages cannot set; the page unpacks gzip itself (`DecompressionStream`).
+- `exporter/export_units.ps1` runs `reduce_units.py` after every export; alone: `python exporter/reduce_units.py` (`--force`: again). Without the game everything but the icons is made.
 
-**Loaded dynamically:** the page contains no unit data. It reads `versions.json` and loads with `fetch` the reduced file of the base version and `history.json.gz`, the diff files of all later versions in one file (45 KB for the 63 versions of 2026; without that file, with an older `versions.json`, one diff file per version). The units of a version are the base's with the changes of every version up to it, in order (changed and new units, without the ones that are gone). A unit's picture and icon come from the folder of the version in which they last changed (`ownPicture`, `ownIcon` in the diff file), else from the base's folder. The version shown is chosen at the top (default the newest; the list appears as soon as there are two versions, with the date of each and how many units changed in it, grouped by month from 12 versions on).
+### Fields of a unit
 
-**The year of versions (built; [plan-versions-2026.md](plan-versions-2026.md)):** the page reads the diff files of all versions from **one file** `assets/history.json.gz` (`versions.json` names it: `history`; made by `reduce_units.py`; the reduced file of the base stays separate, the pictures stay in the folders of their versions). Without that field (an older `versions.json`) it reads one diff file per version. The list of game versions is **grouped by month** (`<optgroup>`, for example "2026-03 (5 versions)") from 12 versions on. `versions.json` has `checkedUpTo` (the newest version looked at, the status of the exporter; the page ignores it) and, per version, `engine` (and `engineOnly` where values differ only because of the engine). The page **Changes** is described in section 4b.
-
-`exporter/export_units.ps1` runs `exporter/reduce_units.py` at the end of every export. It can also be run alone (`python exporter/reduce_units.py`): it makes what is missing, `--force` makes it again. If it fails, the export has still worked and the script only warns. Without the game installed everything but the icons is made; the page works without icons.
-
-### The reduced file
-
-Normal JSON (`{ "format": 1, "gameName": ..., "gameVersion": ..., "count": ..., "units": { "<unit>": { ... } } }`, one unit per line), as **gzip at its maximum** (written with Zopfli, 100 iterations; a normal gzip file, 7-Zip opens it). There is no unpacked version. Measured on `test-31820`:
-
-| Format | Size |
-|---|---|
-| unpacked | 526 KB |
-| gzip -9 | 57.8 KB |
-| **gzip with Zopfli** | **54.6 KB** |
-| for comparison: zstd level 22 | 41 KB |
-| for comparison: Brotli 11 | 37 KB |
-
-**Why gzip and not Brotli or zstd:** they are smaller, but a browser unpacks them only if the server sends the header `Content-Encoding`, and GitHub Pages cannot set headers; the browser's `DecompressionStream` reads gzip everywhere (Edge 156: gzip and deflate, not Brotli or zstd). The page unpacks the file itself, so no server setting is needed (tested with the local server, not on GitHub Pages itself). Of these formats, 7-Zip 26 reads gzip and zstd, not Brotli.
-
-`reduce_units.py` needs `pip install zopfli`; without it it writes the same format with `gzip -9`.
-
-### Fields of a unit in the reduced file
-
-| Field | Page | From `units-<version>.json` |
+| Field | Shown as | From `units-<version>.json` |
 |---|---|---|
-| `name`, `description` | name, description | `editor.humanName`, `editor.description`; some units have no translation in the game (the text is a key like `units.names.armprowl`, 14 units): the description is then the name if it is a real text, otherwise the unit name |
-| `faction` | faction filter | `editor.faction`: `arm`, `cor`, `leg`, `scv`, `rap` |
-| `category` | category filter (new property) | see below |
+| `name`, `description` | name, description | `editor.humanName`, `editor.description` (no translation in the game: the name, else the code name) |
+| `faction` | faction | `editor.faction`: `arm`, `cor`, `leg`, `scv`, `rap` |
+| `category` | kind of unit | see below |
 | `tech` | T1, T2, T3 | `editor.tech` |
-| `icon` | role icon | `game.iconType` -> `bitmap` in `gamedata/icontypes.lua` of the game |
+| `icon` | role icon | `game.iconType` -> `bitmap` in `gamedata/icontypes.lua` |
 | `metal`, `energy` | Metal, Energy | `game.metalCost`, `game.energyCost` |
-| `buildTime` | Build time | `game.buildTime / 100` in seconds (at a build power of 100), shown as mm:ss |
+| `buildTime` | Build time (mm:ss) | `game.buildTime / 100` (seconds at a build power of 100) |
 | `buildPower` | Build power | `game.buildSpeed` |
-| `energyMake` | Energy income | `game.energyMake - game.energyUpkeep` if above 0 (a solar collector has a negative upkeep), plus `game.windGenerator` and `game.tidalGenerator` |
+| `energyMake` | Energy income | `energyMake - energyUpkeep` if above 0, plus wind and tidal |
 | `hitpoints` | Hitpoints | `game.health` |
 | `radar` | Radar range | `game.radarDistance` |
-| `speed` | Speed | `game.speed`, shown without decimals |
-| `weapons` | Weapons | the different `type` values of `editor.weapons` (`BeamLaser`, ...), without the `bogus` weapons (`customParams.bogus`) |
-| `dps` | DPS | sum over the weapons of `max(damages.default, damages.vtol) * projectiles * salvoSize / reload`; left out: `bogus` weapons, shields, interceptors, paralyzers, stockpile weapons (nukes) and manual-fire weapons (D-gun): their figures do not say what a unit deals continuously |
+| `speed` | Speed | `game.speed` |
+| `weapons` | Weapons | the different `type` values of the weapons, without `bogus` ones |
+| `dps` | DPS | sum of `max(damages.default, damages.vtol) * projectiles * salvoSize / reload`; without bogus weapons, shields, interceptors, paralyzers, stockpile and manual-fire weapons |
 | `range` | Weapon range | `game.maxWeaponRange` |
+| (worked out) | HP per metal, DPS per metal | `derive` in `app.js` (`derived` in `STATS`); not listed on Changes |
 
-Checked against the compare page of beyondallreason.info: `armwar` (Centurion) 270 metal, 3100 energy, 00:42, 1590 hitpoints, speed 45, BeamLaser, DPS 183, range 325; `corstorm` (Aggravator) 110, 1150, 00:20, 740, 47, MissileLauncher, 41, 475.
+Checked against beyondallreason.info: `armwar` (Centurion) 270 metal, 3100 energy, 00:42, 1590 hitpoints, speed 45, BeamLaser, DPS 183, range 325.
 
 ### Category
 
-| Category | Rule, the first that fits |
+| Category | The first rule that fits |
 |---|---|
 | `factories` | `game.isFactory` |
-| `defense` | `editor.group` = `turrets`, or `editor.filler` (dragon's teeth, walls) |
+| `defense` | `editor.group` = `turrets`, or `editor.filler` (walls) |
 | `bots`, `vehicles`, `air`, `sea`, `hover` | `editor.group` = `bot`, `vehicle`, `air`, `ships`, `hover` |
 | `buildings` | all other units |
 
 ## 2. Faction colours
 
-As on the rendered pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion green (130, 218, 105), Scavengers purple (175, 105, 225), Raptors black (20, 20, 20). Black text cannot be read on the black page: for the Raptors, names and active buttons are black with a light outline or light text.
+As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion green (130, 218, 105), Scavengers purple (175, 105, 225), Raptors black, shown with light text and a light outline (black cannot be read on the black page).
 
-## 3. Catalog (`#/catalog/<faction>/<category>`)
+## 3. Catalog
 
-- Title: faction and category.
-- **The choice of units** (`filterHtml`, `.filt`; the same markup and look on the three pages, in the catalog as links, elsewhere as buttons): one line with the factions (bold, in their colours, the chosen one filled) and the tech levels T1 / T2 / T3 (several can be pressed; none: all), below it the kinds of units with their icons (`.tabs`). The unit selection of the compare shows it smaller and from the left (`.filt.small`); Changes adds "All factions", "All kinds" and the number of units behind each name.
-- Kinds of units: Bots, Vehicles, Aircraft, Ships, Hovercraft, Factories, Defenses, Buildings.
-- **List** or **Grid**, the switch **Show names** (off: the grid shows the pictures only), the search.
-- Units sorted by tech level, then by metal cost. A card has the tech level, the role icon, the picture, the name and the description.
-- A click on a unit marks it for the comparison, a bar at the bottom shows the marked units and leads to the compare page.
-- **For the first visit:** a line under the category menu says what to do (click units, then Compare; hold or right-click a unit for its values) and links to the page Changes (with more than one version) and to the Help page; its cross hides it for good (`intro` in the browser's storage).
-- **All values of one unit** without adding it to the comparison (`detailHtml`, `state.detail`): a card over the page with the picture, every value (also the ones per metal), the counterparts and the units that counter it (a click on one shows that unit), and a button that adds the unit to the comparison or takes it out.
-  - Opened by a right-click or a long press (550 ms) on a unit in the catalog (grid and list) and in the unit selection of the compare; on a phone also from the menu of a column. Android sends `contextmenu` for a long press, iOS does not: a timer on `touchstart` does the same, and the click that ends the press is swallowed (`quietUntil`).
-  - Closed with the cross, **Close**, a click beside the card or Escape. It is not part of the link.
-- **Categories:** a category in which the faction has no unit is not offered (Raptors have no vehicles, ships and buildings); the same in the unit selection of the compare (`hasUnits`).
-- **Units without a name** (the name is the code name, for example `armcomnew`: test and helper units of the game) are listed last and say "Internal unit". Two units with the same name in the list (for example the commanders) also show their code names.
-- **Help** (`#/help`, link in the header): the page in three steps, every button of the compare, every value, the game versions and the search (`renderHelp`).
+- **The choice of units** (`filterHtml`, `.filt`; the same on all three pages): one line with the factions and the tech levels T1 / T2 / T3 (several can be pressed; none: all), below it the kinds of units with icons (Bots, Vehicles, Aircraft, Ships, Hovercraft, Factories, Defenses, Buildings; a kind the faction has no unit of is left out, `hasUnits`). In the catalog the factions and kinds are links; the unit selection of the compare shows it smaller (`.filt.small`); Changes adds **All factions**, **All kinds** and the number of units behind each name.
+- **List** or **Grid**, **Show names** (off: the grid shows the pictures only), **Changed units only** (section 4), the search.
+- Units by tech level, then metal cost; units without a name (test and helper units) last, as "Internal unit"; two units with the same name also show their code names. A card: tech level, role icon, picture, name, description, "changed" if a value changed in the version shown.
+- **A click** marks a unit for the comparison; a bar at the bottom (`#tray`) shows the marked units and leads to the compare.
+- **Unit card** (`detailHtml`, `state.detail`): a right-click or a long press (550 ms) on a unit (catalog, unit selection, the menu of a column) shows every value, the counterparts and the counters (a click on one shows that unit) and a button that adds or removes the unit. Android sends `contextmenu` for a long press, iOS does not: a timer on `touchstart` does the same, and the click after it is swallowed (`quietUntil`). Closed with ×, **Close**, a click beside it or Escape.
+- **For the first visit:** a line says what to do and links to Changes and Help (gold links); its cross hides it for good (`intro` in the browser's storage).
 
-## 4. Compare (`#/compare/<unit>,<unit>@<version>,...?view=table&scav=1&ref=<unit>&versions=1&v=<version>`)
+## 4. Compare
 
-**The link** carries the units in their order and how they are shown, so that a shared link looks the same for the other one:
+**The link** `#/compare/<unit>,<unit>@<version>,...?view=table&scav=1&ref=<unit>&versions=1&v=<version>` holds the units in their order, the view, **+ Scav**, the Ref, the filter and the game version at the top (`v`, if not the newest); `<unit>@<version folder>` is a column with a game version of its own. It is kept up to date without new history entries.
 
-- `view` = `table` or `graphic`; `scav=1` if **+ Scav** is on; `ref` = the unit of the reference column (also a Scavenger copy, `corak_scav`); `versions=1` for the filter **Changed units only**.
-- `v` = the game version chosen at the top, if it is not the newest one (a link without it keeps the version that is chosen).
-- A column with a game version of its own is `<unit>@<version folder>` (`armpw@test-31450-6562fb1`); without it the column shows the version chosen at the top.
-- The address is kept up to date with every change (without a new entry in the history of the browser).
-- An older link with only the units shows them without Ref and + Scav, in the view the browser remembers.
+**Layout:** the toolbar (`toolbarHtml`), the columns, at the right the unit selection (it can be folded away; remembered). Columns and selection fill the window: the pictures shrink (60 to 300 px) so that the page needs no scrollbar. Without units the page says what to do and offers examples (`emptyCompareHtml`).
 
-**Layout:**
+**The toolbar,** groups of buttons with icons (`ICONS`), a lit button is on: **Undo** / **Clear** / **Redo** (a gold badge with the number of steps; no step: no badge) · **Graphic / Table** · **+ Scav** · **Save** (star, filled for a favorite) / **Share**. A button that cannot be used now is grey. On a phone only the icons, in one line.
 
-- The heading "Compare" with a row of buttons below it (`toolbarHtml`): **Undo**, **Redo**, **Table view** / **Graphic view**, the star (**Favorite**), **Share**, **+ Scav**, **Changed units only** (the filter, only with more than one game version), **Clear all units**. A button that cannot be used now is grey with a dashed frame.
-- Below that the columns on the left and the unit selection at the right edge. The selection can be folded away to the right (the compare is laid out the same way without it).
-- Columns and selection fill the height of the window, so that the page needs no scrollbar and the footer stays at the bottom: the pictures of the units shrink (60 to 300 px) when the values would not fit, the selection takes the rest. On a narrow window (up to 900 px) the pictures are 200 px and the page scrolls.
-- **Without units** the page says what to do in three steps and offers comparisons to start with (`emptyCompareHtml`): light infantry bots, light tanks and light laser towers as a unit and its counterparts; the commanders of the three factions, destroyers, light hovercraft and the fusion reactors with the cloakable one as fixed lists.
-- **Game versions are shown with the date first** ("8 Nov 2026 · test-31891", `versionLabel`); the list at the top is grouped by month ("November 2026 (3 versions)") and is not shown on the pages Changes and Help, where it does nothing.
+**Graphic view:** a column is a unit: faction, the list of its versions, its tools, picture, name, description, tech level, counterparts, then the values as bars, scaled to the largest value of the row; a row is shown only if a unit has the value. Two columns: the bars are mirrored. Each label has a tooltip (`tip` in `STATS`). Columns are 360 px wide at least, a little narrower (down to 280 px) when that saves a few pixels of scrolling (`fitColumns`); arrows at the edges show hidden columns and scroll to the next one.
 
-**Header of the page:** Catalog, Compare (number of units), **Favorites** (list, see below); at the right the game version and the link to the source on GitHub.
+**Table view:** one row per value, one column per unit, the largest value bold, the row names stay at the left. The view is remembered in the browser.
 
-**Graphic view**
-- A column is a unit: the name of its faction (in the faction colour), a row of icon buttons (grip, **Versions**, **Counters**, **Counterparts**, **Ref**, the reddish **X** that removes the column; see "The tools of a column" below), the picture, name, description, tech level, the **counterparts** and the values.
-- Any number of columns, each at least 360 px wide (see "Width of the columns" below); they scroll sideways when they do not fit. An arrow with a fade at the left or right edge shows that more columns are hidden there; a click scrolls to the start of the next column.
-- Values: Metal, Energy, Build time, Build power, Energy income, Hitpoints, Radar range, Speed, Weapons, DPS, Weapon range, and two values worked out by the page (`derive`, `derived` in `STATS`): **HP per metal** and **DPS per metal**, what a unit gives for its cost (two decimals below 10). They are not part of the page Changes. Each label has a tooltip that says what the value means (`tip` in `STATS`; the page Help lists them). A row is shown only if at least one shown unit has a value for it; a unit without that value shows a grey dash. The bars are scaled to the largest value of the row among the shown units. A value of 0 shows no bar. With exactly two columns the bars are mirrored and meet in the middle, as on beyondallreason.info.
+**The versions of a column:** below the faction the list of the versions of its unit (`versionSelect`: the first version and each one in which its values changed, by date, "29 May 2026 · test-30236"; white if there are several, grey with one), right of it **Versions** (a clock with the number of versions; it adds the others as columns, see below).
 
-**Table view:** one row per value, one column per unit, plain text; a small picture, faction, name, tech level, description and the buttons stand in the header of each column. The largest value of a row is bold. The same red / green against the reference. The row names stay at the left when scrolling sideways. The choice (table or graphic) is remembered in the browser. Switching the view starts at the left edge again.
+**The tools of a column** (`toolButton`): at the left the grip (drag to move; arrow keys), at the right **Counters** (swords), **Counterparts** (arrows), **Ref** (balance), × (remove). Versions, Counters and Counterparts are lit while what they added is shown; pressed again they take it out and bring back what they put aside (`toggleTool`; only the newest one, older ones with Undo).
 
-**Sorting:** a click on the name of a value (the label of a bar, the name of a table row; not Weapons) puts the columns in the order of this value, the best first (costs and build time: the lowest), units without the value last; a second click turns the order round (`actions.sort`, `state.sort`). A small arrow marks the value, a note says what happened. It is a step of Undo; any other change of the columns ends the mark.
+- **Ref:** one unit at a time. Every other column is coloured against it (green better, red worse; less is better for costs and build time; equal values grey) and shows the difference instead of the value (`valueText`: **+** better, **−** worse, ±0), the value itself small beside it (`absText`), both in the tooltip and as a note on a click. The Ref column itself is yellow. It stays at its place; scrolled to the left edge it sticks there and shrinks to a strip with its values (see below).
+- **Versions:** adds every other version of the unit as columns right of it and makes it the Ref. A column shows the newest version of its unit that is not newer than its game version (`stateVersion`). Values that differ between versions of a unit are marked gold (`anchorOf`, `cellChanged`).
+- **Counters:** replaces the other columns with the units that counter this unit (`counters.json`; grey if none is known).
+- **Counterparts:** adds the units of the other factions with the same group in `counterparts.json`; also one button per counterpart under the description.
 
-**Share:** the button copies the link of the comparison to the clipboard and says so; on a device with a touch screen it opens the share menu of the system instead (`navigator.share`).
+**The other buttons**
 
-**Reference (Ref):** one unit at a time; pressed again it is off.
+- **+ Scav:** the Scavenger copy of every unit right of it (about 10 % more cost, 25 % more hitpoints).
+- **Changed units only:** the catalog and the unit selection list only units with at least 2 versions (`versions=1`).
+- **Undo / Redo** (Ctrl+Z / Ctrl+Y, also in the catalog): every change of the columns, their order and the game versions, up to 100 steps. Ref, + Scav and the view are not steps.
+- **Save:** a favorite holds the units, + Scav and the Ref (`localStorage`, `barunit.favorites`); **Favorites** in the header lists them (load, delete).
+- **Share:** copies the link and says so; on a touch device it opens the share menu (`navigator.share`).
+- **Sorting:** a click on the name of a value orders the columns by it, the best first, again: the other way round (`state.sort`, an Undo step).
 
-- **Place:** the column stays where it is (to have it at the left, move it by hand). Scrolled sideways, it moves with the others until it reaches the left edge, then it sticks there (`refStuckAt`: from which scroll position; in the grid it spans the whole grid and starts at its own place, `--i`).
-- **Colours:** with a Ref **every** other column is coloured against it, also several versions of another unit: green better, red worse (bars in the graphic view, text in the table); for Metal, Energy and Build time less is better. A value equal to the reference is greyed out (`diff-same`: grey bar, dim number; the same weapons: grey text), so that only the differences stand out. If the reference has no such value, the value stays uncoloured.
-- **Differences:** the other columns show the difference to the reference instead of the value (`valueText`): `+` better, `−` worse (the sign says better or worse, not more or less: 11 metal more is `−11`), `±0` equal, in the colour of the bar. The bars keep their length (the value itself). The value itself stands small and grey at the other end of the bar (the table: behind the difference; `absText`); the value and the one of the Ref are also in the tooltip of the number, a click or tap on the number shows them as a note. A difference that the format would show as 0 gets one significant digit (speed: 0.4). Where the Ref has no such value, and without a Ref, the value is shown.
-- **The reference column itself** shows all its values in one colour, yellow, the colour of Energy (`.stats.is-ref .fill`, `td.ref-col`).
+**The unit selection:** the search, **Changed units only** (only with more than one game version), the choice of units (section 3, with tech levels), the units as pictures; a click adds a column, units already shown are dimmed.
 
-**The tools of a column** are small icon buttons with a tooltip (`toolButton`, `ICONS` in `app.js`):
+**Search** (everywhere): a text finds the start of a word in the name or description (`pawn`: Pawn, Pawn Launcher); `<armpw` finds a part of the code name (the field turns green).
 
-- **Order:** the grip (move) at the left; at the right, together: **Versions** (a clock turning back), **Counters** (crossed swords), **Counterparts** (arrows both ways), **Ref** (a balance) and remove (×) right of Ref. Above them, below the name of the faction, the list of the versions of the unit.
-- **On a phone (up to 600 px)** a column shows only **Ref** and a menu button (three dots, 36 px each); the rest is in the menu of the column, see 4c.
-- **Pressed again:** Versions, Counters and Counterparts are lit (gold) while what they added is shown; pressed again they take out the columns they added, bring back the ones they put aside (Counters) and set the Ref as it was before (`toggleTool`, `c.active`). Columns added or removed by hand in between stay.
-- Only the newest of these tools can be taken back like this, older ones with Undo; each press is one step of Undo.
+**Game versions:** the list at the top (date first, grouped by month) shows the units as they were. The catalog marks the units changed in the version shown. Only values count as a change, never a new picture alone.
 
-**Width of the columns and the edge arrows:** a column is 360 px wide at least; if the columns are only a little too wide for the window, they get narrower (down to 280 px, `fitColumns`), so that a few pixels of scrolling do not bring the arrow and the shadow over the first column. An edge arrow scrolls to the start of the next column (behind the sticky reference column and the names of the table rows), so that no column is cut at the left edge; at the very start the left arrow is gone.
+**Keyboard:** everything can be reached with Tab (gold frame); Enter or Space marks a unit in the catalog; arrow keys move a column by its grip; Escape closes a menu, the unit card and the favorites.
 
-**Other buttons**
-- **+ Scav** (top row, for all columns): adds the Scavenger copy of every shown unit as a column right of it ("Scavengers", only with a **Ref** button); pressed again they go away. Scavenger copies are stronger (about 10 % more cost, 25 % more hitpoints).
-- **Counters:** replaces all other columns with the units that counter this unit (`counters.json`). Grey if the unit has none (the charts name 25 units); a Scavenger unit uses the counters of its normal unit. Pressed again (lit) it brings the columns back that it put aside.
-- **Counterparts:** the icon in the tools adds all of them (pressed again: takes them out); also the label "Counterparts:" below the description and one button per counterpart (units with the same id in `counterparts.json`; Scavenger copies only for a Scavenger unit). A click on a unit adds it; a click on the label adds all of them. A unit is in the comparison only once.
-- **Moving:** the grip at the start of the button row is dragged onto another column (left half: before it, right half: after it, marked by a gold line). Scavenger columns stay behind their unit.
-- **Undo / Redo** (also Ctrl+Z, Ctrl+Y outside of input fields): every change of the set or the order of the columns (add, remove, counters, counterparts, move, clear, load of a favorite, also a unit marked or unmarked in the catalog), of the game version of a column and of the game version chosen at the top is a step, up to 100 (Undo also brings the old game version back). Ctrl+Z and Ctrl+Y also work in the catalog. Ref, + Scav and the views are not steps.
-- **Favorites:** the star saves the current units as a favorite, together with **+ Scav** and the reference column (filled star: exactly this is saved, press again to remove it; the view, table or graphic, stays a setting of the browser). The header button **Favorites (n)** opens the list: the unit names in the colour of their faction, after them "+ Scav" and "Ref <unit>" if saved; a click loads them into the comparison with + Scav and Ref (also from the catalog; an Undo brings the old selection back), the X deletes an entry. Stored in the browser (`localStorage`, key `barunit.favorites`: a list of `{units, scav, ref}`; an older entry that is only a list of unit names still loads, without + Scav and Ref): per browser and address, not shared.
+**The reference strip** (all widths): the class `scrolled` on `.cmp-scroll` is set in `updateMore` (24 px after the column sticks, off below 4 px; `refStuckAt`).
 
-**The unit selection** (right edge, 3 columns of pictures of at most 150 px): at the top the search field with a clear button and the arrow that folds the selection away to the right (a strip remains, a click opens it again; remembered), below it the choice of units as in the catalog, only smaller (the factions, the tech levels `state.pick.tiers`, the kinds of units; `filterHtml`), then the list of units. The search looks in all factions and categories as you type; a faction or category click ends it. A click on a unit adds a column and scrolls to it; units already shown are dimmed.
+- Graphic view: the column gets narrower with every pixel scrolled (`--refw`, down to 88 px, 76 px on a phone), so the next column stays beside it.
+- Table view: the column next to the row names (`.ref-col`, 64 / 56 px; `--lw`). An empty cell behind the last column (`.t-pad`, sized in `updateMore`) takes the width the strip gives up, so the scrolled area keeps its width (a width that changed while the bar was dragged made the columns jump to and fro), and on a narrow window gives the room to bring the last column beside the strip.
+- On a touch device (class `touch` on the page: coarse pointer or first touch) a swipe ends with a column beside the strip (`scroll-snap`, `snapTable`); not with the mouse, where it pulled the columns back while the bar was dragged.
 
-**Search (selection and catalog):** a text finds the words of the name and the description at the start of a word (`pawn` finds Pawn and Pawn Launcher, not `armrespawn`). `<armpw>` (the closing bracket may be left out) finds a part of the code name; the field turns green then. The placeholder tells both.
+**The names stay in view** (`updatePin`): scrolled down so far that the names are gone, a line at the top shows a small picture and the name above each column.
 
-**Game versions** (only with more than one version in `versions.json`; base version and differences: [versions.md](versions.md)):
-- Every column has a list of the **versions of its unit** in its header, on a line of its own between the name of the faction and the tools: only the first version that has the unit and every version in which its values changed, newest first, each as "since 29 May 2026 · test-30236" (`versionSelect`). The column shows the newest of them that is not newer than its game version (`stateVersion`): with the newest game version at the top, a unit that last changed on 29 May shows "since 29 May 2026", not the date of the game version at the top (a version without a change of the unit is never listed, so the list does not change when another entry is chosen). A unit with only one version has a grey list. A column with a version of its own keeps it when the version at the top is changed; set back to the version it would show anyway, it has no version of its own any more (the unit counts as shown again); a Scavenger column of **+ Scav** shows the version of its unit.
-- **Changed units only** (called "Versions" before; button in the row at the top of the compare page and in the catalog controls; only with more than one game version) is a **filter**: only the units that have at least 2 versions are listed, in the catalog and in the unit selection (the number on a unit in the selection: how many versions it has). A **version of a unit** is the first version that has it (the base, or the version it is new in) and every version in which it changed. The filter is in the link (`versions=1`). A click in the selection adds one column as usual.
-- **Versions of a column** (icon in the column header, left of **Counters**, also in the table view; a a small gold number on it if the unit has more than one version: how many it has, 2 to 9, above 9 a ">"): adds **every other version** of that unit, older and newer than the one the column shows, as columns right of it (newest first), and makes the unit the **Ref** (where it is). The version a column's values come from is the newest version of the unit that is not newer than the version of the column (`stateVersion`); a version counts as shown if a column of the unit shows its values. A unit with only one version has a grey icon (its tooltip says why); if all versions are shown already, a press gives a short note (`note`). Pressed again (lit) it takes the added versions out; Undo does, too (the Ref stays, as with every Undo).
-- **Marking of versions:** whenever columns of one unit show different versions, the values that differ from the same unit in its **Ref column** (without a Ref: from the nearest older version shown) are marked (gold label with a dot, gold background in the table; `anchorOf`, `cellChanged`). The colours (`referenceFor`): with a Ref every column is coloured against the Ref, also the versions of another unit (red worse, green better, an equal value greyed out); without a Ref the versions of a unit are coloured against its nearest older version shown, and an equal value stays uncoloured. The Ref column itself is not marked; all its bars (and its weapons, its numbers in the table) are yellow, the colour of Energy, so that the red and green of the other columns stand out.
-- The catalog marks the units that changed in the version shown against the version before ("changed"): a changed value, never only a new picture (only values count, [versions.md](versions.md)).
+## 4b. Changes
 
-**Keyboard:** everything can be reached with Tab; what has the focus gets a gold frame (not after a mouse click). Cards and rows of the catalog are toggle buttons (Enter or Space marks or unmarks the unit, the focus stays on it). The grip of a column moves it with the arrow keys left and right (an Undo step like a drag). Escape closes the favorites. Ctrl+Z / Ctrl+Y: Undo / Redo.
+`#/changes/<to version>?from=<version>`: what changed in the game between two versions.
 
-## 4b. Changes (`#/changes/<to version>?from=<version>`)
-
-The version compare: the question is "what changed in the game", not "how do these units differ". The nav has the link **Changes** (only with more than one version).
-
-- **From / To:** two selects with the versions (grouped by month, newest last; From without the newest one, To without the base, which has no version before it). The default is the newest version against the one before it; any range works (the units of the To version against the units of the From version, both known from the chain: a unit that changed twice shows the total). The address carries the range.
-- **The list:** every unit that is **changed** (the values as `old → new`, the new number green if it is better for the unit and red if it is worse; cost and build time: lower is better: metal, energy, build time, build power, energy make, hitpoints, radar, speed, weapons, DPS, range, tech, name, description; a changed picture), **new** or **gone**. Each entry has the picture, the name, the code name and the faction colour. A line above counts changed, new and gone units and the versions with changes in the range.
-- **One column per faction** (`.chg-grid`; the factions that have an entry, Armada at the left): a unit and its counterparts in the other factions stand in one row (`changeGroup`: the group of `counterparts.json`, a Scavenger copy in the row of its unit), so that a change made to the same unit of several factions is seen at once. The rows by name: first the rows with a unit in the first column, by its name, then the ones that start in the second column, and so on. With one faction only (or up to 900 px: one column, the units of a row below each other) it is a plain list.
-- **Scavenger copies:** every unit has a Scavenger copy that changes with it. A copy is left out while its unit is in the list with the same kind of change; the line above the list counts the copies left out. The switch **Scavenger copies** (or the faction Scavengers) lists them.
-- **Filters:** the choice of units as in the catalog (see 3): **All factions** or one faction (all five are always offered, also Scavengers and Raptors; one without an entry is pale), the tech levels, **All kinds** or one kind of unit, each with the number of units it would show; value (only the units in which that value changed), search (a text, or `<codename>`). The filters are not part of the address.
-- **Engine only:** values that differ only because the engine of the game was changed in a version of the range (`engineOnly` in `versions.json`, for example the build time of `armcomboss`) are named in a note, not listed as changes.
-- **A click on a row** opens the unit compare with the From version and the To version of the unit side by side (`#/compare/<unit>@<from>,<unit>@<to>?view=graphic`); a new unit comes once (in the To version), a gone one in the From version.
-- Code: `rangeChanges`, `changeRow`, `changeGroup`, `changesListHtml`, `renderChanges`, `filterHtml` in `website/app.js`; tested in `tests/website_smoke.mjs` ("Changes: ...").
+- **◀ Older / Newer ▶** move From and To by one version together (`chg-step`), to click through the patches; **From / To** choose any range (default: the newest version against the one before). The address holds the range.
+- **The list:** every changed unit with its changed values as `old → new` (green: better for the unit, red: worse), a changed picture, new and gone units. One column per faction (`.chg-grid`, Armada at the left): a unit and its counterparts in one row (`changeGroup`), the rows by name, first the ones with an Armada unit. One faction only, or up to 900 px: a plain list.
+- **Filters:** the choice of units (section 3; all five factions always offered, one without an entry pale), **Value** (only units in which it changed), the search, **Scavenger copies** (off: a copy that changes with its unit is left out and counted). Not part of the address.
+- **Engine only:** values that differ only because the engine changed (`engineOnly`) are named in a note, not listed.
+- **A click on a unit** opens the compare with the unit before and after, side by side.
+- Code: `rangeChanges`, `changeRow`, `changeGroup`, `changesListHtml`, `renderChanges`.
 
 ## 4c. Phones and narrow windows
 
-The page is built for a large monitor first; a narrow window gets its own compact layout (`isNarrow()` in `app.js`: up to 900 px; the rules at the end of `style.css`). Tested at 390 px in `tests/website_smoke.mjs` ("phone: ...").
+`isNarrow()`: up to 900 px, `isPhone()`: up to 600 px; the rules at the end of `style.css`. The page is never wider than the screen.
 
-- **Unit selection as a sheet (up to 900 px):** the selection is not below the columns but comes up from the bottom edge with the button **+ Add units** (fixed at the bottom right). It stays open while units are added; **Done** closes it. It is not remembered (`state.sheet`).
-- **Moving a column (601 to 900 px):** dragging does not work with a finger, so the grip is replaced by two buttons, left and right (`moveColumn`, also used by the arrow keys). A phone has them in the menu of the column.
-- **Compare (up to 600 px, `isPhone()`):** two columns fit on the screen (`--colmin: calc(50vw - 16px)`); the name of a value is above its bar, not left of it; the heading "Compare" is left out. **The values start on the first screen:**
-  - the buttons above the columns are one line (Undo and Redo as arrows, "Table", "Clear", Share as an icon; 36 px high); **Changed units only** is in the unit selection instead;
-  - the head of a column is one line: the faction at the left, **Ref** and the menu at the right; the list of versions is in the menu (a column with a version of its own shows its date under the faction);
-  - the picture is 104 px (72 px in a window up to 500 px high, a phone held sideways); the counterparts under the name are left out (they are in the menu).
-- **The menu of a column (up to 600 px, `menuHtml`, `state.menu`):** a sheet from the bottom edge with the picture and name of the unit and one entry per tool, each with its name and a line that says what it does or why it has nothing to do: reference, all values, versions (with their number), counterparts (with their names), counters, move left / right, the game version of the unit, remove. An entry closes the menu, moving a column does not. **Done**, a tap beside it or Escape close it.
-- **The names stay in view (all widths, `updatePin`):** when the page is scrolled down so far that the names of the units are out of view, a line at the top of the window shows a small picture and the name above each column; it follows the columns sideways, the reference column in gold.
-- **Catalog (up to 600 px):** three units per row with the name only (the description is in the list view and in the compare); the categories are one row that is scrolled sideways and fades out at the right edge; the search comes first and is as wide as the screen. The bar with the marked units lies over the cards (`#tray`, z-index).
-- **Empty compare (up to 600 px):** the examples are as wide as the screen, with room below the last one for **+ Add units**.
-- **Help** (`renderHelp`): the three pages, choosing units, the catalog, the compare, Changes, on a phone (+ Add units, swipe, the menu of a column, hold a unit, the line of names), the values, game versions, search.
-- **Header (up to 600 px):** brand, game version and GitHub in the first line, the links in the second (Favorites is only the star).
-- **Changes (up to 600 px):** one row per unit, the lists From and To as wide as the screen.
-- **The reference column stays in view** once it is scrolled to the left edge (it stays at its place until then), so that its values stay next to the ones they are compared with. There it **shrinks to a narrow strip** with a small picture, the Ref button and only its values (bars without names), so that more of the other columns can be seen:
-  - The class `scrolled` on `.cmp-scroll` is set in `updateMore` (24 px after the column sticks, off below 4 px).
-  - **Graphic view:** the column gets narrower with every pixel scrolled after it sticks (`--refw` = its whole width minus the scroll since then, at least the strip: 88 px, on a phone 76 px), so the next column always sits right beside it. On a device used with a finger a swipe also snaps to a column next to the strip (`scroll-snap`, `scroll-padding-left`; only with the class `touch` on the page, set for a coarse pointer or at the first touch: with the mouse the browser pulled the columns back while the bar was dragged, the view jumped to and fro).
-  - **Table view:** it is the column next to the value names (`.ref-col`, 64 px / 56 px; the names of the rows get smaller, too; their width is `--lw`; its weapons stay in one line). On a narrow window a swipe (class `touch`) ends with the nearest column right beside the strip (`snapTable`, on `scrollend`), and an empty cell behind the last column (`.t-pad`, sized in `updateMore`) gives the room to bring the last column there, too. The same cell keeps the scrolled area as wide as it was when the reference column and the row names shrink to the strip (all widths; the widths are measured once per render, `lost` / `kept`): a width that changed while the bar was dragged made the columns jump to and fro.
-  - The arrow at the left edge starts behind the strip.
-- The page is never wider than the screen (no sideways scrolling of the page; only the columns of the compare and the category row scroll sideways).
+- **Up to 900 px:** the unit selection comes up from the bottom edge with **+ Add units** (**Done** closes it); a column is moved with two arrow buttons instead of the grip; the pictures are 200 px and the page scrolls.
+- **Up to 600 px:** two columns on the screen; the header without the word Favorites; the name of a value above its bar; the toolbar as icons in one line; the head of a column in one line: faction, **Ref** and a menu (three dots, 36 px); pictures 104 px (72 px in a window up to 500 px high).
+- **The menu of a column** (`menuHtml`): a sheet from the bottom with one entry per tool, each with a line that says what it does: reference, all values, versions, counterparts, counters, move, the game version, remove.
+- **Catalog:** three units per row, the categories in one row to swipe; **Changes:** one column, the selects as wide as the screen; **Header:** two lines.
 
 ## 5. Running it
 
 ```
-"export and render all units.bat"    (makes what is missing: data and pictures)
-website\serve.bat                    (or python website/serve.py [--port 8000]; opens http://localhost:8000/)
+"export and render all units.bat"    makes what is missing: data and pictures
+website\serve.bat                    or: python website/serve.py [--port 8000] [--no-browser]
 ```
 
-The server listens only on `127.0.0.1` and serves the folder `website/` (the page takes its data from `assets/` next to it). It keeps its connections open (HTTP/1.1): one connection per picture used up the buffers of Windows on pages with hundreds of pictures. The font Poppins is part of the site (`website/fonts/`, latin subset, SIL Open Font License 1.1): the page loads nothing from other servers.
+The server listens on `127.0.0.1` only. It keeps its connections open (HTTP/1.1: one connection per picture used up the buffers of Windows, `ERR_NO_BUFFER_SPACE`) and sends `Cache-Control: no-cache` for everything but pictures and fonts, so that the browser does not show an old style or script after a change.
 
 ## 6. Publishing with GitHub Pages
 
-The site is published from the folder `website/` by the workflow `.github/workflows/pages.yml`: every push to `main` that changes `website/` (or the workflow) publishes it again, "Run workflow" in the Actions tab does it by hand. The address is `https://ralf1108.github.io/BARUnitComparer/`.
+`.github/workflows/pages.yml` publishes `website/` at `https://ralf1108.github.io/BARUnitComparer/` on every push to `main` that changes it (or by hand: "Run workflow"). One time: **Settings > Pages > Source: GitHub Actions**.
 
-- **Tests first:** `pages.yml` calls `.github/workflows/tests.yml` and publishes only if the tests pass; they also run for every pull request and every push to another branch.
-  - `tests/test_data.py`: the rules of `unit_rules.py`; the data files: `versions.json` (the base first, dates, `checkedUpTo`), the reduced file, the chain of diff files (each against the version before: only units that changed; their pictures and icons), `history.json.gz`, a picture for every unit with lower case names, `counterparts.json`, `counters.json`.
-  - `tests/test_chain.py`: the chain of `reduce_units.py` on made-up exports (base, diff files, versions without a change, changed pictures, gone units, `--redo`, a change of the engine with its control export).
-  - `tests/test_year.py`: the year of versions (the versions from a Git clone, the prefilter on a small made-up repository, the engine per day, the plan of `update_versions.py`, the engine table).
-  - `tests/test_tools.py`: helpers (pool, package lists, archive cache, script parser, icon table, the pages of beyondallreason.info).
-  - `tests/website_smoke.mjs`: the page in a headless Chrome or Edge. Catalog (grid, list, tech filter, search, the same choice of units on the three pages, Ctrl+Z, the categories of a faction, all values of a unit by right-click and by a long press), compare (columns, Undo and Redo, drag and drop, arrow keys, table, + Scav, Ref with colours, differences and the sticky strip, the icon tools pressed twice, the folded unit selection, sorting by a value, the values per metal, Share), the link, favorites (save, load, delete), the game versions (the list by month, the filter, the versions of a unit, the version at the top in the link and in Undo), the page Changes (range, filters, search, Scavenger copies), the page Help, a phone (390 px: one line of buttons, the menu of a column, the line of names, the table beside the strip, the bar of the catalog), and at the end: no script error and **no missing file (404)**.
-  - **A made-up chain:** `tests/make_chain_site.py <folder>` makes a copy of the site with a chain of three versions for the cases the real data need not have (a unit that is gone, a change of the engine, few versions). The data tests and the smoke test run on it, too (`BARUNIT_ASSETS=<folder>/assets`, `BARUNIT_SITE=<folder>`).
-  - **Locally:** `python -m unittest discover -s tests -v` and `node tests/website_smoke.mjs` (after `npm install` in `render_unit/`; own port, the favorites of `localhost:8000` stay untouched).
-- **One time:** in the repository **Settings > Pages > Build and deployment > Source: GitHub Actions**. Until that is done the workflow stops at the step `configure-pages`; after switching it on, "Run workflow" starts it.
-- The workflow publishes `website/` without what the page does not read: the full `units-<version>.json` (15.7 MB per game version) and the local server (`serve.py`, `serve.bat`). The published site has 28 MB and about 2100 files (the limit of Pages is 1 GB).
-- It needs no build: the page is static, its paths are relative (`assets/...`) and its addresses use `#`, so it works in a sub folder as well. This was tested with a plain static server under `/BARUnitComparer/`, with the full JSON removed as the workflow does, and with the exact upper and lower case of all picture and icon names (Pages is case sensitive, Windows is not; all names are lower case). The deployment itself can only be tested on GitHub.
-- A new game version: `update game versions.bat` (checks for new versions, exports them, refreshes the counterparts and counters), check in `website/assets/`, push: the site is published again. The first run of the year (every version from 2026-01-01) was done on 2026-11-13 ([versions.md](versions.md)).
-- The page ends with a notice: unofficial fan project, not affiliated with the BAR team, content is removed on request, a link to the licence of the game and to the source.
-- **Licence:** the pictures and icons are derived from content under CC BY-NC-ND ([licence.md](licence.md)). The site is published first and the BAR developers are asked afterwards whether it is in order; if they object, the pictures are taken down.
-- With a plain one-connection-per-file server (such as `python -m http.server`) a page with hundreds of pictures can show single `ERR_NO_BUFFER_SPACE` errors on Windows; the page tries a failed picture once more, and `serve.py` keeps its connections open. Pages itself is not affected (HTTP/2).
+- **Tests first** (`tests.yml`, also for pull requests and other branches); the site is published only if they pass:
+  - `tests/test_data.py`: the rules and the data files (versions, reduced file, chain of diffs, history, pictures with lower case names, counterparts, counters).
+  - `tests/test_chain.py`, `tests/test_year.py`: the chain of `reduce_units.py` on made-up exports; the versions of the year (Git, engines, the plan of `update_versions.py`).
+  - `tests/test_tools.py`: helpers.
+  - `tests/website_smoke.mjs`: the page in a headless Edge or Chrome: catalog, the choice of units, the unit card, compare (all buttons, Ref, the strip, sorting, Share, steady scrolling), the link, favorites, game versions, Changes (range, Older / Newer, columns, filters), Help, a phone (390 px), and no script error and no missing file.
+  - `python tests/make_chain_site.py <folder>` makes a copy of the site with a made-up chain of versions (a gone unit, an engine change); the tests run on it with `BARUNIT_ASSETS=<folder>/assets`, `BARUNIT_SITE=<folder>`.
+  - Locally: `python -m unittest discover -s tests` and `node tests/website_smoke.mjs` (after `npm install` in `render_unit/`; own port).
+- The workflow leaves out what the page does not read (the full `units-<version>.json`, `serve.py`, `serve.bat`): about 28 MB, 2100 files. All file names are lower case (Pages is case sensitive).
+- **A new game version:** `update game versions.bat` (exports the new versions, refreshes counterparts and counters), check in `website/assets/`, push. Checked up to: `checkedUpTo` in `versions.json`.
+- The page ends with a notice: unofficial fan project, content removed on request, the licences ([licence.md](licence.md)).
 
 ## 7. Open
 
-- The BAR developers still have to be asked whether the published pictures are in order (section 6, [licence.md](licence.md)).
-- `counters.json` has only 25 units, as many as the counter charts name; the charts show only Armada and Cortex.
-- A 3D view of the model is not built ([game-files.md](game-files.md), "Models in the website").
-- `counterparts.json` comes from the names and the unit pages; groups can be larger than wanted (several units of one faction in one group, the exporter lists them). The groups of beyondallreason.info win over corrections by hand ([exporter.md](exporter.md), `counterparts.json`).
+- The BAR developers still have to be asked whether the published pictures are in order ([licence.md](licence.md)).
+- `counters.json` has only 25 units (Armada and Cortex), as many as the counter charts name.
+- `counterparts.json`: some groups have several units of one faction (the exporter lists them).
+- A 3D view of the model is not built ([game-files.md](game-files.md)).

@@ -136,7 +136,7 @@ img { display: block; }
 .c-title b { font-size: 28px; font-weight: 700; letter-spacing: -1px; color: var(--accent-text); }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
 /* the grip at the left, the tools together at the right: Versions, Counters, Counterparts, Ref and the X right of Ref */
-.c-tools .tool.versions { margin-left: auto; }
+.c-tools .tool.counters { margin-left: auto; }   /* the grip at the left, the tools together at the right */
 .c-tools .x { color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
 .ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
@@ -430,11 +430,11 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 }
 
 /* the tools of a column: icon buttons with a tooltip; lit (gold) while what they added is shown, pressed again they take it out */
-.c-tools .tool { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border: 1px solid #444; background: #0b0b0b; color: #ddd; font-size: 0; }
-.c-tools .tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
-.c-tools .tool:hover:not(:disabled) { background: #222; color: #fff; }
-.c-tools .tool:disabled { color: #444; border-color: #222; border-style: dashed; background: none; cursor: not-allowed; }
-.c-tools .tool.active { border-color: var(--gold); color: var(--gold); background: #2a210d; }
+.c-tools .tool, .c-verrow .tool { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border: 1px solid #444; background: #0b0b0b; color: #ddd; font-size: 0; }
+.c-tools .tool svg, .c-verrow .tool svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.c-tools .tool:hover:not(:disabled), .c-verrow .tool:hover:not(:disabled) { background: #222; color: #fff; }
+.c-tools .tool:disabled, .c-verrow .tool:disabled { color: #444; border-color: #222; border-style: dashed; background: none; cursor: not-allowed; }
+.c-tools .tool.active, .c-verrow .tool.active { border-color: var(--gold); color: var(--gold); background: #2a210d; }
 .c-tools .tool.ref.active { background: var(--gold); color: #000; }
 .cmp-table .c-tools .tool { width: 28px; height: 28px; } .cmp-table .c-tools .tool svg { width: 15px; height: 15px; }
 .help li b svg { width: 15px; height: 15px; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 4px; }
@@ -446,8 +446,8 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 }
 
 /* a unit with more than one version: its Versions icon carries the number of versions (data-n: 2 to 9, above 9 ">"); the note of a button that has nothing to do */
-.c-tools .tool.versions.has { position: relative; }
-.c-tools .tool.versions.has::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 2px; box-sizing: border-box; border-radius: 7px;
+.c-tools .tool.versions.has, .c-verrow .tool.versions.has { position: relative; }
+.c-tools .tool.versions.has::after, .c-verrow .tool.versions.has::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 14px; height: 14px; padding: 0 2px; box-sizing: border-box; border-radius: 7px;
   background: var(--gold); color: #000; font: 700 10px/14px sans-serif; text-align: center; pointer-events: none; }
 .note-pop { position: fixed; z-index: 60; max-width: 260px; padding: 7px 11px; background: #1b1508; border: 1px solid #6b5420; color: #f0dca8; font-size: 13px; border-radius: 6px; box-shadow: 0 6px 18px #000; pointer-events: none; }
 /* a difference to the Ref: a click shows the value itself */
@@ -577,3 +577,44 @@ body.modal { overflow: hidden; }
   .filt.small .tabs { padding: 6px 0 2px; }
 }
 .f-none .tabs .active { font-weight: 500; }
+
+/* ------------------------------------------------ the toolbar of the compare (toolbarHtml): groups of buttons with icons, a lit button is a switch that is on */
+.cmp-clear { align-items: center; gap: 10px; padding-top: 10px; }
+.tb-group { display: inline-flex; }
+.tb-group .btn { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; padding: 6px 13px; background: #111; border: 1px solid #2e2e2e; border-radius: 0; font-size: 14px; color: #ddd; }
+.tb-group .btn + .btn { margin-left: -1px; }   /* the frames overlap: one line between two buttons, a lit one draws its whole frame on top */
+.tb-group .btn.on { position: relative; z-index: 1; }
+.tb-group .btn:first-child { border-radius: 8px 0 0 8px; } .tb-group .btn:last-child { border-radius: 0 8px 8px 0; } .tb-group .btn:only-child { border-radius: 8px; }
+.tb-group .btn:hover:not(:disabled) { background: #1d1d1d; color: #fff; }
+.tb-group .btn svg { width: 16px; height: 16px; vertical-align: 0; flex: none; }
+.tb-group .btn.on { background: #2a210d; border-color: var(--gold); color: var(--gold); }
+.tb-group .btn:not([data-a]).on { cursor: default; }
+.tb-group .btn.fav-star { font-size: 14px; color: #ddd; } .tb-group .btn.fav-star svg { color: var(--gold); } .tb-group .btn.fav-star.on svg { fill: var(--gold); }
+.tb-group .btn.danger:not(:disabled):hover { background: #2a1010; border-color: #6b2a2a; color: #ff8a80; }
+.tb-group .btn:disabled, .tb-group .btn:disabled:hover { cursor: not-allowed; } .cmp-clear .tb-group .btn:disabled, .cmp-clear .tb-group .btn:disabled:hover, .tb-group .btn:disabled { background: #0b0b0b; border-style: solid; border-color: #222; color: #4a4a4a; }
+.tb-group .btn:disabled svg { color: inherit; }
+@media (max-width: 600px) {
+  .cmp-clear { gap: 6px; justify-content: center; }
+  .tb-group .btn { min-width: 38px; justify-content: center; padding: 4px 9px; }
+}
+.chg-step .btn { min-height: 34px; padding: 5px 12px; font-size: 13px; }
+
+/* ------------------------------------------------ the header: an icon before each page */
+#nav-links a { display: inline-flex; align-items: center; gap: 7px; }
+#nav-links a svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+/* the versions of a unit: the list (white with several versions, grey with one) and the button Versions right of it */
+.c-verrow { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
+.c-verrow .c-ver { flex: 1; width: auto; }
+th .c-verrow { margin-top: 4px; } th .c-verrow .c-ver { margin: 0; }
+.c-verrow .tool { flex: none; width: 30px; height: 26px; } .c-verrow .tool svg { width: 15px; height: 15px; }
+select.c-ver.many { color: var(--text); border-color: #555; cursor: pointer; }
+select.c-ver:disabled { color: #666; }
+.scrolled .cmp-table th.ref-col .c-verrow { display: none; }
+.c-verrow { box-sizing: border-box; padding-right: 6px; }   /* room for the number on the clock (it sticks out at the top right) */
+@media (max-width: 600px) { #nav-links a { gap: 4px; padding: 5px 7px; } #nav-links a svg { width: 13px; height: 13px; } }
+/* a switch button outside the toolbar (Changed units only in the catalog and the unit selection): icon and word, lit while on */
+.btn.tg { display: inline-flex; align-items: center; gap: 7px; }
+.btn.tg.on { background: #2a210d; border-color: var(--gold); color: var(--gold); }
+/* Undo / Redo: a badge with the number of steps (no step: no badge) */
+.tb-group .btn.n-steps { position: relative; overflow: visible; }
+.tb-group .btn.n-steps::after { content: attr(data-n); position: absolute; top: -7px; right: -6px; z-index: 2; min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box; border-radius: 8px; background: var(--gold); color: #000; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; pointer-events: none; }
