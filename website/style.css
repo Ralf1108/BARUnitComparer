@@ -47,8 +47,8 @@ img { display: block; }
 .switch a:hover { text-decoration: underline; }
 
 .tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; padding: 12px 24px; }
-.tabs :is(a, button) { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 20px 8px; font-size: 18px; font-weight: 300; color: var(--accent-text); letter-spacing: -.3px; }
-.tabs :is(a, button) svg { width: 16px; height: 16px; fill: #fff; margin-top: -4px; }
+.tabs :is(a, button) { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 5px 20px 8px; font-size: 18px; font-weight: 300; color: var(--accent-text); letter-spacing: -.3px; }
+.tabs :is(a, button) svg { width: 16px; height: 16px; fill: #fff; }
 .tabs :is(a, button).active { background: var(--accent); color: var(--on-accent); box-shadow: inset 0 0 0 1px var(--accent-line); }
 
 .controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px 28px; padding: 14px 24px; }
@@ -227,7 +227,7 @@ img { display: block; }
 
 @media (max-width: 900px) {
   .cmp-body { flex-direction: column; } .chooser { width: auto; margin: 16px 0 0; } .chooser .picker { height: 360px; flex: none; }
-  .title h1 { font-size: 44px; } .title b { font-size: 28px; } .tabs :is(a, button) { padding: 0 12px 8px; font-size: 16px; }
+  .title h1 { font-size: 44px; } .title b { font-size: 28px; } .tabs :is(a, button) { padding: 5px 12px 8px; font-size: 16px; }
   .card { width: 170px; min-height: 180px; } .card .pic { width: 130px; height: 130px; } .card .name { font-size: 15px; } .card .desc { font-size: 12px; }
   .row { grid-template-columns: 30px 24px 44px 1fr 60px; } .row .desc, .row .opt { display: none; } .row .pic { width: 40px; height: 40px; }
   .cmp-grid { --colmin: 320px; } .stat { grid-template-columns: 92px 1fr; gap: 8px; font-size: 13px; } .two .right .stat { grid-template-columns: 1fr 92px; }
@@ -242,7 +242,7 @@ img { display: block; }
   #nav-links a, .fav-open { padding: 4px 10px; }
   .legal { font-size: 11px; padding: 16px 12px; }
   .title { padding: 12px 12px 4px; gap: 4px 14px; } .title h1 { font-size: 34px; } .title b { font-size: 22px; } .switch { font-size: 14px; gap: 4px 12px; }
-  .tabs { padding: 8px; } .tabs :is(a, button) { padding: 0 8px 6px; font-size: 14px; } .tabs :is(a, button) svg { width: 13px; height: 13px; }
+  .tabs { padding: 8px; } .tabs :is(a, button) { padding: 4px 8px 6px; font-size: 14px; } .tabs :is(a, button) svg { width: 13px; height: 13px; }
   .controls { gap: 10px 14px; padding: 8px 12px; }
   .seg button { padding: 6px 12px; font-size: 14px; } .seg button svg { width: 18px; height: 14px; }
   .toggle { font-size: 14px; } .search { font-size: 13px; padding: 7px 16px; }
@@ -564,14 +564,13 @@ body.modal { overflow: hidden; }
 .filt-fac .zero:not(.active) { opacity: .45; }
 .filt small { font-size: 11px; font-weight: 400; opacity: .7; }
 .filt .tabs { align-self: stretch; }
-.f-none { --accent: var(--gold); --accent-text: var(--text); --on-accent: #000; --accent-line: var(--gold); }
-.f-none .tabs .active svg { fill: #000; }
+.f-none { --accent: var(--arm); --accent-text: var(--text); --on-accent: #fff; --accent-line: var(--arm); }   /* all factions: the blue of the selection on every page */
 /* the unit selection of the compare: the same, smaller and from the left */
 .filt.small { align-items: stretch; }
 .filt.small .filt-row { justify-content: space-between; padding: 0; gap: 4px 8px; } .filt.small .filt-fac { justify-content: flex-start; }
 .filt.small .filt-fac button { padding: 4px 8px; font-size: 14px; }
 .filt.small .seg.small button { padding: 4px 9px; font-size: 12px; }
-.filt.small .tabs { justify-content: flex-start; padding: 8px 0 0; } .filt.small .tabs button { padding: 0 9px 6px; font-size: 14px; } .filt.small .tabs svg { width: 12px; height: 12px; }
+.filt.small .tabs { justify-content: flex-start; padding: 8px 0 0; } .filt.small .tabs button { padding: 4px 9px 6px; font-size: 14px; } .filt.small .tabs svg { width: 12px; height: 12px; }
 @media (max-width: 600px) {
   .filt-row { padding: 4px 8px 0; gap: 4px 10px; } .filt-fac :is(a, button) { padding: 5px 9px; font-size: 14px; }
   .filt.small .tabs { padding: 6px 0 2px; }
