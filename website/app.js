@@ -30,7 +30,7 @@ const STATS = [
   { key: 'weapons', label: 'Weapons', tip: 'The kinds of weapons the unit has.' },
   { key: 'shotDamage', label: 'Damage per shot', fill: 'dps', show: whole, tip: 'Damage of one shot of its weapons together, or of the weapon chosen above the unit (all projectiles of a salvo). Damage per shot times shots per second is the DPS.' },
   { key: 'shotsPerSecond', label: 'Shots per second', fill: 'dps', show: v => v >= 10 ? whole(v) : v.toFixed(2), tip: 'How often the unit fires per second (1 / the time to the next shot; with several weapons: the rate that gives their DPS together).' },
-  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together (or of the weapon chosen): damage per shot times shots per second. Left out of the total: D-gun, nukes, anti-nukes and EMP weapons (choose them above the unit).' },
+  { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together (or of the weapon chosen): damage per shot times shots per second. Left out of the total: D-gun, nukes, anti-nukes and EMP weapons, and the high trajectory of a cannon that switches between two (choose them above the unit).' },
   { key: 'airDps', label: 'DPS vs air', fill: 'dps', show: whole, tip: 'Damage per second against aircraft: only the weapons that can aim at them (no bombs, no torpedoes), with their damage to aircraft.' },
   { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons (or the range of the weapon chosen), in the length unit of the game (elmos).' },
   { key: 'aoe', label: 'Area of effect', fill: 'range', show: whole, tip: 'Radius of the explosion of a shot, in elmos: the largest of its weapons (or that of the weapon chosen). Small: the shot hits one target.' },
@@ -59,6 +59,13 @@ const refUnit = () => { const c = state.columns.length && displayColumns().find(
 const currentSetting = () => ({ units: state.columns.map(tokenOf), scav: state.scav, ref: refUnit() });
 const favKey = f => `${f.units.join(',')}|${f.scav ? 1 : 0}|${f.ref || ''}`;
 const currentFavorite = () => state.favorites.findIndex(f => favKey(f) === favKey(currentSetting()));
+// the link of a favorite (its units, + Scav and Ref, the view of now): a favorite is a real link, so the middle mouse button or Ctrl+click opens it in a new tab
+function favLink(f) {
+  const params = new URLSearchParams({ view: state.table ? 'table' : 'graphic' });
+  if (f.scav) params.set('scav', '1');
+  if (f.ref) params.set('ref', f.ref);
+  return '#/compare/' + f.units.join(',') + '?' + params;
+}
 
 function load(key, fallback) { try { return localStorage.getItem('barunit.' + key) || fallback; } catch { return fallback; } }
 function save(key, value) { try { localStorage.setItem('barunit.' + key, value); } catch { /* no storage: the setting lasts until the page is reloaded */ } }
@@ -273,8 +280,9 @@ function withWeapon(u, id) {
 }
 // the name of a weapon in the list: the game's name, its kind if the name is one word ("J7Laser (BeamLaser)"), how many are mounted, what the total leaves out;
 // two weapons of the unit with the same name (a cannon with a high and a low trajectory: plasma, plasma_high) get their id in brackets
-const KIND_NAMES = { dgun: 'D-gun', nuke: 'nuke', antinuke: 'anti-nuke', emp: 'EMP' };
-const weaponLabel = (w, list = []) => `${w.n > 1 ? `${w.n}× ` : ''}${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}${list.some(o => o !== w && o.name === w.name) ? ` [${w.id}]` : ''}${w.kind ? ` · ${KIND_NAMES[w.kind]}` : ''}`;
+const KIND_NAMES = { dgun: 'D-gun', nuke: 'nuke', antinuke: 'anti-nuke', emp: 'EMP', high: 'high trajectory' };
+const TARGET_NAMES = { air: 'air', both: 'ground + air' };   // what a weapon aims at (targets of the data); ground only: nothing added
+const weaponLabel = (w, list = []) => `${w.n > 1 ? `${w.n}× ` : ''}${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}${list.some(o => o !== w && o.name === w.name) ? ` [${w.id}]` : ''}${TARGET_NAMES[w.targets] ? ` · ${TARGET_NAMES[w.targets]}` : ''}${w.kind ? ` · ${KIND_NAMES[w.kind]}` : ''}`;
 // a column in the link and in a favorite: "armpw", "armpw@test-31450-6562fb1" with a version of its own, "corcom~corcomlaser" with one weapon
 const tokenOf = c => `${c.unit}${c.version ? `@${c.version}` : ''}${c.weapon ? `~${c.weapon}` : ''}`;
 function columnFromToken(t) {
@@ -313,7 +321,7 @@ function favPanelHtml() {
     const names = f.units.map(t => [t, named(t)]).filter(([, n]) => n).map(([t, n]) => `<span class="f-${columnFromToken(t).faction}">${n}</span>`);
     const ref = f.ref && named(f.ref);
     const extras = [f.scav ? '+ Scav' : '', ref ? `Ref ${ref}${tokenUnit(f.ref).endsWith('_scav') ? ' (Scav)' : ''}` : ''].filter(Boolean);
-    return names.length ? `<div class="fav-item"><button class="fav-load" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back)">${names.join(', ')}${extras.length ? ` <em class="fav-extra">${extras.join(' · ')}</em>` : ''}</button><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
+    return names.length ? `<div class="fav-item"><a class="fav-load" href="${esc(favLink(f))}" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back; middle mouse button or Ctrl+click: in a new tab)">${names.join(', ')}${extras.length ? ` <em class="fav-extra">${extras.join(' · ')}</em>` : ''}</a><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
   }).join('');
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
 }
@@ -330,8 +338,8 @@ function renderNav() {
   document.getElementById('nav-links').innerHTML = `${link('catalog', `#/catalog/${state.faction}/${state.category}`, 'Catalog', 'All units by faction and kind')}
     ${link('compare', compareLink(), 'Compare', 'Units side by side')}
     ${state.versions.length > 1 ? link('changes', '#/changes', 'Changes', 'What changed in the game: the units that changed between two game versions') : ''}
-    ${link('help', '#/help', 'Help', 'How this page works, in a few lines')}
     <span class="fav-wrap"><button class="fav-open ${state.favOpen ? 'active' : ''}" data-a="fav-menu" title="The saved selections of units">&#9733;<span class="fav-word"> Favorites</span></button>${favPanelHtml()}</span>`;
+  document.getElementById('nav-help').innerHTML = link('help', '#/help', 'Help', 'How this page works, in a few lines');   // at the right end of the header, right of GitHub
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   // the version list belongs to the catalog and the compare; the page Changes has its own two lists
   document.getElementById('version').innerHTML = state.page === 'changes' || state.page === 'help' ? '' : state.versions.length > 1
@@ -554,11 +562,11 @@ function renderHelp() {
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
-      ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons: choose them to see their values. A chosen weapon is gold; it is part of the link.'],
+      ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; the name says what it aims at if that is not only the ground (<i>· air</i>: aircraft only, <i>· ground + air</i>: both); choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons, nor the high trajectory of a cannon that can switch between a high and a low one (only one of them fires): choose them to see their values. A chosen weapon is gold; it is part of the link.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back. The list <b>Any weapon</b> next to Changed units only holds every weapon of the game, alphabetical, with the number of units that have it: choose one to see only the units with this weapon, of all factions and kinds.'],
       ['Table view', 'the same values as a compact table.'],
-      ['&#9734;', 'saves the selection as a favorite (in your browser).'],
+      ['&#9734;', 'saves the selection as a favorite (in your browser), with + Scav and the Ref. Under Favorites a click loads it; the middle mouse button or Ctrl+click opens it in a new tab.'],
       ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog). The number on them: how many steps there are.'],
       ['Clear', '(between Undo and Redo) starts again: removes all units and the Undo and Redo steps. It asks first.'],
       [`${ICONS.share} Share`, 'copies the link of the comparison, to send it to someone (on a phone: opens the share menu).'],
@@ -1404,6 +1412,10 @@ document.addEventListener('click', e => {
   if (diff) { note(diff, diff.title); return; }
   const el = e.target.closest('[data-a]');
   if (!el) return;
+  if (el.tagName === 'A' && el.dataset.a === 'fav-load') {   // a favorite is a link: Ctrl, Shift or Cmd with the click leave it to the browser (a new tab or window)
+    if (e.ctrlKey || e.metaKey || e.shiftKey) { state.favOpen = false; renderNav(); return; }
+    e.preventDefault();   // a plain click: loaded here, with an Undo step
+  }
   const menu = el.closest('.col-menu');   // an entry of the menu of a column: the menu closes (moving a column: it stays, to move on)
   if (menu && !['move', 'detail', 'overlay-close'].includes(el.dataset.a)) state.menu = null;
   actions[el.dataset.a](el.dataset.v, el);

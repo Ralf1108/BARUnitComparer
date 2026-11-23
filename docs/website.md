@@ -58,7 +58,7 @@ website/assets/
 | `airDps` | DPS vs air | like `dps`, with `damages.vtol`, only the counted weapons that can hit aircraft (`hits_air`: the targets of the weapon's mount, `onlyTargets`, share a category with every aircraft: `all`, `mobile`, `notsub`, `nothover`, `notship`, `vtol`, `t4air`, `lightairscout`; none named: all; never `AircraftBomb` or `TorpedoLauncher`) |
 | `range` | Weapon range | `game.maxWeaponRange` |
 | `aoe` | Area of effect | the largest `damageAreaOfEffect` (radius, elmos) of the counted weapons |
-| `weaponList` | the list of weapons of a column; Changes | every real weapon (`weapon_list`: no bogus weapons, no shields, none without damage; the same weapon mounted twice is one entry with `n`, its values count all mounts): `id` (the weapon's name without the unit's name in front, the same in the Scavenger copy and in every version), `name` (`description`), `type`, `shotDamage`, `shotsPerSecond`, `dps`, `airDps`, `range`, `aoe`, `kind` for what the totals leave out (`dgun`, `nuke`, `antinuke`, `emp`) |
+| `weaponList` | the list of weapons of a column; Changes | every real weapon (`weapon_list`: no bogus weapons, no shields, none without damage; the same weapon mounted twice is one entry with `n`, its values count all mounts): `id` (the weapon's name without the unit's name in front, the same in the Scavenger copy and in every version), `name` (`description`), `type`, `shotDamage`, `shotsPerSecond`, `dps`, `airDps`, `range`, `aoe`, `targets` (`air`: its targets are only aircraft categories, `vtol`, `t4air`, `lightairscout`; `both`: it hits aircraft and other units; `ground`: no aircraft; the list adds "· air" / "· ground + air" to the name), `kind` for what the totals leave out (`dgun`, `nuke`, `antinuke`, `emp`, `high`: the high trajectory of a cannon that switches between a high and a low one, `high_modes`: a weapon named like another one with `_high` at the end, the same description; only the low one is counted, as only one fires) |
 | (worked out) | HP per metal, DPS per metal | `derive` in `app.js` (`derived` in `STATS`); not listed on Changes |
 
 Checked against beyondallreason.info: `armwar` (Centurion) 270 metal, 3100 energy, 00:42, 1590 hitpoints, speed 45, BeamLaser, DPS 183, range 325.
@@ -113,7 +113,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 - **+ Scav:** the Scavenger copy of every unit right of it (about 10 % more cost, 25 % more hitpoints).
 - **Changed units only:** the catalog and the unit selection list only units with at least 2 versions (`versions=1`).
 - **Undo / Redo** (Ctrl+Z / Ctrl+Y, also in the catalog): every change of the columns, their order and the game versions, up to 100 steps. Ref, + Scav and the view are not steps.
-- **Save:** a favorite holds the units, + Scav and the Ref (`localStorage`, `barunit.favorites`); **Favorites** in the header lists them (load, delete).
+- **Save:** a favorite holds the units, + Scav and the Ref (`localStorage`, `barunit.favorites`); **Favorites** in the header lists them (load, delete); each entry is a link (`favLink`): the middle mouse button or Ctrl+click opens it in a new tab.
 - **Share:** copies the link and says so; on a touch device it opens the share menu (`navigator.share`).
 - **Sorting:** a click on the name of a value orders the columns by it, the best first, again: the other way round (`state.sort`, an Undo step).
 

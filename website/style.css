@@ -291,7 +291,7 @@ img { display: block; }
 .fav-panel { position: absolute; top: calc(100% + 8px); left: 0; z-index: 20; width: max-content; min-width: 280px; max-width: min(560px, 90vw); background: #0d0d0d; border: 1px solid #444; box-shadow: 0 8px 24px #000a; }
 .fav-panel .empty { padding: 12px 14px; color: var(--muted); font-size: 13px; }
 .fav-item { display: flex; align-items: stretch; border-bottom: 1px solid #1c1c1c; }
-.fav-load { flex: 1; text-align: left; padding: 8px 14px; font-size: 14px; }
+.fav-load { flex: 1; display: block; text-align: left; padding: 8px 14px; font-size: 14px; color: var(--text); text-decoration: none; }   /* a link (a new tab with the middle mouse button) that looks like the entry it was */
 .fav-load:hover { background: #1a1a1a; }
 .fav-del { padding: 0 12px; color: #c66; font-size: 13px; }
 .fav-del:hover { background: #3a1414; }
@@ -603,8 +603,9 @@ body.modal { overflow: hidden; }
 .chg-step .btn { min-height: 34px; padding: 5px 12px; font-size: 13px; }
 
 /* ------------------------------------------------ the header: an icon before each page */
-#nav-links a { display: inline-flex; align-items: center; gap: 7px; }
-#nav-links a svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+#nav-links a, #nav-help a { display: inline-flex; align-items: center; gap: 7px; }
+#nav-help a { padding: 4px 14px; margin-left: -12px; color: var(--muted); } #nav-help a.active { color: var(--text); background: var(--panel); } #nav-help a:hover, #nav-links a:hover { color: var(--text); }
+#nav-links a svg, #nav-help a svg { width: 15px; height: 15px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 /* the versions of a unit: the list (white with several versions, grey with one) and the button Versions right of it */
 .c-verrow { display: flex; align-items: center; gap: 6px; width: 100%; min-width: 0; }
 .c-verrow .c-ver { flex: 1; width: auto; }
@@ -614,7 +615,8 @@ select.c-ver.many { color: var(--text); border-color: #555; cursor: pointer; }
 select.c-ver:disabled { color: #666; }
 .scrolled .cmp-table th.ref-col .c-verrow { display: none; }
 .c-verrow { box-sizing: border-box; padding-right: 6px; }   /* room for the number on the clock (it sticks out at the top right) */
-@media (max-width: 600px) { #nav-links a { gap: 4px; padding: 5px 7px; } #nav-links a svg { width: 13px; height: 13px; } }
+@media (max-width: 600px) { #nav-links a { gap: 4px; padding: 5px 7px; } #nav-links a svg { width: 13px; height: 13px; }
+  #nav-help a { padding: 5px 7px; margin-left: -6px; } #nav-help a span { display: none; } #nav-help a svg { width: 17px; height: 17px; } }   /* a phone: Help as an icon right of the GitHub icon */
 /* a switch button outside the toolbar (Changed units only in the catalog and the unit selection): icon and word, lit while on */
 .btn.tg { display: inline-flex; align-items: center; gap: 7px; }
 .btn.tg.on { background: #2a210d; border-color: var(--gold); color: var(--gold); }
@@ -657,3 +659,7 @@ select.c-wpn.on:disabled { color: #a08a5a; border-color: #5a4a28; }
 .filt.small .filt-row .seg.small { flex: 1 0 100%; display: flex; }
 .filt.small .filt-row .seg.small button { flex: 1; min-width: 0; }
 @media (max-width: 600px) { .filt-row .seg.small button { min-width: 64px; } }
+/* the header in a middle-sized window: GitHub and Help as icons, so that the version list keeps its room; a phone: a little less for the version list, Help fits beside GitHub */
+@media (max-width: 1100px) { .gh span, #nav-help a span, .v-label { display: none; } .nav { gap: 16px; } #version select { max-width: 240px; } }
+@media (max-width: 600px) { #version select { max-width: 38vw; } .nav { gap: 4px 10px; } }
+@media (max-width: 1000px) and (min-width: 601px) { .nav { gap: 10px; padding: 12px 16px; } #nav-links a { padding: 4px 9px; } #nav-help a { margin-left: -6px; } }

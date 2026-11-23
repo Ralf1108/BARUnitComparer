@@ -91,6 +91,10 @@ try {
   await page.click('[data-a="fav-load"] >> nth=0');
   await page.waitForTimeout(300);
   check(/^#\/compare\/armpw,corak\?.*scav=1/.test(await hash()) && /ref=corak/.test(await hash()), 'a favorite brings back + Scav and Ref', await hash());
+  await page.click('[data-a="fav-menu"]');
+  const favHref = await page.$eval('a.fav-load', a => a.getAttribute('href'));
+  check(/^#\/compare\/armpw,corak\?/.test(favHref) && /scav=1/.test(favHref) && /ref=corak/.test(favHref), 'a favorite is a link with its units, + Scav and Ref (the middle mouse button opens it in a new tab)', favHref);
+  await page.click('[data-a="fav-menu"]');
   await page.evaluate(() => localStorage.setItem('barunit.favorites', JSON.stringify([['armpw', 'corak']])));
   await page.reload(); await page.waitForSelector('.cmp-table');
   await page.click('[data-a="fav-menu"]');
