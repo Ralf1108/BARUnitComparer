@@ -52,6 +52,7 @@ class Rules(unittest.TestCase):
         self.assertTrue(ru.hits_air(weapon()))   # no targets named (an export without them): every unit
         self.assertFalse(ru.hits_air(weapon(onlyTargets=['surface'])))
         self.assertFalse(ru.hits_air(weapon(type='AircraftBomb', onlyTargets=['notsub'])))   # a bomb falls
+        self.assertEqual([ru.targets(weapon(onlyTargets=t)) for t in (['vtol'], ['notsub'], ['surface'], ['t4air', 'vtol'])], ['air', 'both', 'ground', 'air'])
         ws = [weapon(damages={'default': 100, 'vtol': 20}, onlyTargets=['notsub']), weapon(damages={'default': 50, 'vtol': 50}, onlyTargets=['surface'], damageAreaOfEffect=48)]
         self.assertEqual((ru.air_dps(ws), ru.area(ws)), (20, 48))
 
@@ -65,6 +66,15 @@ class Rules(unittest.TestCase):
         self.assertEqual(got[1]['kind'], 'dgun')   # left out of the totals, marked in the list
         self.assertEqual((got[2]['n'], got[2]['shotDamage'], got[2]['dps']), (2, 400, 400))   # mounted twice: one entry, both mounts counted
         self.assertEqual([w['id'] for w in ru.weapon_list('corcom_scav', [weapon(name='corcom_scav_laser')])], ['laser'])   # the same id in the Scavenger copy
+
+    def test_high_trajectory(self):
+        low, high = weapon(name='armguard_plasma', description='Plasma'), weapon(name='armguard_plasma_high', description='Plasma')
+        self.assertEqual(ru.dps([low, high]), 100)   # only one of the two trajectories fires: counted once
+        self.assertEqual([w.get('kind') for w in ru.weapon_list('armguard', [low, high])], [None, 'high'])   # both in the list, the high one marked
+        a, b = weapon(name='armvang_shocker_low', description='Shock'), weapon(name='armvang_shocker_high', description='Shock')
+        self.assertEqual(ru.dps([a, b]), 100)
+        top, bottom = weapon(name='corhllt_hllt_top', description='Laser'), weapon(name='corhllt_hllt_bottom', description='Laser')
+        self.assertEqual(ru.dps([top, bottom]), 200)   # two lasers that fire together: both counted
 
     def test_texts(self):
         self.assertEqual(ru.texts('armx', {'humanName': 'Pawn', 'description': 'Fast bot'}), ('Pawn', 'Fast bot'))
