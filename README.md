@@ -29,7 +29,7 @@ Pressed again, an icon takes back what it added. Columns can be moved by drag an
 
 <a href="https://ralf1108.github.io/BARUnitComparer/"><img src="docs/phone.png" width="260" alt="The compare page on a phone: two units, Pawn as the reference"></a>
 
-**3. See what a patch changed.** The page **Changes** lists every unit whose values changed between two game versions, old value → new value.
+**3. See what a patch changed.** The page **Changes** lists every unit whose values changed between two game versions, old value → new value: one column per faction, a unit and its counterparts in the other factions in one row.
 
 [![The page Changes: the units that changed between two game versions](docs/changes.png)](https://ralf1108.github.io/BARUnitComparer/#/changes)
 
@@ -47,7 +47,7 @@ The page **Help** on the website explains every button and value.
 | **Counterparts** | the units of the other factions that do the same job; one click adds them all, a second takes them out |
 | **Counters** | the units that are good against a unit (from the counter charts of beyondallreason.info); a second click brings the old columns back |
 | **+ Scav** | the Scavenger copy of every unit next to it |
-| **Changes** | what changed between any two game versions of the year (from 2026-01-01): changed values, new and removed units |
+| **Changes** | what changed between any two game versions of the year (from 2026-01-01): changed values, new and removed units, side by side per faction, with filters for faction, tech level and kind of unit |
 | **Versions** | all versions of a unit as columns next to each other, the changed values marked |
 | **Share and keep** | **Share** copies the link (on a phone: the share menu); it holds the whole comparison (units, view, Ref, game version); **Favorites** keep selections in your browser; **Undo / Redo** |
 | **Phone** | two units on the screen with their values in view at once, a menu with words instead of small icons, the unit selection comes up from the bottom (**+ Add units**), swipe sideways for more |

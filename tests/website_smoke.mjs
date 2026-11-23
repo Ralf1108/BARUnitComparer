@@ -180,6 +180,31 @@ try {
     }
   }
 
+  // the choice of units is the same on every page: the factions and the tech levels in one line, the kinds of units below (filterHtml)
+  const freshContext = await browser.newContext({ viewport: { width: 1600, height: 900 } }), fresh = await freshContext.newPage();   // a visitor without settings
+  await fresh.goto(base + '#/compare/armpw');
+  await fresh.waitForSelector('.chooser .filt');
+  const pickAll = await fresh.locator('.pick').count();
+  await fresh.click('[data-a="pick-tier"][data-v="2"]');
+  const pickT2 = await fresh.$$eval('.pick .tier', s => s.map(x => x.textContent));
+  check(pickT2.length > 0 && pickT2.length < pickAll && pickT2.every(x => x === 'T2'), 'compare: the tech level buttons of the unit selection keep only the units of that level', `${pickT2.length} / ${pickAll}`);
+  await fresh.click('[data-a="pick-tier"][data-v="2"]');
+  check(await fresh.locator('.pick').count() === pickAll, 'compare: the tech level pressed again shows all units of the selection', await fresh.locator('.pick').count());
+  const parts = () => fresh.evaluate(() => { const f = document.querySelector('.filt'); return [f.querySelectorAll('.filt-row .filt-fac > *').length, f.querySelectorAll('.filt-row .seg button').length, f.querySelectorAll('.tabs > *').length, f.querySelector('.filt-row').getBoundingClientRect().bottom <= f.querySelector('.tabs').getBoundingClientRect().top + 1]; });
+  const inCompare = await parts();
+  await fresh.goto(base + '#/catalog/arm/bots');
+  await fresh.waitForSelector('.filt .tabs a');
+  const inCatalog = await parts();
+  check([inCompare, inCatalog].every(x => x[0] === 5 && x[1] === 3 && x[2] > 3 && x[3]), 'catalog and compare: the same choice of units (5 factions, 3 tech levels, the kinds of units in the next line)', `${inCompare} / ${inCatalog}`);
+  if (versions.length > 1) {
+    check(await fresh.locator('.intro a[href="#/changes"]').count() === 1, 'catalog: the line for the first visit links to Changes', '');
+    await fresh.goto(base + '#/changes');
+    await fresh.waitForSelector('.filt');
+    const inChanges = await parts();
+    check(inChanges[0] === 6 && inChanges[1] === 3 && inChanges[3] && await fresh.locator('[data-a="chg-faction"][data-v="scv"]').count() === 1 && await fresh.locator('[data-a="chg-faction"][data-v="rap"]').count() === 1,
+      'Changes: the same choice of units, all factions always offered (also Scavengers and Raptors)', inChanges.join());
+  }
+  await freshContext.close();
   // changes (the version compare): what changed between two versions, filters, a click opens the unit compare
   if (versions.length > 1) {
     await page.goto(base + '#/changes');
@@ -191,13 +216,38 @@ try {
     await page.waitForSelector('.chg-row');
     const wide = await page.locator('.chg-row').count();
     check(wide >= rows, 'Changes: a range from the base shows at least as many units', `${wide} / ${rows}`);
-    await page.selectOption('[data-change="chg-faction"]', 'arm');
+    // one column per faction, a unit and its counterparts in one row; the rows by the name of the unit at the left
+    const grid = await page.evaluate(() => {
+      const g = document.querySelector('.chg-grid');
+      if (!g) return null;
+      const n = Number(g.style.getPropertyValue('--n')), heads = [...g.querySelectorAll('.chg-head')].map(h => h.className.match(/f-(\w+)/)[1]), cells = [...g.querySelectorAll('.chg-cell')];
+      const rows = []; for (let i = 0; i < cells.length; i += n) rows.push(cells.slice(i, i + n));
+      const own = rows.every(r => r.every((c, i) => [...c.querySelectorAll('.chg-row')].every(x => x.classList.contains('f-' + heads[i]))));
+      const first = rows.filter(r => r[0].children.length).map(r => r[0].querySelector('b').textContent);
+      const led = rows.map(r => r.findIndex(c => c.children.length));   // the column in which a row starts: never falls back to the left
+      return { n, heads, own, sorted: first.every((x, i) => !i || first[i - 1].localeCompare(x) <= 0), ordered: led.every((x, i) => !i || led[i - 1] <= x), pairs: rows.filter(r => r.filter(c => c.children.length).length > 1).length, rows: rows.length };
+    });
+    check(grid && grid.n === grid.heads.length && grid.n > 1 && grid.heads[0] === 'arm' && grid.own, 'Changes: one column per faction, Armada at the left, every unit in the column of its faction', JSON.stringify(grid));
+    check(grid && grid.sorted && grid.ordered && grid.pairs > 0, 'Changes: the rows by the name of the Armada unit, counterparts side by side in one row', JSON.stringify(grid));
+    const bots = await page.locator('[data-a="chg-category"][data-v="bots"]').count();
+    if (bots) {
+      await page.click('[data-a="chg-category"][data-v="bots"]');
+      const shown = await page.locator('.chg-row').count();
+      check(shown > 0 && shown < wide && new RegExp(`Bots\\s*${shown}$`).test((await page.textContent('[data-a="chg-category"][data-v="bots"]')).trim()), 'Changes: the button of a kind of unit keeps only these units and says how many', `${shown} / ${wide} ${await page.textContent('[data-a="chg-category"][data-v="bots"]')}`);
+      await page.click('[data-a="chg-category"][data-v=""]');
+    }
+    await page.click('[data-a="chg-tier"][data-v="1"]');
+    const t1 = await page.$$eval('.chg-row', r => r.length), t1Units = await page.evaluate(() => [...document.querySelectorAll('.chg-row')].every(r => { const u = state.units[r.querySelector('img').dataset.unit] || state.lastUnit[r.querySelector('img').dataset.unit]; return !u || u.tech === 1; }));
+    check(t1 > 0 && t1 < wide && t1Units, 'Changes: the tech level buttons keep only the units of that level', `${t1} / ${wide}`);
+    await page.click('[data-a="chg-tier"][data-v="1"]');
+    check(await page.locator('.chg-row').count() === wide, 'Changes: all filters off shows every unit again', await page.locator('.chg-row').count());
+    await page.click('[data-a="chg-faction"][data-v="arm"]');
     const faction = await page.$$eval('.chg-row', r => r.every(x => x.classList.contains('f-arm')));
     check(faction, 'Changes: the faction filter keeps only that faction', '');
     await page.selectOption('[data-change="chg-key"]', 'metal');
     const metal = await page.$$eval('.chg-row', r => [r.length, r.every(x => /Metal/.test(x.querySelector('.pills').textContent))]);
     check(metal[0] <= wide && metal[1], 'Changes: the value filter keeps only the units in which that value changed', metal.join(' '));
-    await page.selectOption('[data-change="chg-faction"]', 'all'); await page.selectOption('[data-change="chg-key"]', '');
+    await page.click('[data-a="chg-faction"][data-v="all"]'); await page.selectOption('[data-change="chg-key"]', '');
     const first = page.locator('.chg-row.f-arm, .chg-row.f-cor, .chg-row.f-leg').first();
     await first.click();
     await page.waitForSelector('.c-head');
@@ -287,6 +337,34 @@ try {
     await page.waitForTimeout(200);
     check(await page.locator('.cmp-scroll.scrolled').count() === 0, `back at the left edge: the reference column is whole again (${view})`, '');
   }
+  // dragging the bar below the table: the scrolled area keeps its width when the reference column becomes a strip, and the position is kept
+  // (it changed: the columns jumped to and fro, and with little to scroll the table jumped back to the start again and again)
+  for (const width of [1100, 1500]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=table&ref=armpw');
+    await page.waitForSelector('.cmp-table');
+    await page.waitForTimeout(200);
+    const seen = [];
+    const range = await page.evaluate(() => { const s = document.querySelector('.cmp-scroll'); return s.scrollWidth - s.clientWidth; });
+    for (let x = 0; x <= range; x += 30) {
+      await page.evaluate(x => { document.querySelector('.cmp-scroll').scrollLeft = x; }, x);
+      await page.waitForTimeout(50);
+      seen.push(await page.evaluate(() => { const s = document.querySelector('.cmp-scroll'); return [Math.round(s.scrollLeft), s.scrollWidth]; }));
+    }
+    const steady = range > 60 && seen.every(([at, w], i) => Math.abs(at - i * 30) < 2 && w === seen[0][1]);
+    check(steady && await page.locator('.cmp-scroll.scrolled').count() === 1, `table with a Ref, scrolled step by step: the width and the position stay (${width} px)`, `range ${range}: ${seen.slice(0, 6).join(' / ')}`);
+  }
+  // a narrow window used with the mouse: the columns do not snap into place (that is for a swipe), the bar stays where it is dragged to
+  await page.setViewportSize({ width: 800, height: 800 });
+  await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=graphic&ref=armpw');
+  await page.waitForSelector('.c-head');
+  const dragged = [];
+  for (const x of [20, 60, 140, 300]) {
+    await page.evaluate(x => { document.querySelector('.cmp-scroll').scrollLeft = x; }, x);
+    await page.waitForTimeout(150);
+    dragged.push(await page.evaluate(() => Math.round(document.querySelector('.cmp-scroll').scrollLeft)));
+  }
+  check(dragged.join() === '20,60,140,300', 'narrow window, mouse: the columns stay where the bar is dragged to (no snapping)', dragged.join());
   // Ref: the other columns are green (better) or red (worse) against it, a value equal to it is greyed out; the reference column itself is not coloured
   await page.setViewportSize({ width: 1400, height: 900 });
   await page.goto(base + '#/compare/armpw,armpw_scav?view=graphic&ref=armpw');
@@ -525,7 +603,7 @@ try {
   // a phone, the table with a Ref: after a swipe no column rests under the strip of the reference column
   await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=table&ref=armpw');
   await page.waitForSelector('.cmp-table');
-  await page.evaluate(() => { document.querySelector('.cmp-scroll').scrollLeft = 170; });
+  await page.evaluate(() => { document.documentElement.classList.add('touch'); document.querySelector('.cmp-scroll').scrollLeft = 170; });   // touch: set by the first touch
   await page.waitForTimeout(1200);
   const rest = await page.evaluate(() => { const strip = document.querySelector('th.is-ref').getBoundingClientRect().right; return [...document.querySelectorAll('thead th[data-col]:not(.is-ref)')].map(h => Math.round(h.getBoundingClientRect().left - strip)).filter(x => x > -40)[0]; });
   check(Math.abs(rest) <= 3, 'phone, table: after a swipe a column sits right beside the strip of the reference column', rest);

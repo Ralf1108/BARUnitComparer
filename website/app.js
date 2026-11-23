@@ -38,9 +38,9 @@ const STATS = [
 const app = document.getElementById('app');
 const state = {
   units: {}, counterpart: {}, versions: [], version: '', versionDir: '', baseDir: '', diffs: {}, merged: {}, versionsMode: false,
-  changes: { faction: 'all', key: '', search: '', scav: false }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
+  changes: { faction: 'all', category: '', tiers: new Set(), key: '', search: '', scav: false }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
+  columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '', tiers: new Set() }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
 let nextColumn = 1;
 
@@ -306,6 +306,23 @@ function renderNav() {
 }
 
 // ------------------------------------------------------------------ catalog
+// the choice of units looks the same on every page (the catalog, the unit selection of the compare, Changes): the factions and the tech levels in one line,
+// the kinds of units (with their icons) in the next. o: faction, category, tiers (a Set), factions and cats (with n: a number shown behind the name),
+// allFactions / allCats (the name of an entry for all), act (the buttons are <act>-faction, <act>-category), tier (the action of a tech level),
+// href(kind, value) (the catalog: links instead of buttons), small (the unit selection of the compare)
+const ALL_KINDS = shape('M2 2h5v5H2zM9 2h5v5H9zM2 9h5v5H2zM9 9h5v5H9z');
+function filterHtml(o) {
+  const num = n => n === undefined ? '' : ` <small>${n}</small>`;
+  const el = (kind, v, cls, on, inner) => {
+    const href = o.href && o.href(kind, v), c = `${cls}${on ? ' active' : ''}`;
+    return href ? `<a class="${c}" href="${href}">${inner}</a>` : `<button class="${c}" data-a="${o.act}-${kind}" data-v="${v}">${inner}</button>`;
+  };
+  return `<div class="filt${o.small ? ' small' : ''}">
+    <div class="filt-row"><div class="filt-fac">${o.allFactions ? el('faction', 'all', 'f-none', o.faction === 'all', o.allFactions) : ''}${o.factions.map(f => el('faction', f.id, `f-${f.id}${f.n === 0 ? ' zero' : ''}`, f.id === o.faction, f.name + num(f.n))).join('')}</div>
+      <span class="seg small" title="Tech levels: only the units of the levels that are pressed (none pressed: all)">${[1, 2, 3].map(n => `<button data-a="${o.tier}" data-v="${n}" class="${o.tiers.has(n) ? 'active' : ''}">T${n}</button>`).join('')}</span></div>
+    <div class="tabs">${o.allCats ? el('category', '', '', !o.category, `${ALL_KINDS}<span>${o.allCats}</span>`) : ''}${o.cats.map(k => el('category', k.id, '', k.id === o.category, `${k.icon}<span>${k.long}${num(k.n)}</span>`)).join('')}</div></div>`;
+}
+
 function catalogUnits() {
   const search = state.search.trim().toLowerCase();
   return Object.keys(state.units).filter(n => {
@@ -324,14 +341,13 @@ function renderCatalog() {
   const f = state.faction, cat = CATEGORIES.find(c => c.id === state.category);
   document.title = `${factionName(f)} ${cat.name} - BAR Unit Comparer`;
   app.innerHTML = `<div class="f-${f}">
-    <div class="title"><b>${factionName(f)}</b><h1>${cat.name}</h1>
-      <span class="switch">Switch To ${FACTIONS.filter(o => o.id !== f).map(o => `<a class="f-${o.id}" href="#/catalog/${o.id}/${state.category}">${o.name}</a>`).join('')}</span></div>
-    <div class="tabs">${CATEGORIES.filter(c => c.id === state.category || hasUnits(f, c.id)).map(c => `<a class="${c.id === state.category ? 'active' : ''}" href="#/catalog/${f}/${c.id}">${c.icon}${c.name}</a>`).join('')}</div>
-    ${load('intro', 'yes') === 'yes' ? `<p class="intro"><span><b>New here?</b> Click the units you want to compare, then press <b>Compare</b> at the bottom of the page. Hold a unit (or right-click it) to see its values. <a href="#/help">How it works</a></span><button data-a="intro-close" title="Hide this line" aria-label="Hide this line">&#10005;</button></p>` : ''}
+    <div class="title"><b>${factionName(f)}</b><h1>${cat.name}</h1></div>
+    ${filterHtml({ faction: f, category: state.category, tiers: state.tiers, factions: FACTIONS, cats: CATEGORIES.filter(c => c.id === state.category || hasUnits(f, c.id)), tier: 'tier',
+      href: (kind, v) => kind === 'faction' ? `#/catalog/${v}/${state.category}` : `#/catalog/${f}/${v}` })}
+    ${load('intro', 'yes') === 'yes' ? `<p class="intro"><span><b>New here?</b> Click the units you want to compare, then press <b>Compare</b> at the bottom of the page. Hold a unit (or right-click it) to see its values. ${state.versions.length > 1 ? 'What a patch changed: <a href="#/changes">Changes</a>. ' : ''}<a href="#/help">How it works</a></span><button data-a="intro-close" title="Hide this line" aria-label="Hide this line">&#10005;</button></p>` : ''}
     <div class="controls">
       <span class="seg"><button data-a="view" data-v="list" class="${state.view === 'list' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM8 1h18v4H8zM0 8h5v4H0zM8 8h18v4H8zM0 15h5v4H0zM8 15h18v4H8z"/></svg>List</button><button data-a="view" data-v="grid" class="${state.view === 'grid' ? 'active' : ''}"><svg viewBox="0 0 26 20"><path d="M0 1h5v4H0zM7 1h5v4H7zM14 1h5v4h-5zM21 1h5v4h-5zM0 8h5v4H0zM7 8h5v4H7zM14 8h5v4h-5zM21 8h5v4h-5zM0 15h5v4H0zM7 15h5v4H7zM14 15h5v4h-5zM21 15h5v4h-5z"/></svg>Grid</button></span>
       <label class="toggle"><input type="checkbox" data-change="names" ${state.showNames ? 'checked' : ''}><i></i>Show names</label>
-      <span class="seg small">${[1, 2, 3].map(t => `<button data-a="tier" data-v="${t}" class="${state.tiers.has(t) ? 'active' : ''}">T${t}</button>`).join('')}</span>
       ${versionsFilterButton()}
       <input class="search ${isCodeSearch(state.search) ? 'code' : ''}" data-input="catalog-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(state.search)}">
     </div>
@@ -402,28 +418,52 @@ function changeRow(c, from, to) {
   return `<a class="chg-row f-${esc(c.u.faction)}" href="#/compare/${tokens.map(esc).join(',')}?view=graphic" title="Open in the unit compare: ${c.kind === 'changed' ? 'the version before and the changed version side by side' : 'the unit in this version'}">
     ${pictureTag(c.unit, 'pic', c.u)}<span class="chg-main"><span class="chg-name"><b>${esc(c.u.name)}</b><small>${esc(c.unit)}</small>${c.kind === 'changed' ? '' : `<span class="chg-kind k-${c.kind}">${c.kind === 'new' ? 'new unit' : 'removed'}</span>`}</span><span class="pills">${pills.join('') || (c.kind === 'changed' ? '<span class="pill muted">a value that is not listed here</span>' : '')}</span></span></a>`;
 }
+// the units of one row: a unit and its counterparts in the other factions (a Scavenger copy belongs to the row of its unit)
+const changeGroup = c => { const n = c.unit.replace(/_scav$/, ''), id = state.counterpartOf[n]; return id === undefined ? n : `#${id}`; };
 function changesListHtml() {
-  const { faction, key, search } = state.changes, q = search.trim().toLowerCase();
+  const ch = state.changes, { faction, key, search } = ch, q = search.trim().toLowerCase();
   const all = rangeChanges(state.changesFrom, state.changesTo), kinds = Object.fromEntries(all.map(c => [c.unit, c.kind]));
   // a Scavenger copy changes with its unit: it is left out while its unit is in the list (the switch "Scavenger copies" or the faction Scavengers shows them)
-  const isCopy = c => !state.changes.scav && faction !== 'scv' && c.unit.endsWith('_scav') && kinds[c.unit.slice(0, -5)] === c.kind;
-  const match = c => (faction === 'all' || c.u.faction === faction) && (!key || c.fields.some(s => s.key === key)) && (!q || matchUnit(c.unit, c.u, q));
-  const list = all.filter(c => match(c) && !isCopy(c)), copies = all.filter(c => match(c) && isCopy(c)).length;
+  const isCopy = c => !ch.scav && faction !== 'scv' && c.unit.endsWith('_scav') && kinds[c.unit.slice(0, -5)] === c.kind;
+  const other = c => (!key || c.fields.some(s => s.key === key)) && (!q || matchUnit(c.unit, c.u, q));   // the filters that are not buttons
+  const inFaction = c => faction === 'all' || c.u.faction === faction, inTier = c => !ch.tiers.size || ch.tiers.has(c.u.tech), inCategory = c => !ch.category || c.u.category === ch.category;
+  const match = c => other(c) && inFaction(c) && inTier(c) && inCategory(c);
+  const byName = (x, y) => x.u.name.localeCompare(y.u.name) || x.unit.localeCompare(y.unit);
+  const list = all.filter(c => match(c) && !isCopy(c)).sort(byName), copies = all.filter(c => match(c) && isCopy(c)).length;
   const count = kind => list.filter(c => c.kind === kind).length;
   const range = state.versions.slice(indexOf(state.changesFrom) + 1, indexOf(state.changesTo) + 1);
   const engine = range.flatMap(v => Object.keys(v.engineOnly || {}).map(n => `${n} (${shortVersion(v.dir)}: ${v.engine || 'other engine'})`));
-  return `<p class="chg-sum"><b>${count('changed')}</b> changed · <b>${count('new')}</b> new · <b>${count('gone')}</b> gone, in ${range.length} version${range.length === 1 ? '' : 's'} with changes${copies ? ` · <span title="A Scavenger copy changes with its unit. Switch on Scavenger copies to list them.">${copies} Scavenger cop${copies === 1 ? 'y' : 'ies'} not listed</span>` : ''}</p>
+  // the buttons: a faction, a kind of unit, the tech levels; each with the number of units it would show (with the other filters as they are)
+  const pool = all.filter(c => other(c) && !isCopy(c));
+  const num = n => `<small>${n}</small>`;
+  const inFilters = c => other(c) && inTier(c) && inCategory(c);   // Scavengers: chosen as the faction, the copies are listed
+  const filters = `<div class="f-${faction === 'all' ? 'none' : faction}">${filterHtml({ faction, category: ch.category, tiers: ch.tiers, act: 'chg', tier: 'chg-tier', allFactions: 'All factions', allCats: 'All kinds',
+    factions: FACTIONS.map(f => ({ ...f, n: (f.id === 'scv' ? all.filter(inFilters) : pool.filter(c => inTier(c) && inCategory(c))).filter(c => c.u.faction === f.id).length })),
+    cats: CATEGORIES.filter(k => k.id === ch.category || pool.some(c => c.u.category === k.id && inFaction(c) && inTier(c))).map(k => ({ ...k, n: pool.filter(c => c.u.category === k.id && inFaction(c) && inTier(c)).length })) })}</div>`;
+  // one column per faction; a unit and its counterparts stand in one row, so that a change made to the same unit of several factions is seen at once.
+  // The rows by name, from the left: first the rows with a unit in the first column (Armada), by its name; then the ones that start in the second column, and so on
+  const cols = FACTIONS.filter(f => list.some(c => c.u.faction === f.id));
+  let body;
+  if (cols.length < 2) body = `<div class="chg-list">${list.map(c => changeRow(c, state.changesFrom, state.changesTo)).join('') || '<p class="empty">Nothing changed here.</p>'}</div>`;
+  else {
+    const rows = new Map();
+    for (const c of list) { const g = changeGroup(c); if (!rows.has(g)) rows.set(g, {}); (rows.get(g)[c.u.faction] ||= []).push(c); }
+    const lead = r => { const i = cols.findIndex(f => r[f.id]); return [i, r[cols[i].id][0]]; };
+    const sorted = [...rows.values()].sort((x, y) => { const [i, a] = lead(x), [j, b] = lead(y); return i - j || byName(a, b); });
+    body = `<div class="chg-grid" style="--n:${cols.length}">${cols.map(f => `<div class="chg-head f-${f.id}">${f.name} ${num(list.filter(c => c.u.faction === f.id).length)}</div>`).join('')}
+      ${sorted.map(r => cols.map(f => `<div class="chg-cell">${(r[f.id] || []).map(c => changeRow(c, state.changesFrom, state.changesTo)).join('')}</div>`).join('')).join('')}</div>`;
+  }
+  return `${filters}<p class="chg-sum"><b>${count('changed')}</b> changed · <b>${count('new')}</b> new · <b>${count('gone')}</b> gone, in ${range.length} version${range.length === 1 ? '' : 's'} with changes${copies ? ` · <span title="A Scavenger copy changes with its unit. Switch on Scavenger copies to list them.">${copies} Scavenger cop${copies === 1 ? 'y' : 'ies'} not listed</span>` : ''}</p>
     ${engine.length ? `<p class="chg-note" title="Values that differ only because the engine of the game was changed: not a change of the game, not listed above">Engine only, not a change of the game: ${esc(engine.join(', '))}</p>` : ''}
-    <div class="chg-list">${list.map(c => changeRow(c, state.changesFrom, state.changesTo)).join('') || '<p class="empty">Nothing changed here.</p>'}</div>`;
+    ${body}`;
 }
 function renderChanges() {
   document.title = 'Changes - BAR Unit Comparer';
   const c = state.changes;
   const select = (kind, label, options) => `<label>${label} <select data-change="${kind}">${options}</select></label>`;
   app.innerHTML = `<div class="changes"><div class="title"><h1>Changes</h1></div>
-    <p class="chg-intro">What changed in the game between two versions. Choose <b>From</b> and <b>To</b>: the list shows every unit whose values differ, as <s>old</s> → <b>new</b> (<b class="good">green</b>: better for the unit, <b class="bad">red</b>: worse). A click on a unit opens both versions side by side.</p>
+    <p class="chg-intro">What changed in the game between two versions. Choose <b>From</b> and <b>To</b>: the list shows every unit whose values differ, one column per faction, a unit and its counterparts in the other factions in one row, as <s>old</s> → <b>new</b> (<b class="good">green</b>: better for the unit, <b class="bad">red</b>: worse). A click on a unit opens both versions side by side.</p>
     <div class="controls">${select('chg-from', 'From', versionOptions(v => v.base ? ' (base)' : '', state.changesFrom, state.versions.slice(0, -1)))}${select('chg-to', 'To', versionOptions(v => ` (${v.changed} changed)`, state.changesTo, state.versions.slice(1)))}
-      <label>Units <select data-change="chg-faction"><option value="all">All</option>${FACTIONS.map(f => `<option value="${f.id}" ${c.faction === f.id ? 'selected' : ''}>${f.name}</option>`).join('')}</select></label>
       <label>Value <select data-change="chg-key"><option value="">Any</option>${CHANGE_KEYS.map(s => `<option value="${s.key}" ${c.key === s.key ? 'selected' : ''}>${esc(s.label)}</option>`).join('')}</select></label>
       <label class="toggle small" title="Every unit has a Scavenger copy that changes with it: off, the copies are left out of the list"><input type="checkbox" data-change="chg-scav" ${c.scav ? 'checked' : ''}><i></i>Scavenger copies</label>
       <input class="search" data-input="chg-search" placeholder="Search unit, or &lt;codename&gt;" value="${esc(c.search)}"></div>
@@ -436,12 +476,25 @@ function renderHelp() {
   const item = (name, text) => `<li><b>${name}</b><span>${text}</span></li>`;
   app.innerHTML = `<div class="help"><div class="title"><h1>Help</h1></div>
     <p class="lead">This page shows the units of <a href="https://www.beyondallreason.info/">Beyond All Reason</a> with their values and lets you put any of them side by side. It is a fan project; the data comes from the game itself.</p>
-    <h2>In three steps</h2>
-    <ol class="steps"><li><b>Catalog:</b> choose a faction and a category, click the units you want. They are collected at the bottom of the page.</li>
-      <li><b>Compare:</b> press <b>Compare</b>. Every unit is a column; each bar is drawn against the largest value in its row.</li>
-      <li><b>Share:</b> the address of the page holds your comparison. Copy it to show it to someone, or press the star to keep it under Favorites.</li></ol>
-    <p><a class="btn go" href="#/catalog">Open the catalog</a> <a class="btn" href="#/compare">Open the compare</a></p>
-    <h2>The buttons of the compare</h2>
+    <h2>The three pages</h2>
+    <ol class="steps"><li><b>Catalog:</b> all units of a faction with their pictures. Click the units you want; they are collected at the bottom of the page.</li>
+      <li><b>Compare:</b> press <b>Compare</b>. Every unit is a column; each bar is drawn against the largest value in its row. The address of the page holds your comparison: copy it (<b>Share</b>) or press the star to keep it under Favorites.</li>
+      <li><b>Changes:</b> what a patch of the game changed: every unit whose values differ between two game versions, old value → new value.</li></ol>
+    <p><a class="btn go" href="#/catalog">Open the catalog</a> <a class="btn" href="#/compare">Open the compare</a>${state.versions.length > 1 ? ' <a class="btn" href="#/changes">Open Changes</a>' : ''}</p>
+    <h2>Choosing units (the same on every page)</h2>
+    <ul>${item('Armada, Cortex, ...', 'the faction. Scavengers and Raptors are the computer enemies.')}
+      ${item('T1 T2 T3', 'the tech levels: press one or more to see only these units, press again to switch it off. None pressed: all levels.')}
+      ${item('Bots, Vehicles, ...', 'the kind of unit (the line with the icons): bots, vehicles, aircraft, ships, factories, defenses, buildings.')}
+      ${item('Search', 'looks in all factions and kinds; see Search at the end of this page.')}</ul>
+    <h2>The catalog</h2>
+    <ul>${item('Click a unit', 'marks it for the comparison (again: takes it out). The marked units are shown in a bar at the bottom, with the button <b>Compare</b>.')}
+      ${item(`${ICONS.info} Hold or right-click`, 'a unit: shows all its values, its counterparts and its counters without adding it to the comparison (also in the unit selection of the compare).')}
+      ${item('List / Grid', 'pictures in a grid, or a list with the most important values in columns.')}
+      ${item('Show names', 'the names under the pictures of the grid; off, the grid shows the pictures only (the name is in the tooltip).')}
+      ${item('Changed units only', 'lists only the units that changed in some game version.')}
+      ${item('changed', '(a tag on a unit) a value of this unit changed in the game version shown.')}
+      ${item('Ctrl+Z', 'takes back the last click (Ctrl+Y: repeats it).')}</ul>
+    <h2>The compare</h2>
     <ul>${[
       [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> better, <b>&minus;</b> worse, ±0 equal; the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
@@ -450,13 +503,12 @@ function renderHelp() {
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['since …', '(the list above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. "since 29 May 2026" means the unit is unchanged from that version on.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
-      ['Changed units only', 'lists only the units that changed in some game version.'],
+      ['Unit selection', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. The arrow folds the selection away.'],
       ['Table view', 'the same values as a compact table.'],
       ['&#9734;', 'saves the selection as a favorite (in your browser).'],
       ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog).'],
       [`${ICONS.share} Share`, 'copies the link of the comparison, to send it to someone (on a phone: opens the share menu).'],
       ['The name of a value', 'click it (Metal, Hitpoints, ...) to sort the columns by this value, the best first; again: the worst first.'],
-      [`${ICONS.info} Hold or right-click`, 'a unit in the catalog or in the unit selection: shows all its values, its counterparts and its counters without adding it to the comparison.'],
       ['&#8942;&#8942;', 'drag it to move a column (on a phone: Move left / Move right in the menu of the column).'],
       ['&#8249; &#8250;', '(at the edges) more columns are hidden there: a click scrolls to the next one.'],
     ].map(([n, text]) => item(n, text)).join('')}</ul>
@@ -468,10 +520,16 @@ function renderHelp() {
       ${item('Scrolled down', 'a line at the top of the screen keeps the names of the units above their values.')}</ul>
     <h2>The values</h2>
     <ul>${STATS.map(s => item(s.label, esc(s.tip))).join('')}${item('T1, T2, T3', 'the tech level: T1 units come from the first factories, T2 and T3 from the advanced ones.')}</ul>
-    <h2>Game versions and changes</h2>
+    <h2>Changes</h2>
+    <ul>${item('From / To', 'the two game versions that are compared. At first: the newest version against the one before. A wider range shows the total of all changes in between.')}
+      ${item('The columns', 'one column per faction, Armada at the left. A unit and its counterparts in the other factions stand in one row: you see at once when the same unit was changed for several factions. The rows are sorted by name.')}
+      ${item('<s>old</s> → new', 'the values that changed. <b class="good">Green</b>: better for the unit, <b class="bad">red</b>: worse (cost and build time: lower is better). New and removed units are marked.')}
+      ${item('Value', 'only the units in which this value changed (for example Hitpoints).')}
+      ${item('Scavenger copies', 'every unit has a Scavenger copy that changes with it. Off, the copies are left out; the faction Scavengers lists them.')}
+      ${item('Click a unit', 'opens the compare with the unit before and after the change, side by side.')}</ul>
+    <h2>Game versions</h2>
     <ul>${item('Game version', '(at the top) the catalog and the compare show the newest version of the game. Choose an older one to see the units as they were then. Only versions in which a unit value changed are listed.')}
-      ${item('Changes', 'lists what changed between two versions: old value → new value, new units and removed ones. A click opens the unit before and after, side by side.')}
-      ${item('changed', '(a tag in the catalog) a value of this unit changed in the version shown.')}</ul>
+      ${item('since …', '(above a unit in the compare) the version of this unit: the first one and each one in which its values changed.')}</ul>
     <h2>Search</h2>
     <ul>${item('Words', 'find the start of a word in the name or the description: <i>tank</i>, <i>anti-air</i>.')}
       ${item('&lt;codename', 'finds units by their name in the game files: <i>&lt;armpw</i>.')}</ul></div>`;
@@ -495,6 +553,7 @@ function pickUnits() {
   const pool = state.versionsMode ? Object.keys(state.unitVersions).filter(hasVersions) : Object.keys(state.units);   // the button Versions: only units with at least 2 versions
   return pool.filter(n => {
     const u = pickUnit(n);
+    if (p.tiers.size && !p.tiers.has(u.tech)) return false;
     if (search) return matchUnit(n, u, search);   // a search looks in all factions and categories
     return u.faction === p.faction && u.category === p.category;
   }).sort((a, b) => (pickUnit(a).name === a) - (pickUnit(b).name === b) || byTech(pickUnit(a), pickUnit(b)));   // units without a name last
@@ -559,7 +618,7 @@ function updatePin() {
 let snapTimer = 0;
 function snapTable() {
   const sc = app.querySelector('.cmp-scroll'), table = sc && sc.querySelector('.cmp-table');
-  if (!table || !isNarrow()) return;
+  if (!table || !isNarrow() || !document.documentElement.classList.contains('touch')) return;   // only after a swipe: dragging the bar with the mouse ends where it is let go
   const max = sc.scrollWidth - sc.clientWidth, at = sc.scrollLeft, stuckAt = refStuckAt(sc), stuck = sc.classList.contains('scrolled');
   if (at < 4 || at > max - 4 || (!stuck && at > stuckAt)) return;   // at an end; or the reference column is about to shrink (the columns move then)
   const base = sc.getBoundingClientRect().left - at, lw = sc.querySelector('.t-corner').getBoundingClientRect().width;
@@ -648,14 +707,28 @@ function updateMore() {
   app.querySelector('.more-left').hidden = sc.scrollLeft < 4;
   // the reference column stays at its place; scrolled up to the left edge it sticks there and shrinks to a strip with its values (the names of the table rows get smaller),
   // so that more of the other columns can be seen; with a little hysteresis. stuckAt: the scroll position from which it sticks
-  const corner = sc.querySelector('.t-corner'), lw = corner ? corner.getBoundingClientRect().width : 0;
+  const stuckAt = refStuckAt(sc), sl = sc.scrollLeft, was = sc.classList.contains('scrolled');
+  const refCol = sc.querySelector('.cmp-grid .c-head.is-ref'), refTh = sc.querySelector('th.is-ref'), corner = sc.querySelector('.t-corner'), pad = sc.querySelector('.t-pad');
+  if (refCol && !was) sc.dataset.refw = refCol.getBoundingClientRect().width;   // its whole width, measured while it is whole
+  // the table: as a strip the reference column and the names of the rows are narrower. The empty cell behind the last column (.t-pad) takes this width, so that the
+  // scrolled area stays as wide as it was: a width that changes while the bar is dragged makes the columns jump to and fro (and with little to scroll the table
+  // fitted again, jumped back to the start and grew again). Measured once: the widths with and without the strip
+  if (pad && !was && !sc.dataset.lost) {
+    const whole = corner.offsetWidth + refTh.offsetWidth;
+    pad.style.minWidth = '4000px';   // so that the position is not cut off while the strip is tried
+    sc.classList.add('scrolled');
+    sc.dataset.lost = Math.max(0, whole - corner.offsetWidth - refTh.offsetWidth); sc.dataset.kept = corner.offsetWidth + refTh.offsetWidth;
+    sc.classList.remove('scrolled');
+  }
+  const now = sl > stuckAt + (was ? 4 : 24);
+  if (pad) {
+    // a narrow window: at least the room that brings the last column right beside the strip
+    const lost = Number(sc.dataset.lost), room = isNarrow() ? Math.max(0, sc.clientWidth - Number(sc.dataset.kept) - pad.previousElementSibling.offsetWidth) : 0;
+    pad.style.minWidth = (Math.max(room, lost) - (now ? 0 : lost)) + 'px';
+  }
+  if (now !== was) { sc.classList.toggle('scrolled', now); if (sc.scrollLeft !== sl) sc.scrollLeft = sl; }
+  const lw = corner ? corner.getBoundingClientRect().width : 0;
   if (corner) sc.querySelector('.cmp-table').style.setProperty('--lw', lw + 'px');
-  const pad = sc.querySelector('.t-pad');   // room behind the last column: as much as it takes to bring the last column right beside the strip of the reference column
-  if (pad) pad.style.minWidth = Math.max(0, sc.clientWidth - lw - (isPhone() ? 56 : 64) - pad.previousElementSibling.offsetWidth) + 'px';
-  const stuckAt = refStuckAt(sc), sl = sc.scrollLeft;
-  const refCol = sc.querySelector('.cmp-grid .c-head.is-ref');
-  if (refCol && !sc.classList.contains('scrolled')) sc.dataset.refw = refCol.getBoundingClientRect().width;   // its whole width, measured while it is whole
-  sc.classList.toggle('scrolled', sl > stuckAt + (sc.classList.contains('scrolled') ? 4 : 24));
   // the graphic view: stuck, the reference column gets narrower with every pixel that is scrolled, so that the column next to it stays right beside it (down to a strip)
   const strip = parseFloat(getComputedStyle(sc).getPropertyValue('--strip')) || 88;
   sc.style.setProperty('--refw', Math.max(strip, (Number(sc.dataset.refw) || strip) - (sl - stuckAt)) + 'px');
@@ -732,7 +805,7 @@ function tableHtml(columns, stats, max, reference) {
     const ref = referenceFor(c, reference);
     return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${valueText(s, v, ref)}${absText(s, v, ref)}</td>`;
   };
-  return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference && isNarrow() ? '<th class="t-pad"></th>' : ''}</tr></thead>
+  return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference ? '<th class="t-pad"></th>' : ''}</tr></thead>
     <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}>${s.label}${sortMark(s)}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
 }
 
@@ -755,8 +828,7 @@ function chooserHtml() {
   return `<div class="chooser f-${p.faction}${narrow ? ` sheet${state.sheet ? ' open' : ''}` : ''}">
     <div class="c-searchrow"><div class="c-search"><input class="search ${isCodeSearch(p.search) ? 'code' : ''}" data-input="pick-search" placeholder="Search all units, or &lt;codename&gt;" value="${esc(p.search)}"><button class="clear" data-a="pick-clear" title="Clear the search">&#10005;</button></div><button class="toggle-pick" data-a="pick-toggle" title="${narrow ? 'Close the unit selection' : 'Hide the unit selection (to the right)'}">${narrow ? 'Done' : '&#9654;'}</button></div>
     ${isPhone() && state.versions.length > 1 ? `<div class="c-filter">${versionsFilterButton()}</div>` : ''}
-    <div class="c-factions">${FACTIONS.map(f => `<button data-a="pick-faction" data-v="${f.id}" class="f-${f.id} ${f.id === p.faction && !p.search ? 'active' : ''}">${f.name}</button>`).join('')}</div>
-    <div class="c-cats">${CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)).map(k => `<button data-a="pick-category" data-v="${k.id}" class="${k.id === p.category && !p.search ? 'active' : ''}">${k.icon}${k.long}</button>`).join('')}</div>
+    ${filterHtml({ small: true, faction: p.search ? '' : p.faction, category: p.search ? '' : p.category, tiers: p.tiers, factions: FACTIONS, cats: CATEGORIES.filter(k => k.id === p.category || hasUnits(p.faction, k.id)), act: 'pick', tier: 'pick-tier' })}
     <div class="picker">${pickerHtml()}</div></div>`;
 }
 
@@ -1021,6 +1093,10 @@ const actions = {
   },
   view(v) { state.view = v; save('view', v); renderCatalog(); },
   'intro-close'() { save('intro', 'no'); renderCatalog(); },
+  // the page Changes: the buttons above the list (a faction, a kind of unit, the tech levels)
+  'chg-faction'(v) { state.changes.faction = v; document.getElementById('chg-body').innerHTML = changesListHtml(); },
+  'chg-category'(v) { state.changes.category = v; document.getElementById('chg-body').innerHTML = changesListHtml(); },
+  'chg-tier'(v) { const t = Number(v), s = state.changes.tiers; if (s.has(t)) s.delete(t); else s.add(t); document.getElementById('chg-body').innerHTML = changesListHtml(); },
   tier(v) { const t = Number(v); if (state.tiers.has(t)) state.tiers.delete(t); else state.tiers.add(t); renderCatalog(); },
   toggle(v) {   // only the units: the search keeps its focus, the page its position; the card keeps the focus (keyboard)
     remember(); toggleUnit(v); renderCatalogUnits(); renderNav(); renderTray();
@@ -1050,6 +1126,7 @@ const actions = {
   clear() { remember(); state.columns = []; render(); },
   'pick-faction'(v) { state.pick.faction = v; state.pick.search = ''; refreshChooser(); },
   'pick-category'(v) { state.pick.category = v; state.pick.search = ''; refreshChooser(); },
+  'pick-tier'(v) { const n = Number(v), s = state.pick.tiers; if (s.has(n)) s.delete(n); else s.add(n); refreshChooser(); },
   'pick-clear'() { state.pick.search = ''; refreshChooser(); },
   'pick-add'(v) {   // the new column is at the right end: show it
     if (isShown(v)) return;
@@ -1200,6 +1277,10 @@ document.addEventListener('click', e => {
   if (menu) renderOverlay();
 });
 window.addEventListener('scroll', updatePin, { passive: true });
+// a device that is used with a finger: the columns snap into place after a swipe (style.css, snapTable)
+const markTouch = () => document.documentElement.classList.add('touch');
+if (window.matchMedia && matchMedia('(pointer: coarse)').matches) markTouch();
+window.addEventListener('touchstart', markTouch, { passive: true, once: true });
 
 document.addEventListener('input', e => {
   const kind = e.target.dataset.input;
@@ -1210,8 +1291,8 @@ document.addEventListener('input', e => {
     state.pick.search = e.target.value;
     app.querySelector('.picker').innerHTML = pickerHtml();
     app.querySelector('.picker').scrollTop = 0;
-    for (const b of app.querySelectorAll('.chooser .c-factions [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.faction);
-    for (const b of app.querySelectorAll('.chooser .c-cats button')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.category);
+    for (const b of app.querySelectorAll('.chooser .filt-fac [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.faction);
+    for (const b of app.querySelectorAll('.chooser .tabs [data-v]')) b.classList.toggle('active', !state.pick.search && b.dataset.v === state.pick.category);
   }
 });
 
@@ -1222,7 +1303,7 @@ document.addEventListener('change', async e => {
     location.hash = changesLink(to, indexOf(from) < indexOf(to) ? from : versionBefore(to));
   }
   if (kind === 'chg-scav') { state.changes.scav = e.target.checked; document.getElementById('chg-body').innerHTML = changesListHtml(); }
-  if (kind === 'chg-faction' || kind === 'chg-key') { state.changes[kind === 'chg-faction' ? 'faction' : 'key'] = e.target.value; document.getElementById('chg-body').innerHTML = changesListHtml(); }
+  if (kind === 'chg-key') { state.changes.key = e.target.value; document.getElementById('chg-body').innerHTML = changesListHtml(); }
   if (kind === 'names') { state.showNames = e.target.checked; save('showNames', state.showNames ? 'yes' : 'no'); renderCatalogUnits(); }
   if (kind === 'version') {
     remember();
