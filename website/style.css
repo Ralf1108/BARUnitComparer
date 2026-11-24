@@ -139,6 +139,7 @@ img { display: block; }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
 /* the grip at the left, the tools together at the right: Versions, Counters, Counterparts, Ref and the X right of Ref */
 .c-tools .tool.counters { margin-left: auto; }   /* the grip at the left, the tools together at the right */
+.c-tools > .tool.ref:first-child { margin-left: auto; }   /* a Scavenger copy (+ Scav) has only Ref: at the right like the tools of the other columns */
 .c-tools .x { color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
 .ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
