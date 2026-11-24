@@ -45,7 +45,7 @@ One unit per line, sorted by unit name, keys sorted (two exports of the same gam
 | `weapons` | one entry per weapon: all fields of the weapon definition plus `damages` (damage per armor class name: `default`, `vtol`, ...) and `onlyTargets` (the categories of the units that the weapon's mount may aim at, `UnitDefs[].weapons[i].onlyTargets`, e.g. `vtol`, `notsub`, `surface`; the page works out from them whether the weapon hits aircraft) |
 | `builds` | unit names this unit can build |
 
-Damage per second of a weapon: `damages.default * projectiles * salvoSize / reload` (anti-air weapons: class `vtol`).
+Damage per second of a weapon: `damages.default * projectiles * salvoSize / reload` (anti-air weapons: class `vtol`). The website works out its values from this file in `exporter/unit_rules.py` (the totals, every weapon on its own, what it hits): [website.md](website.md), section "Fields of a unit".
 
 ## `counterparts.json`
 
