@@ -281,8 +281,19 @@ function withWeapon(u, id) {
 // the name of a weapon in the list: the game's name, its kind if the name is one word ("J7Laser (BeamLaser)"), how many are mounted, what the total leaves out;
 // two weapons of the unit with the same name (a cannon with a high and a low trajectory: plasma, plasma_high) get their id in brackets
 const KIND_NAMES = { dgun: 'D-gun', nuke: 'nuke', antinuke: 'anti-nuke', emp: 'EMP', high: 'high trajectory' };
-const TARGET_NAMES = { air: 'air', both: 'ground + air' };   // what a weapon aims at (targets of the data); ground only: nothing added
-const weaponLabel = (w, list = []) => `${w.n > 1 ? `${w.n}× ` : ''}${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}${list.some(o => o !== w && o.name === w.name) ? ` [${w.id}]` : ''}${TARGET_NAMES[w.targets] ? ` · ${TARGET_NAMES[w.targets]}` : ''}${w.kind ? ` · ${KIND_NAMES[w.kind]}` : ''}`;
+const weaponLabel = (w, list = []) => `${w.n > 1 ? `${w.n}× ` : ''}${w.name}${/\s/.test(w.name) || !w.type ? '' : ` (${w.type})`}${list.some(o => o !== w && o.name === w.name) ? ` [${w.id}]` : ''}${w.kind ? ` · ${KIND_NAMES[w.kind]}` : ''}`;
+// what the weapon shown aims at, as two icons right of the list (lit: yes, dim: no): units on the ground or the water, aircraft. All weapons: what the weapons
+// of the totals reach together (targets of the data: air, ground, both)
+const TARGET_ICONS = {
+  ground: svgIcon('M1 13.5h14M3 13.5v-3h10v3M5 10.5V8h5.5l1 2.5M7.5 8V6.5h5'),   // a tank on the ground
+  air: svgIcon('M8 1.5v13M2 9l6-3 6 3M5.5 14.5h5M8 1.5c.8.8 1 2 1 3.5'),       // an aircraft from above
+};
+function targetIcons(list, w) {
+  const shown = w ? [w] : list.filter(x => !x.kind);
+  const reach = k => shown.some(x => x.targets === k || x.targets === 'both');
+  const one = (k, on, what) => `<span class="tg-i${on ? ' on' : ''}" title="${on ? `Hits ${what}` : `Does not hit ${what}`}${w ? '' : ' (with its weapons together)'}" aria-label="${on ? 'hits' : 'does not hit'} ${what}">${TARGET_ICONS[k]}</span>`;
+  return list.length && shown.some(x => x.targets) ? `<span class="c-tg">${one('ground', reach('ground'), 'units on the ground and the water')}${one('air', reach('air'), 'aircraft')}</span>` : '';
+}
 // a column in the link and in a favorite: "armpw", "armpw@test-31450-6562fb1" with a version of its own, "corcom~corcomlaser" with one weapon
 const tokenOf = c => `${c.unit}${c.version ? `@${c.version}` : ''}${c.weapon ? `~${c.weapon}` : ''}`;
 function columnFromToken(t) {
@@ -561,7 +572,7 @@ function renderHelp() {
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
       [`${ICONS.versions} Versions`, '(on a unit) adds all other versions of this unit as columns, so you see what the balance changes did; the gold number on the icon says how many versions the unit has (&gt; for more than 9), a unit with only one is grey. The values that changed are marked in gold.'],
       ['The list of versions', '(above the icons; on a phone in the menu of the column) the versions of this unit: the first one and each one in which its values changed. White: the unit has several versions to choose from; grey: only one. The clock right of it adds all other versions as columns.'],
-      ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; the name says what it aims at if that is not only the ground (<i>· air</i>: aircraft only, <i>· ground + air</i>: both); choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons, nor the high trajectory of a cannon that can switch between a high and a low one (only one of them fires): choose them to see their values. A chosen weapon is gold; it is part of the link.'],
+      ['The list of weapons', '(below the version) a unit with one weapon shows its name, grey: there is nothing to choose. With more than one weapon the list is white: <b>All weapons</b> shows the values of its weapons together, as before; two icons right of the list say what it hits: units on the ground and the water (a tank) and aircraft (a plane), green and blue for yes, dim for no; choose one weapon to see its own damage per shot, shots per second, DPS, DPS vs air, range and area of effect, for example the laser of a commander against the laser of another one. D-gun, nukes, anti-nukes and EMP weapons are not part of All weapons, nor the high trajectory of a cannon that can switch between a high and a low one (only one of them fires): choose them to see their values. A chosen weapon is gold; it is part of the link.'],
       ['Press again', 'a lit icon (Versions, Counters, Counterparts) takes out the columns it added and brings back the ones it put aside.'],
       ['Select units', '(at the right; on a phone: <b>+ Add units</b>) a click on a unit adds it as a column. <b>Hide</b> folds the selection away to a strip at the right edge, for more room; a click on the strip brings it back. The list <b>Any weapon</b> next to Changed units only holds every weapon of the game, alphabetical, with the number of units that have it: choose one to see only the units with this weapon, of all factions and kinds.'],
       ['Table view', 'the same values as a compact table.'],
@@ -860,12 +871,12 @@ function weaponSelect(c) {
   const list = (unitsOf(c.version || state.versionDir)[c.unit] || {}).weaponList || [];
   if (list.length < 2) {
     const text = list.length ? weaponLabel(list[0]) : 'No weapons';
-    return `<div class="c-wrow"><select class="c-wpn" disabled title="${list.length ? 'This unit has only this weapon: its values are those of the unit' : 'This unit has no weapons'}" aria-label="Weapon"><option>${esc(text)}</option></select></div>`;
+    return `<div class="c-wrow"><select class="c-wpn" disabled title="${list.length ? 'This unit has only this weapon: its values are those of the unit' : 'This unit has no weapons'}" aria-label="Weapon"><option>${esc(text)}</option></select>${targetIcons(list, list[0])}</div>`;
   }
   const on = list.find(w => w.id === c.weapon);
-  if (c.scavOf) return `<div class="c-wrow"><select class="c-wpn${on ? ' on' : ''}" disabled title="The Scavenger copy shows the weapon chosen for its unit" aria-label="Weapon"><option>${esc(on ? weaponLabel(on, list) : 'All weapons')}</option></select></div>`;
+  if (c.scavOf) return `<div class="c-wrow"><select class="c-wpn${on ? ' on' : ''}" disabled title="The Scavenger copy shows the weapon chosen for its unit" aria-label="Weapon"><option>${esc(on ? weaponLabel(on, list) : 'All weapons')}</option></select>${targetIcons(list, on)}</div>`;
   return `<div class="c-wrow"><select class="c-wpn${on ? ' on' : ''}" data-change="col-weapon" title="The weapons of this unit: All weapons shows them together (D-gun, nukes and EMP left out), one weapon shows its own values" aria-label="Weapon">
-    <option value="">All weapons (${list.length})</option>${list.map(w => `<option value="${esc(w.id)}" ${w === on ? 'selected' : ''}>${esc(weaponLabel(w, list))}</option>`).join('')}</select></div>`;
+    <option value="">All weapons (${list.length})</option>${list.map(w => `<option value="${esc(w.id)}" ${w === on ? 'selected' : ''}>${esc(weaponLabel(w, list))}</option>`).join('')}</select>${targetIcons(list, on)}</div>`;
 }
 
 // the game version of a column: a list of the versions that have the unit (a Scavenger column shows the version of its unit); only with more than one version

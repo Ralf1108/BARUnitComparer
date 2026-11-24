@@ -652,6 +652,13 @@ select.c-wpn.on { border-color: var(--gold); color: var(--gold); background: #2a
 select.c-wpn option { color: var(--text); background: var(--panel); }
 select.c-wpn:disabled { border-color: var(--line); color: #666; cursor: default; opacity: 1; }   /* one weapon or none: nothing to choose, grey like a version list with one version */
 select.c-wpn.on:disabled { color: #a08a5a; border-color: #5a4a28; }
+/* what the weapon shown hits: a tank (ground and water) and a plane (aircraft), lit or dim */
+/* round, filled, without a frame: a sign, not a button; ground green, aircraft blue; dim when the weapon does not hit them */
+.c-tg { display: flex; flex: none; align-items: center; gap: 4px; margin-left: 6px; }
+.tg-i { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #141414; color: #383838; cursor: help; }
+.tg-i.on:first-child { background: #1c3a22; color: #79d98a; }
+.tg-i.on:last-child { background: #182c46; color: #8fc2ff; }
+.tg-i svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 .pill.w { border-style: dashed; }
 @media (max-width: 600px) { select.c-wpn { font-size: 11px; } .c-wrow { padding-right: 0; }
   .cmp-grid .c-head { flex-wrap: wrap; } .cmp-grid .c-head .c-wrow { order: 3; flex: 1 0 100%; margin-top: 4px; } select.c-wpn { min-height: 30px; } }   /* a line of its own below the faction and the buttons */
