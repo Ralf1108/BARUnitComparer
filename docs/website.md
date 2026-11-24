@@ -179,6 +179,7 @@ The server listens on `127.0.0.1` only. It keeps its connections open (HTTP/1.1:
 - The workflow leaves out what the page does not read (the full `units-<version>.json`, `serve.py`, `serve.bat`): about 28 MB, 2100 files. All file names are lower case (Pages is case sensitive).
 - **A new game version:** `update game versions.bat` (exports the new versions, refreshes counterparts and counters), check in `website/assets/`, push. Checked up to: `checkedUpTo` in `versions.json`.
 - The page ends with a notice: unofficial fan project, content removed on request, the licences ([licence.md](licence.md)).
+- **Visits** are counted with [GoatCounter](https://www.goatcounter.com/) (dashboard: `https://ralf1108.goatcounter.com/`; no cookies, no IP addresses kept; the notice says so). The script in `index.html` counts nothing by itself (`no_onload`): `countVisit` in `app.js` counts the page opened and each change to another page (`#/catalog`, `#/compare`, `#/changes`, `#/help`), not each unit added. GoatCounter counts nothing on localhost.
 
 ## 7. Open
 

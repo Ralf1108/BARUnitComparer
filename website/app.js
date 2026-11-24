@@ -261,6 +261,19 @@ function route() {
     if (CATEGORIES.some(c => c.id === b)) state.category = b;
   }
   render();
+  countVisit(state.page);
+}
+
+// the visits, counted by GoatCounter (index.html; no cookies, nothing personal): once when the page is opened and once for each change to another page
+// (catalog, compare, changes, help), not for each unit added or removed. GoatCounter itself counts nothing on localhost. Its script loads async: until it is
+// there the page waits for its load event
+let countedPage = null;
+function countVisit(page) {
+  if (page === countedPage) return;
+  countedPage = page;
+  const send = () => window.goatcounter && window.goatcounter.count && window.goatcounter.count({ path: `${location.pathname}#/${page}`, title: page });
+  if (window.goatcounter && window.goatcounter.count) send();
+  else { const s = document.getElementById('goatcounter'); if (s) s.addEventListener('load', () => { if (countedPage === page) send(); }, { once: true }); }
 }
 
 // a column shows a unit in the chosen game version of the page (version null), or in a version of its own (version = the folder of that version);
