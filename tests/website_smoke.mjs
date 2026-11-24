@@ -580,18 +580,22 @@ try {
     check(withCopies >= plain && codes.length > 0 && codes.length < plain && codes.every(c => c.includes('arm')), 'Changes: the switch Scavenger copies and the search', `${plain} / ${withCopies} / ${codes.length}`);
     await page.fill('[data-input="chg-search"]', '');
 
-    // the game version at the top: in the link, and a step of Undo
+    // the game version at the top: an older one is gold and a step of Undo; it is not in the link, a page loaded again shows the newest one
     await page.goto(base + '#/compare/armpw?view=graphic');
     await page.reload();
     await page.waitForSelector('.c-head');
+    const plainTop = await page.$eval('select[data-change="version"]', s => s.classList.contains('old'));
     await page.selectOption('select[data-change="version"]', oldest);
-    const older = await hash();
+    const older = [await hash(), await page.$eval('select[data-change="version"]', s => s.classList.contains('old'))];
     await page.click('[data-a="undo"]');
-    check(older.includes('v=' + oldest) && !/[?&]v=/.test(await hash()) && await page.inputValue('select[data-change="version"]') === newest, 'the game version at the top: in the link, and Undo brings the old one back', `${older} / ${await hash()}`);
+    check(!plainTop && older[1] && !/[?&]v=/.test(older[0]) && await page.inputValue('select[data-change="version"]') === newest, 'the game version at the top: an older one is gold, not in the link, Undo brings the newest back', JSON.stringify([plainTop, older, await hash()]));
+    await page.selectOption('select[data-change="version"]', oldest);
+    await page.reload();
+    await page.waitForSelector('.c-head');
     await page.goto(base + `#/compare/armpw?view=graphic&v=${oldest}`);
     await page.reload();
     await page.waitForSelector('.c-head');
-    check(await page.inputValue('select[data-change="version"]') === oldest, 'a link with a game version opens that version', await page.inputValue('select[data-change="version"]'));
+    check(await page.inputValue('select[data-change="version"]') === newest, 'a page loaded again and an old link with v= show the newest game version', await page.inputValue('select[data-change="version"]'));
 
     // a column set to another version of its unit and back is free again (no version of its own in the link)
     const many = await page.evaluate(() => Object.keys(state.unitVersions).find(n => state.unitVersions[n].length > 1 && state.merged[state.versions[state.versions.length - 1].dir][n]));

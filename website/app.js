@@ -245,8 +245,8 @@ function route() {
     if (indexOf(state.changesFrom) >= indexOf(state.changesTo)) state.changesFrom = versionBefore(state.changesTo);
   } else if (page === 'compare') {
     state.page = 'compare';
-    const v = params.get('v');   // the game version at the top (a link without it keeps the one chosen)
-    if (v && versionOf(v) && v !== state.versionDir) { selectVersion(v); state.columns = state.columns.filter(c => unitOf(c)); }
+    // the game version at the top is not part of the link: a page loaded or a link opened starts with the newest version (an older one chosen stays while one
+    // moves around in the page); a column can have a version of its own (<unit>@<version>). An old link with v= is read as without it
     const wanted = [...new Set((a || '').split(',').filter(t => columnFromToken(t)))];
     if (wanted.length && wanted.join() !== chosenUnits().join()) state.columns = wanted.map(columnFromToken);
     // the view of the link (an old link without these keeps the view of the browser, has no Ref and no + Scav)
@@ -300,7 +300,6 @@ function compareLink() {
   if (state.scav) params.set('scav', '1');
   if (refUnit()) params.set('ref', refUnit());
   if (state.versionsMode) params.set('versions', '1');
-  if (state.versionDir !== newestDir()) params.set('v', state.versionDir);   // the game version at the top, if it is not the newest
   return '#/compare/' + chosenUnits().join(',') + '?' + params;
 }
 function keepAddress() { if (state.page === 'compare') history.replaceState(null, '', compareLink()); }
@@ -343,7 +342,7 @@ function renderNav() {
   const note = v => v.base ? ' (base)' : v.changed !== undefined ? ` (${v.changed} changed)` : '';
   // the version list belongs to the catalog and the compare; the page Changes has its own two lists
   document.getElementById('version').innerHTML = state.page === 'changes' || state.page === 'help' ? '' : state.versions.length > 1
-    ? `<span class="v-label">Game version</span> <select data-change="version" title="The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${versionOptions(note)}</select>`
+    ? `<span class="v-label">Game version</span> <select data-change="version" class="${state.versionDir === newestDir() ? '' : 'old'}" title="${state.versionDir === newestDir() ? '' : 'An OLDER game version is shown (gold): the values are those of that time. Loading the page again shows the newest one. '}"The game version of the catalog and of the columns that have no version of their own; base: the first version, every later one lists only what changed against the one before (n changed: units)">${versionOptions(note)}</select>`
     : `<span class="v-label">Game version</span> ${esc(versionLabel(versionOf(state.versionDir)))}`;
 }
 

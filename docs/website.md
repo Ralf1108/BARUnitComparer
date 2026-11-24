@@ -87,7 +87,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 ## 4. Compare
 
-**The link** `#/compare/<unit>,<unit>@<version>,<unit>~<weapon>,...?view=table&scav=1&ref=<unit>&versions=1&v=<version>` holds the units in their order, the view, **+ Scav**, the Ref, the filter and the game version at the top (`v`, if not the newest); `<unit>@<version folder>` is a column with a game version of its own, `~<weapon id>` a column that shows one weapon (`tokenOf`, `columnFromToken`). It is kept up to date without new history entries.
+**The link** `#/compare/<unit>,<unit>@<version>,<unit>~<weapon>,...?view=table&scav=1&ref=<unit>&versions=1` holds the units in their order, the view, **+ Scav**, the Ref and the filter; not the game version at the top (a page loaded starts with the newest; an old link's `v=` is ignored); `<unit>@<version folder>` is a column with a game version of its own, `~<weapon id>` a column that shows one weapon (`tokenOf`, `columnFromToken`). It is kept up to date without new history entries.
 
 **Layout:** the toolbar (`toolbarHtml`), the columns, at the right the unit selection (it can be folded away; remembered). Columns and selection fill the window: the pictures shrink (60 to 300 px) so that the page needs no scrollbar. Without units the page says what to do and offers examples (`emptyCompareHtml`).
 
@@ -123,7 +123,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 **Search** (everywhere): a text finds the start of a word in the name or description (`pawn`: Pawn, Pawn Launcher); `<armpw` finds a part of the code name (the field turns green).
 
-**Game versions:** the list at the top (date first, grouped by month) shows the units as they were. The catalog marks the units changed in the version shown. Only values count as a change, never a new picture alone.
+**Game versions:** the list at the top (date first, grouped by month) shows the units as they were. It always starts at the newest version (not kept in the link or the browser); an older one chosen is gold (`select.old`), so that it is seen that older values are shown. The catalog marks the units changed in the version shown. Only values count as a change, never a new picture alone.
 
 **Keyboard:** everything can be reached with Tab (gold frame); Enter or Space marks a unit in the catalog; arrow keys move a column by its grip; Escape closes a menu, the unit card and the favorites.
 

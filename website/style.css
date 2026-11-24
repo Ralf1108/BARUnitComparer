@@ -34,6 +34,8 @@ img { display: block; }
 .gh { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
 .gh:hover { color: var(--text); }
 #version select { background: var(--panel); border: 1px solid var(--line); padding: 2px 6px; }
+#version select.old { background: #2a210d; border-color: var(--gold); color: var(--gold); }   /* an older game version than the newest: gold like a button that is on */
+#version select.old option { background: var(--panel); color: var(--text); }
 
 .legal { color: #777; font-size: 12px; text-align: center; max-width: 900px; margin: 0 auto; padding: 24px; }
 .legal a { color: #999; text-decoration: underline; }
