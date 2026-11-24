@@ -567,7 +567,7 @@ function renderHelp() {
       ['Table view', 'the same values as a compact table.'],
       ['&#9734;', 'saves the selection as a favorite (in your browser), with + Scav and the Ref. Under Favorites a click loads it; the middle mouse button or Ctrl+click opens it in a new tab.'],
       ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog). The number on them: how many steps there are.'],
-      ['Clear', '(between Undo and Redo) starts again: removes all units and the Undo and Redo steps. It asks first.'],
+      ['Clear', '(right of Undo and Redo) starts again: removes all units and the Undo and Redo steps. It asks first.'],
       [`${ICONS.share} Share`, 'copies the link of the comparison, to send it to someone (on a phone: opens the share menu).'],
       ['The name of a value', 'click it (Metal, Hitpoints, ...) to sort the columns by this value, the best first; again: the worst first.'],
       ['&#8942;&#8942;', 'drag it to move a column (on a phone: Move left / Move right in the menu of the column).'],
@@ -693,7 +693,7 @@ function toolbarHtml() {
     ? `<button class="btn on" title="${label} view (shown)" aria-pressed="true">${icon}<span class="lb">${label}</span></button>`
     : `<button class="btn" data-a="view-table" title="${tip}" aria-pressed="false">${icon}<span class="lb">${label}</span></button>`;
   return `<div class="cmp-clear">
-    ${(([undo, redo]) => group(undo, btn('clear-all', ICONS.trash, 'Clear', 'Start again: remove all units and the Undo and Redo steps (asks first)', { off: !!any, cls: 'danger' }), redo))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
+    ${(([undo, redo]) => group(undo, redo, btn('clear-all', ICONS.trash, 'Clear', 'Start again: remove all units and the Undo and Redo steps (asks first)', { off: !!any, cls: 'danger' })))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
       // a badge with the number of steps that can be taken back (or repeated); none: no badge
       btn(a, icon, label, `${tip}${stack.length ? ` - ${stack.length} step${stack.length === 1 ? '' : 's'}` : ''}`, { off: !stack.length }).replace('<button class="btn', `<button ${stack.length ? `data-n="${stack.length}" ` : ''}class="btn${stack.length ? ' n-steps' : ''}`)))}
     ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}

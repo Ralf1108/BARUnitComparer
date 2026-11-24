@@ -40,7 +40,7 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 
 | At the top | |
 |---|---|
-| **Undo / Clear / Redo** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again (it asks first) |
+| **Undo / Redo / Clear** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again (it asks first) |
 | **Graphic / Table** | bars with pictures, or a compact table |
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Save / Share** | keep the selection as a favorite, or share its link (the link holds everything: units, view, Ref, game version) |
