@@ -291,8 +291,9 @@ const TARGET_ICONS = {
 function targetIcons(list, w) {
   const shown = w ? [w] : list.filter(x => !x.kind);
   const reach = k => shown.some(x => x.targets === k || x.targets === 'both');
-  const one = (k, on, what) => `<span class="tg-i${on ? ' on' : ''}" title="${on ? `Hits ${what}` : `Does not hit ${what}`}${w ? '' : ' (with its weapons together)'}" aria-label="${on ? 'hits' : 'does not hit'} ${what}">${TARGET_ICONS[k]}</span>`;
-  return list.length && shown.some(x => x.targets) ? `<span class="c-tg">${one('ground', reach('ground'), 'units on the ground and the water')}${one('air', reach('air'), 'aircraft')}</span>` : '';
+  const one = (k, on, what) => `<span class="tg-i${on ? ' on' : ''}" title="${!list.length ? `No weapons: does not hit ${what}` : on ? `Hits ${what}` : `Does not hit ${what}`}${w || !list.length ? '' : ' (with its weapons together)'}" aria-label="${on ? 'hits' : 'does not hit'} ${what}">${TARGET_ICONS[k]}</span>`;
+  // always both signs, also for a unit without weapons (then both dim)
+  return `<span class="c-tg">${one('ground', reach('ground'), 'units on the ground and the water')}${one('air', reach('air'), 'aircraft')}</span>`;
 }
 // a column in the link and in a favorite: "armpw", "armpw@test-31450-6562fb1" with a version of its own, "corcom~corcomlaser" with one weapon
 const tokenOf = c => `${c.unit}${c.version ? `@${c.version}` : ''}${c.weapon ? `~${c.weapon}` : ''}`;
@@ -660,7 +661,7 @@ const pickUnit = n => state.units[n] || state.lastUnit[n];
 
 function renderCompare() {
   document.title = 'Compare - BAR Unit Comparer';
-  const columns = displayColumns(), two = columns.length === 2;
+  const columns = displayColumns();   // two units look like more: every column the same way (no mirrored pair)
   shown = columns;
   const max = {};
   const reference = columns.find(c => c.ref);   // with a reference column the bars of the others are coloured
@@ -674,7 +675,7 @@ function renderCompare() {
   app.innerHTML = `<h2 class="cmp-kicker">Compare</h2>
     ${toolbarHtml()}
     <div class="cmp-body"><div class="cmp-wrap"><div class="cmp-scroll">${columns.length
-      ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid ${two ? 'two' : ''}" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, two ? (i ? 'right' : 'left') : '', max, reference, stats)).join('')}</div>`)
+      ? (state.table ? tableHtml(columns, stats, max, reference) : `<div class="cmp-grid" style="--n:${columns.length}">${columns.map((c, i) => columnHtml(c, i, '', max, reference, stats)).join('')}</div>`)
       : emptyCompareHtml()}</div>
       <button class="more more-left" data-a="scroll-columns" data-v="-1" title="More columns to the left">&#8249;</button><button class="more more-right" data-a="scroll-columns" data-v="1" title="More columns to the right: scroll sideways">&#8250;</button></div>
       ${chooserHtml()}</div>
@@ -927,7 +928,7 @@ function tableHtml(columns, stats, max, reference) {
   const cell = (s, c) => {
     const u = unitOf(c), changed = cellChanged(c, s) ? ' changed' : '';
     const rc = c.ref ? ' ref-col' : '';
-    if (s.key === 'weapons') return `<td data-col="${c.id}" class="wpn${rc}${changed}${sameWeapons(u, referenceFor(c, reference)) ? ' diff-same' : ''}">${esc(u.weapons.join(', '))}</td>`;
+    if (s.key === 'weapons') return `<td data-col="${c.id}" class="wpn${rc}${changed}${sameWeapons(u, referenceFor(c, reference)) ? ' diff-same' : ''}"><span class="weapons-row">${targetIcons(u.weaponList || [], u.weapon)}<span>${esc(u.weapons.join(', '))}</span></span></td>`;
     const v = u[s.key];
     if (!v) return `<td data-col="${c.id}" class="none${rc}${changed}">–</td>`;
     const ref = referenceFor(c, reference);
@@ -1064,7 +1065,8 @@ const sortAttr = s => s.key === 'weapons' ? '' : ` data-a="sort" data-v="${s.key
 const sortMark = s => state.sort && state.sort.key === s.key ? `<i class="sorted">${state.sort.dir > 0 ? '&#9662;' : '&#9652;'}</i>` : '';
 function statHtml(s, u, max, ref, changed) {
   const cls = `stat${changed ? ' changed' : ''}`, label = `<label title="${esc(s.tip)}${changed ? ' Changed against the other version of this unit.' : ''}${s.key === 'weapons' ? '' : ' Click: sort the columns by this value.'}"${sortAttr(s)}>${s.label}${sortMark(s)}</label>`;
-  if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons${sameWeapons(u, ref) ? ' same' : ''}">${esc(u.weapons.join(', '))}</div></div>`;
+  // the signs of what they hit, then the kinds of weapons (the signs where the values start, always at the same place) (the weapon chosen, or all together: as right of the list of weapons)
+  if (s.key === 'weapons') return `<div class="${cls}">${label}<div class="weapons-row">${targetIcons(u.weaponList || [], u.weapon)}<div class="weapons${sameWeapons(u, ref) ? ' same' : ''}">${esc(u.weapons.join(', '))}</div></div></div>`;
   const v = u[s.key];
   if (!v) return `<div class="${cls}">${label}<div class="none" title="This unit has no such value">–</div></div>`;
   const share = max[s.key] ? 100 * v / max[s.key] : 0;
