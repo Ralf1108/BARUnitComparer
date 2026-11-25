@@ -36,7 +36,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
 
@@ -56,6 +56,18 @@ jobs:
         with:
           path: website
 
+      # deploy-pages sometimes does not find the artifact just uploaded ("No artifacts named github-pages were found ... re-run the deployment at a
+      # later time"): then it waits a minute and tries once more
       - name: Publish
         id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v5
+
+      - name: Wait before the second try
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 60
+
+      - name: Publish (second try)
+        id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v5

@@ -30,6 +30,8 @@ const STATS = [
   { key: 'weapons', label: 'Weapons', tip: 'The kinds of weapons the unit has.' },
   { key: 'shotDamage', label: 'Damage per shot', fill: 'dps', show: whole, tip: 'Damage of one shot of its weapons together, or of the weapon chosen above the unit (all projectiles of a salvo). Damage per shot times shots per second is the DPS.' },
   { key: 'shotsPerSecond', label: 'Shots per second', fill: 'dps', show: v => v >= 10 ? whole(v) : v.toFixed(2), tip: 'How often the unit fires per second (1 / the time to the next shot; with several weapons: the rate that gives their DPS together).' },
+  // the same rate the other way round (worked out here, derive): for those who think in the time between two shots
+  { key: 'secondsPerShot', label: 'Seconds per shot', fill: 'dps', show: v => v >= 10 ? v.toFixed(1) : v.toFixed(2), lower: true, derived: true, tip: 'Seconds from one shot to the next: 1 / shots per second (with several weapons: the time that gives their DPS together). Lower is better.' },
   { key: 'dps', label: 'DPS', fill: 'dps', show: whole, tip: 'Damage per second of its weapons together (or of the weapon chosen): damage per shot times shots per second. Left out of the total: D-gun, nukes, anti-nukes and EMP weapons, and the high trajectory of a cannon that switches between two (choose them above the unit).' },
   { key: 'airDps', label: 'DPS vs air', fill: 'dps', show: whole, tip: 'Damage per second against aircraft: only the weapons that can aim at them (no bombs, no torpedoes), with their damage to aircraft.' },
   { key: 'range', label: 'Weapon range', fill: 'range', show: whole, tip: 'Longest range of its weapons (or the range of the weapon chosen), in the length unit of the game (elmos).' },
@@ -149,6 +151,8 @@ const versionBefore = dir => (state.versions[indexOf(dir) - 1] || {}).dir;
 function derive(u) {
   u.hpPerMetal = u.metal && u.hitpoints ? u.hitpoints / u.metal : 0;
   u.dpsPerMetal = u.metal && u.dps ? u.dps / u.metal : 0;
+  u.secondsPerShot = u.shotsPerSecond ? 1 / u.shotsPerSecond : 0;
+  for (const w of u.weaponList || []) w.secondsPerShot = w.shotsPerSecond ? 1 / w.shotsPerSecond : 0;   // each weapon too (a weapon chosen)
 }
 async function loadVersions() {
   const listing = await loadJson('versions.json'), listed = listing.versions;
@@ -294,7 +298,7 @@ function withWeapon(u, id) {
   if (!w) return u;
   let m = weaponCache.get(u);
   if (!m) weaponCache.set(u, m = {});
-  return m[id] ||= { ...u, shotDamage: w.shotDamage, shotsPerSecond: w.shotsPerSecond, dps: w.dps, airDps: w.airDps, range: w.range, aoe: w.aoe, weapons: [w.type], dpsPerMetal: u.metal ? w.dps / u.metal : 0, weapon: w };
+  return m[id] ||= { ...u, shotDamage: w.shotDamage, shotsPerSecond: w.shotsPerSecond, secondsPerShot: w.secondsPerShot, dps: w.dps, airDps: w.airDps, range: w.range, aoe: w.aoe, weapons: [w.type], dpsPerMetal: u.metal ? w.dps / u.metal : 0, weapon: w };
 }
 // the name of a weapon in the list: the game's name, its kind if the name is one word ("J7Laser (BeamLaser)"), how many are mounted, what the total leaves out;
 // two weapons of the unit with the same name (a cannon with a high and a low trajectory: plasma, plasma_high) get their id in brackets

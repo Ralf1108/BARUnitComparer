@@ -670,6 +670,10 @@ try {
   check(await page.locator('.stat label .sorted').count() === 3 && /Sorted by Metal/.test(await page.locator('.note-pop').textContent()), 'the value the columns are sorted by is marked', await page.locator('.stat label .sorted').count());
   await page.click('[data-a="undo"]'); await page.click('[data-a="undo"]');
   check((await hash()).startsWith('#/compare/armpw,armflea,corak') && await page.locator('.sorted').count() === 0, 'Undo takes the sorting back', await hash());
+  const spsRow = await page.evaluate(() => { const u = state.units.armpw, l = [...document.querySelectorAll('.stats')][0].querySelector('label[data-v="secondsPerShot"]');
+    return l && [l.parentElement.querySelector('.val').textContent, (1 / u.shotsPerSecond).toFixed(2), l.parentElement.previousElementSibling.querySelector('label').dataset.v]; });
+  check(spsRow && spsRow[0] === spsRow[1] && spsRow[2] === 'shotsPerSecond', 'seconds per shot: 1 / shots per second, below it', spsRow);
+  check(await page.evaluate(() => !CHANGE_KEYS.some(s => s.derived)), 'Changes lists only what changed in the data (no seconds per shot, no per metal values)', '');
   const perMetal = await page.evaluate(() => { const u = state.units.armpw, row = [...document.querySelectorAll('.stats')][0].querySelector('label[data-v="hpPerMetal"]').parentElement; return [row.querySelector('.val').textContent, (u.hitpoints / u.metal).toFixed(2)]; });
   check(perMetal[0] === perMetal[1] && await page.locator('label[data-v="dpsPerMetal"]').count() === 3, 'the values per metal: hitpoints and DPS for the cost', perMetal.join(' / '));
   await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
