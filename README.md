@@ -30,7 +30,7 @@ What a patch changed: every unit whose values differ between two game versions, 
 
 | Above each unit | |
 |---|---|
-| **Ref** (balance) | this unit is the reference: the others show the difference to it (**+** more, **−** less), green if that is better, red if it is worse (more metal: **+** in red), equal values grey |
+| **Ref** (a block: balance, **±**, **%**) | **±**: this unit is the reference, the others show the difference to it (**+** more, **−** less), green if that is better, red if it is worse (more metal: **+** in red), equal values grey. **%**: the same in percent of the value of the reference (43 metal against 54: **−20%**). The other half switches the mode, the lit one pressed again switches the reference off; the balance takes the mode chosen last (at first ±) |
 | **Versions** (clock, beside the list of versions) | every other game version of this unit next to it, the changed values marked; the list (white: several versions) shows the unit as it was in one of them |
 | **Weapon list** (below the version) | one weapon: its name, grey; several weapons: a white list, **All weapons** (the default) or one of them, e.g. the laser of a commander against the laser of another one; D-gun, nukes, EMP and the high trajectory of a cannon that can switch between two are left out of All weapons but can be chosen. Two round signs right of it say what the weapon hits: ground and water (green) and aircraft (blue), dim if not |
 | **Counterparts** (arrows) | the units of the other factions that do the same job |
@@ -43,11 +43,11 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 | **Undo / Redo / Clear** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again (it asks first) |
 | **Graphic / Table** | bars with pictures, or a compact table |
 | **+ Scav** | the Scavenger copy of every unit next to it |
-| **Save / Share** | keep the selection as a favorite, or share its link (the link holds the units with their versions and weapons, the view, + Scav and the Ref). **Favorites** in the header lists them; the middle mouse button opens one in a new tab |
+| **Save / Share** | keep the selection as a favorite, or share its link (the link holds the units with their versions and weapons, the view, + Scav and the Ref with ± or %). **Favorites** in the header lists them; the middle mouse button opens one in a new tab |
 
 Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides cost, hitpoints, speed and range the page shows **damage per shot**, **shots per second**, **DPS**, **DPS vs air** and the **area of effect**, and **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch; it always starts at the newest, and an older one is gold so that it is seen.
 
-**On a phone:** two units fit on the screen, swipe for more; **Ref** and a menu (three dots) with all tools in words; **+ Add units** opens the selection.
+**On a phone:** two units fit on the screen, swipe for more; the **Ref** block and a menu (three dots) with all tools in words; **+ Add units** opens the selection.
 
 <a href="https://ralf1108.github.io/BARUnitComparer/"><img src="docs/phone.png" width="260" alt="The compare page on a phone: two units, Pawn as the reference"></a>
 

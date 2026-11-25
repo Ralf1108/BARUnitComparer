@@ -423,10 +423,9 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 .c-tools .tool.active, .c-verrow .tool.active { border-color: var(--gold); color: var(--gold); background: #2a210d; }
 .c-tools .tool.ref.active { background: var(--gold); color: #000; }
 /* the balance with its badge at the bottom right, orange: ± the difference as it is, % in percent */
-.ref-ico { position: relative; display: inline-grid; place-items: center; line-height: 0; }
-.ref-ico::after { content: attr(data-b); position: absolute; right: -7px; bottom: -6px; min-width: 12px; height: 12px; padding: 0 1px; box-sizing: border-box; border-radius: 6px;
-  background: #f0862a; color: #000; font: 700 9px/12px system-ui, sans-serif; text-align: center; pointer-events: none; }
-.active .ref-ico::after, .m-item.on .ref-ico::after { box-shadow: 0 0 0 1px #000; }   /* lit: the orange badge with a black ring on the gold */
+.ref-ico { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }   /* the balance and ± or % (help, the menu of a phone) */
+.ref-ico i { font-style: normal; font-weight: 700; font-size: 14px; line-height: 1; }
+.m-icon .ref-ico { gap: 1px; } .m-icon .ref-ico svg { width: 16px; height: 16px; } .m-icon .ref-ico i { font-size: 12px; }
 /* Ref as one block: the balance, its left half ± and its right half %; the borders shared, gold while it is on, the half chosen gold */
 .ref-grp { display: inline-flex; flex: none; }
 .ref-grp > .tool + .tool { margin-left: -1px; }

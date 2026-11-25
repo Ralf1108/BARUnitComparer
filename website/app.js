@@ -88,8 +88,8 @@ const ICONS = {
   counterparts: svgIcon('M2 5.5h11.5l-3-3M14 10.5H2.5l3 3'),                              // arrows both ways: the same job in the other factions
   ref: svgIcon('M8 2v12M4.5 14h7M2.5 4.5h11M2.5 4.5L1 9h3zM13.5 4.5L12 9h3z'),           // a balance: the unit the others are weighed against
 };
-// the two balances of a column: a badge at the bottom right says how the difference is shown, ± as it is, % in percent (refBadge: the icon with its badge)
-const refBadge = pct => `<span class="ref-ico" data-b="${pct ? '%' : '±'}">${ICONS.ref}</span>`;
+// the balance with the sign of the mode beside it, ± (the difference as it is) or % (in percent): the help page and the menu of a phone, as in the block of a column
+const refBadge = pct => `<span class="ref-ico">${ICONS.ref}<i>${pct ? '%' : '±'}</i></span>`;
 ICONS.menu = svgIcon('M3 8h.01M8 8h.01M13 8h.01');                                         // three dots: the menu of a column (phone)
 ICONS.info = svgIcon('M8 7.2v4.3M8 4.6h.01M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8z');           // i in a circle: all values of a unit
 ICONS.undo = svgIcon('M5.5 3L2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H7');                          // the toolbar of the compare: undo, redo,
@@ -585,8 +585,8 @@ function renderHelp() {
       ${item('Ctrl+Z', 'takes back the last click (Ctrl+Y: repeats it).')}</ul>
     <h2>The compare</h2>
     <ul>${[
-      [`${refBadge(false)} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> more, <b>&minus;</b> less, ±0 equal (green or red says whether that is better or worse: 86 metal more is +86 in red); the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
-      [`${refBadge(true)} Ref %`, 'the same, but the differences are in percent of the value of the reference: 86 metal more than 54 is +159%. Press the other balance to switch between the two; the lit one pressed again switches the reference off.'],
+      [`${ICONS.ref} Ref`, 'the block of a column: the balance, <b>±</b> and <b>%</b>. <b>±</b> makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> more, <b>&minus;</b> less, ±0 equal (green or red says whether that is better or worse: 86 metal more is +86 in red); the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${ICONS.ref} Ref %`, 'the same, but the differences are in percent of the value of the reference: 86 metal more than 54 is +159%. Press the other half to switch between ± and %; the lit one pressed again switches the reference off. The balance itself takes the mode chosen last (at first ±), or switches the reference off.'],
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
@@ -774,7 +774,7 @@ function emptyCompareHtml() {
   return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
     <ol class="steps"><li><b>Pick units</b> ${isNarrow() ? 'with <b>+ Add units</b> at the bottom' : `in the list ${state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}`}: every click adds a column. The search finds units of all factions.</li>
       <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
-      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it (+ more, &minus; less), green if that is better, red if it is worse; equal values are greyed out. The balance with % shows the differences in percent.</li></ol>
+      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it (+ more, &minus; less), green if that is better, red if it is worse; equal values are greyed out. The <b>%</b> beside it shows the differences in percent.</li></ol>
     ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 4).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
     <p class="hint">More: <a href="#/help">how the page works</a></p></div>`;
 }
