@@ -31,12 +31,12 @@ jobs:
   test:
     uses: ./.github/workflows/tests.yml
 
-  deploy:
+  # upload and publish in two jobs, as in GitHub's own Pages workflow: in one job deploy-pages often did not find the artifact just uploaded
+  # ("No artifacts named github-pages were found", since November 2026; the list of artifacts of a run catches up only later). Between two jobs
+  # it is there. A failed publish: "Re-run failed jobs" runs only the deploy again, with the artifact of build (no second one of the same name)
+  build:
     needs: test
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
       - uses: actions/checkout@v7
 
@@ -50,14 +50,18 @@ jobs:
 
       - uses: actions/configure-pages@v6
 
-      # the artifact keeps its usual name (github-pages): with a name of its own per attempt deploy-pages often did not find it ("No artifacts named ...").
-      # To publish again, use "Run workflow" (a new run), not "Re-run jobs": that keeps the artifact of the attempt before, and two of the same name fail
       - uses: actions/upload-pages-artifact@v5
         with:
           path: website
 
-      # deploy-pages sometimes does not find the artifact just uploaded ("No artifacts named github-pages were found ... re-run the deployment at a
-      # later time"): then it waits a minute and tries once more
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
+    steps:
+      # a short error of GitHub Pages (a server error 500 was seen): it waits a minute and tries once more
       - name: Publish
         id: deployment
         continue-on-error: true
