@@ -868,6 +868,9 @@ function updateMore() {
   const stick = sl > stuckAt ? sc.querySelector('.c-head.is-ref, th.is-ref') : null;   // stuck at the left edge: the arrow (and on a phone a swipe) starts behind it
   const behind = lw + (stick ? stick.getBoundingClientRect().width : 0);
   app.querySelector('.more-left').style.left = behind + 'px';
+  // the table in two lines: scrolled, the names of the values stand right of the strip and the arrow at the left, not under them
+  const two = sc.querySelector('.cmp-table.two-line');
+  if (two) two.style.setProperty('--lab', (sc.scrollLeft < 4 ? 8 : behind + 44) + 'px');
   sc.style.scrollPaddingLeft = (stick ? behind + 10 : lw) + 'px';
   app.querySelector('.more-right').hidden = sc.scrollLeft + sc.clientWidth > sc.scrollWidth - 4;
   updatePin();
@@ -959,8 +962,13 @@ function tableHtml(columns, stats, max, reference) {
     const ref = referenceFor(c, reference);
     return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${valueText(s, v, ref)}${absText(s, v, ref)}</td>`;
   };
-  return `<table class="cmp-table"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference ? '<th class="t-pad"></th>' : ''}</tr></thead>
-    <tbody>${stats.map(s => `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}>${s.label}${sortMark(s)}</th>${columns.map(c => cell(s, c)).join('')}</tr>`).join('')}</tbody></table>`;
+  // two lines per value: its name over the whole width (it stays at the left edge while the columns are scrolled), the values below it; the column of the names
+  // (.t-corner and the empty .t-nil of each row) has no width, so the units get the room
+  const span = columns.length + 1 + (reference ? 1 : 0);
+  const row = s => `<tr class="t-lab"><th colspan="${span}" class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}><span>${s.label}${sortMark(s)}</span></th></tr>`
+    + `<tr class="t-vals"><th class="t-nil"></th>${columns.map(c => cell(s, c)).join('')}</tr>`;
+  return `<table class="cmp-table two-line"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference ? '<th class="t-pad"></th>' : ''}</tr></thead>
+    <tbody>${stats.map(row).join('')}</tbody></table>`;
 }
 
 function columnHtml(c, col, side, max, reference, stats) {

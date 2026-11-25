@@ -72,6 +72,8 @@ try {
   // views and the link: table, + Scav, Ref; a link opens the same view
   await page.click('[data-a="view-table"]');
   check(await page.locator('.cmp-table tbody tr').count() > 5, 'table view has the value rows', await page.locator('.cmp-table tbody tr').count());
+  check(await page.locator('.cmp-table.two-line tr.t-lab').count() > 5 && await page.locator('.cmp-table tr.t-lab').count() === await page.locator('.cmp-table tr.t-vals').count(),
+    'table: two lines per value, the name above its values', await page.locator('.cmp-table tr.t-lab').count());
   await page.click('[data-a="view-table"]');
   await page.click('[data-a="scav"]');
   check(await page.locator('.c-head').count() > 5, '+ Scav adds Scavenger columns', await page.locator('.c-head').count());

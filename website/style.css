@@ -540,6 +540,12 @@ body.modal { overflow: hidden; }
 }
 /* the table on a narrow window with a Ref: room behind the last column, so that it can be scrolled right beside the strip of the reference column */
 .cmp-table thead th.t-pad { min-width: 0; padding: 0; border: 0; }   /* its width: updateMore */
+/* the table: the name of a value in a line of its own over the whole width, the values in the line below; no column of names */
+.cmp-table.two-line .t-corner, .cmp-table.two-line .t-nil { width: 0; min-width: 0; padding: 0; border: 0; }
+.cmp-table.two-line tr.t-lab th { position: static; padding: 7px 0 0; border-bottom: 0; font-size: 13px; text-align: left; background: none; }
+.cmp-table.two-line tr.t-lab th span { position: sticky; left: var(--lab, 8px); }   /* --lab: updateMore */
+.cmp-table.two-line tr.t-vals td { padding-top: 1px; }
+@media (max-width: 600px) { .cmp-table.two-line tr.t-lab th { font-size: 12px; } }
 
 /* ------------------------------------------------ Changes: the buttons above the list, and one column per faction (a unit and its counterparts in one row) */
 .changes { max-width: 1800px; }

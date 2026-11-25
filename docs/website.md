@@ -95,7 +95,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 
 **Graphic view:** a column is a unit: faction, the list of its versions, its tools, picture, name, description, tech level, counterparts, then the values as bars, scaled to the largest value of the row; a row is shown only if a unit has the value. Two units look like more: no mirrored pair. Each label has a tooltip (`tip` in `STATS`). Columns are 360 px wide at least, a little narrower (down to 280 px) when that saves a few pixels of scrolling (`fitColumns`); arrows at the edges show hidden columns and scroll to the next one.
 
-**Table view:** one row per value, one column per unit, the largest value bold, the row names stay at the left. The view is remembered in the browser.
+**Table view:** one column per unit, two lines per value (`table.two-line`): its name in a line of its own over the whole width (`tr.t-lab`, a click sorts), the values in the line below (`tr.t-vals`), the largest value bold. There is no column of names (`.t-corner` and `.t-nil` have no width), so the units get the room. The name stays at the left edge while the columns are scrolled (sticky; `--lab`, set in `updateMore`: right of the strip of a Ref and of the arrow at the left). The view is remembered in the browser.
 
 **The versions of a column:** below the faction the list of the versions of its unit (`versionSelect`: the first version and each one in which its values changed, by date, "29 May 2026 · test-30236"; white if there are several, grey with one), right of it **Versions** (a clock with the number of versions; it adds the others as columns, see below).
 
@@ -130,7 +130,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 **The reference strip** (all widths): the class `scrolled` on `.cmp-scroll` is set in `updateMore` (24 px after the column sticks, off below 4 px; `refStuckAt`).
 
 - Graphic view: the column gets narrower with every pixel scrolled (`--refw`, down to 88 px, 76 px on a phone), so the next column stays beside it.
-- Table view: the column next to the row names (`.ref-col`, 64 / 56 px; `--lw`). An empty cell behind the last column (`.t-pad`, sized in `updateMore`) takes the width the strip gives up, so the scrolled area keeps its width (a width that changed while the bar was dragged made the columns jump to and fro), and on a narrow window gives the room to bring the last column beside the strip.
+- Table view: the first column (`.ref-col`, 64 / 56 px; `--lw`, 0 now that the names stand in lines of their own). An empty cell behind the last column (`.t-pad`, sized in `updateMore`) takes the width the strip gives up, so the scrolled area keeps its width (a width that changed while the bar was dragged made the columns jump to and fro), and on a narrow window gives the room to bring the last column beside the strip.
 - On a touch device (class `touch` on the page: coarse pointer or first touch) a swipe ends with a column beside the strip (`scroll-snap`, `snapTable`); not with the mouse, where it pulled the columns back while the bar was dragged.
 
 **The names stay in view** (`updatePin`): scrolled down so far that the names are gone, a line at the top shows a small picture and the name above each column.
@@ -152,7 +152,7 @@ As on the pictures: Armada blue (90, 140, 235), Cortex red (235, 85, 75), Legion
 `isNarrow()`: up to 900 px, `isPhone()`: up to 600 px; the rules at the end of `style.css`. The page is never wider than the screen.
 
 - **Up to 900 px:** the unit selection comes up from the bottom edge with **+ Add units** (**Done** closes it); a column is moved with two arrow buttons instead of the grip; the pictures are 200 px and the page scrolls.
-- **Up to 600 px:** two columns on the screen; the header without the word Favorites; the name of a value above its bar; the toolbar as icons in one line; the head of a column in one line: faction, the **Ref** block and a menu (three dots, 36 px; the menu has ± and % as two entries); pictures 104 px (72 px in a window up to 500 px high).
+- **Up to 600 px:** two columns on the screen; the header without the word Favorites; the name of a value above its bar; the toolbar as icons in one line; the head of a column in one line: faction, the **Ref** block and a menu (three dots, 36 px; the menu has ± and % as two entries); pictures 104 px (72 px in a window up to 500 px high); the table as everywhere with the name of a value above its values.
 - **The menu of a column** (`menuHtml`): a sheet from the bottom with one entry per tool, each with a line that says what it does: reference, all values, versions, counterparts, counters, move, the game version, remove.
 - **Catalog:** three units per row, the categories in one row to swipe; **Changes:** one column, the selects as wide as the screen; **Header:** two lines.
 
