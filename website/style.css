@@ -139,7 +139,7 @@ img { display: block; }
 .c-tools { display: flex; align-items: center; gap: 8px; padding: 6px 0 4px; }
 /* the grip at the left, the tools together at the right: Versions, Counters, Counterparts, Ref and the X right of Ref */
 .c-tools .tool.counters { margin-left: auto; }   /* the grip at the left, the tools together at the right */
-.c-tools > .tool.ref:first-child { margin-left: auto; }   /* a Scavenger copy (+ Scav) has only Ref: at the right like the tools of the other columns */
+.c-tools > .ref-grp:first-child { margin-left: auto; }   /* a Scavenger copy (+ Scav) has only Ref: at the right like the tools of the other columns */
 .c-tools .x { color: #ff8a80; border-color: #6b2a2a; background: #2a1010; }
 .c-tools .x:hover { background: #4a1818; border-color: #a33; color: #ffb3ac; }
 .ref:hover, .counters:hover:not(:disabled), .versions:hover:not(:disabled) { background: #222; }
@@ -398,14 +398,14 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 /* scrolled sideways: the reference column shrinks to a narrow strip with its values only, the names of the table rows get smaller (the class is set in updateMore) */
 .cmp-scroll { --strip: 88px; }
 .cmp-scroll.scrolled .cmp-grid .is-ref { width: var(--refw, 88px); min-width: 0; }
-.scrolled .cmp-grid .c-head.is-ref .c-title, .scrolled .cmp-grid .c-head.is-ref .c-wrow, .scrolled .cmp-grid .c-head.is-ref .c-tools > :not(.ref),
+.scrolled .cmp-grid .c-head.is-ref .c-title, .scrolled .cmp-grid .c-head.is-ref .c-wrow, .scrolled .cmp-grid .c-head.is-ref .c-tools > :not(.ref-grp), .scrolled .cmp-grid .c-head.is-ref .ref-grp > .ref:not(.active),
 .scrolled .cmp-grid .c-unit.is-ref .c-name, .scrolled .cmp-grid .c-unit.is-ref .c-desc, .scrolled .cmp-grid .c-unit.is-ref .c-eq { display: none; }
 .scrolled .cmp-grid .c-unit.is-ref .c-pic { width: 60px; }
 .scrolled .cmp-grid .stats.is-ref .stat { grid-template-columns: 0 1fr; gap: 0; }
 .scrolled .cmp-grid .stats.is-ref .stat label { visibility: hidden; overflow: hidden; }
 .scrolled .cmp-grid .stats.is-ref .weapons { font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .scrolled .cmp-table thead th.ref-col { min-width: 0; width: 64px; max-width: 64px; padding: 4px; }
-.scrolled .cmp-table th.ref-col .t-fac, .scrolled .cmp-table th.ref-col .t-name, .scrolled .cmp-table th.ref-col .t-desc, .scrolled .cmp-table th.ref-col .c-ver, .scrolled .cmp-table th.ref-col .c-wrow, .scrolled .cmp-table th.ref-col .c-tools > :not(.ref) { display: none; }
+.scrolled .cmp-table th.ref-col .t-fac, .scrolled .cmp-table th.ref-col .t-name, .scrolled .cmp-table th.ref-col .t-desc, .scrolled .cmp-table th.ref-col .c-ver, .scrolled .cmp-table th.ref-col .c-wrow, .scrolled .cmp-table th.ref-col .c-tools > :not(.ref-grp), .scrolled .cmp-table th.ref-col .ref-grp > .ref:not(.active), .scrolled .cmp-table th.ref-col .ref-grp > .ref-w { display: none; }   /* the strip: only the lit balance */
 .scrolled .cmp-table th.ref-col .t-pic img { width: 44px; height: 44px; }
 .scrolled .cmp-table td.ref-col { width: 64px; max-width: 64px; padding: 4px; font-size: 12px; overflow-wrap: anywhere; }
 .scrolled .cmp-table tbody th { font-size: 11px; padding: 4px 6px; }
@@ -422,6 +422,21 @@ b.good { color: #5fdc7e; } b.bad { color: #ff6b62; }
 .c-tools .tool:disabled, .c-verrow .tool:disabled { color: #444; border-color: #222; border-style: dashed; background: none; cursor: not-allowed; }
 .c-tools .tool.active, .c-verrow .tool.active { border-color: var(--gold); color: var(--gold); background: #2a210d; }
 .c-tools .tool.ref.active { background: var(--gold); color: #000; }
+/* the balance with its badge at the bottom right, orange: ± the difference as it is, % in percent */
+.ref-ico { position: relative; display: inline-grid; place-items: center; line-height: 0; }
+.ref-ico::after { content: attr(data-b); position: absolute; right: -7px; bottom: -6px; min-width: 12px; height: 12px; padding: 0 1px; box-sizing: border-box; border-radius: 6px;
+  background: #f0862a; color: #000; font: 700 9px/12px system-ui, sans-serif; text-align: center; pointer-events: none; }
+.active .ref-ico::after, .m-item.on .ref-ico::after { box-shadow: 0 0 0 1px #000; }   /* lit: the orange badge with a black ring on the gold */
+/* Ref as one block: the balance, its left half ± and its right half %; the borders shared, gold while it is on, the half chosen gold */
+.ref-grp { display: inline-flex; flex: none; }
+.ref-grp > .tool + .tool { margin-left: -1px; }
+.c-tools .ref-grp .tool.ref-w { cursor: pointer; }   /* the balance: the mode chosen last */
+.c-tools .ref-grp .tool.ref { width: 24px; font-size: 14px; font-weight: 700; line-height: 1; }
+.c-tools .ref-grp.on > .tool { border-color: var(--gold); position: relative; }
+.c-tools .ref-grp.on .tool.ref-w { color: var(--gold); }
+.c-tools .ref-grp .tool.ref.active { z-index: 1; }
+.c-tools .ref-grp .tool.ref:not(.pct) { font-size: 17px; }   /* the ± is drawn smaller than the % */
+@media (max-width: 600px) { .c-tools .ref-grp .tool.ref { width: 36px; font-size: 16px; } .c-tools .ref-grp .tool.ref:not(.pct) { font-size: 19px; } }
 .cmp-table .c-tools .tool { width: 28px; height: 28px; } .cmp-table .c-tools .tool svg { width: 15px; height: 15px; }
 .help li b svg { width: 15px; height: 15px; fill: none; stroke: var(--gold); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -2px; margin-right: 4px; }
 @media (max-width: 600px) {   /* a phone: all tools of a column in one line */

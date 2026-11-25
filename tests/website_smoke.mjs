@@ -342,7 +342,7 @@ try {
   await page.waitForSelector('.fab');
   // a phone: the tools of a column are in its menu (three dots), each entry with its name; the buttons above the columns fit in one line
   const tools = await page.$$eval('.c-head >> nth=0 >> .c-tools button', b => b.map(x => [x.dataset.a, Math.round(x.getBoundingClientRect().width)]));
-  check(tools.map(x => x[0]).join() === 'col-ref,col-menu' && tools.every(x => x[1] >= 36), 'phone: a column has Ref and a menu, big enough for a finger', JSON.stringify(tools));
+  check(tools.map(x => x[0]).join() === 'col-ref-last,col-ref,col-ref-pct,col-menu' && tools.every(x => x[1] >= 36), 'phone: a column has Ref, Ref % and a menu, big enough for a finger', JSON.stringify(tools));
   const bar = await page.$$eval('.cmp-clear .btn', b => [new Set(b.map(x => Math.round(x.getBoundingClientRect().top))).size, Math.min(...b.map(x => Math.round(x.getBoundingClientRect().height)))]);
   check(bar[0] === 1 && bar[1] >= 36, 'phone: the buttons above the columns are in one line', bar.join(' / '));
   const firstValue = await page.evaluate(() => Math.round(document.querySelector('.stats .stat').getBoundingClientRect().top));
@@ -487,6 +487,35 @@ try {
   await page.click('.c-head >> nth=2 >> [data-a="col-ref"]');
   await page.waitForTimeout(200);
   check((await hash()).startsWith('#/compare/armpw,corak,leggob') && !/ref=/.test(await hash()), 'Ref off: the columns are as before', await hash());
+  // Ref %: the same reference, the differences in percent; the other balance switches between them, the lit one pressed again switches it off
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-pct"]');
+  await page.waitForTimeout(200);
+  const pctVals = await page.$$eval('.stats:not(.is-ref) .val span', s => s.map(x => x.textContent));
+  check(/ref=armpw/.test(await hash()) && /diff=pct/.test(await hash()) && pctVals.length > 0 && pctVals.every(t => /^([+−][\d,.]+|±0)%$/.test(t))
+    && await page.locator('.c-head >> nth=0 >> .tool.ref.pct.active').count() === 1 && await page.locator('.c-head >> nth=0 >> .tool.ref:not(.pct).active').count() === 0,
+    'Ref %: the differences in percent, the balance with % lit, the link has diff=pct', `${await hash()} ${pctVals.slice(0, 6)}`);
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+  await page.waitForTimeout(200);
+  const absVals = await page.$$eval('.stats:not(.is-ref) .val span', s => s.map(x => x.textContent));
+  check(/ref=armpw/.test(await hash()) && !/diff=pct/.test(await hash()) && absVals.some(t => /^[+−]/.test(t)) && absVals.every(t => !t.endsWith('%')),
+    'Ref: back to the differences as they are, the same reference', `${await hash()} ${absVals.slice(0, 6)}`);
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-pct"]');
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-pct"]');
+  await page.waitForTimeout(200);
+  check(!/ref=|diff=/.test(await hash()), 'Ref % pressed again: no reference', await hash());
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-last"]');
+  await page.waitForTimeout(200);
+  check(/ref=armpw/.test(await hash()) && /diff=pct/.test(await hash()), 'the balance: the mode chosen last (%)', await hash());
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-last"]');
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref"]');
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-last"]');
+  await page.waitForTimeout(200);
+  check(/ref=armpw/.test(await hash()) && !/diff=pct/.test(await hash()), 'the balance: the mode chosen last (±)', await hash());
+  await page.click('.c-head >> nth=0 >> [data-a="col-ref-last"]');
+  await page.goto(base + '#/compare/armpw,corak?view=table&ref=armpw&diff=pct');
+  await page.waitForSelector('.cmp-table');
+  check((await page.$$eval('.cmp-table td.num:not(.ref-col) > span', s => s.map(x => x.textContent))).some(t => /%$/.test(t)), 'a link with diff=pct shows percent (table)', '');
   // a reference column in the middle sticks to the left edge only when it is scrolled there
   await page.setViewportSize({ width: 390, height: 800 });
   await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=graphic&ref=leggob');

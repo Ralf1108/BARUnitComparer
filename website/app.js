@@ -44,7 +44,7 @@ const state = {
   units: {}, counterpart: {}, versions: [], version: '', versionDir: '', baseDir: '', diffs: {}, merged: {}, versionsMode: false,
   changes: { faction: 'all', category: '', tiers: new Set(), key: '', search: '', scav: false }, page: 'catalog', faction: 'arm', category: 'bots', search: '', tiers: new Set(),
   view: load('view', 'grid'), showNames: load('showNames', 'yes') === 'yes',
-  columns: [], scav: false, table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '', tiers: new Set(), weapon: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
+  columns: [], scav: false, refPct: load('refMode', 'abs') === 'pct', table: load('table', 'no') === 'yes', pick: { faction: 'arm', category: 'bots', search: '', tiers: new Set(), weapon: '' }, pickOpen: load('pickOpen', 'yes') === 'yes',
 };
 let nextColumn = 1;
 
@@ -56,14 +56,15 @@ function loadFavorites() {
 state.favorites = loadFavorites();
 state.favOpen = false;
 const refUnit = () => { const c = state.columns.length && displayColumns().find(o => o.ref); return c ? tokenOf(c) : ''; };
-const currentSetting = () => ({ units: state.columns.map(tokenOf), scav: state.scav, ref: refUnit() });
-const favKey = f => `${f.units.join(',')}|${f.scav ? 1 : 0}|${f.ref || ''}`;
+const currentSetting = () => ({ units: state.columns.map(tokenOf), scav: state.scav, ref: refUnit(), pct: !!refUnit() && state.refPct });
+const favKey = f => `${f.units.join(',')}|${f.scav ? 1 : 0}|${f.ref || ''}|${f.ref && f.pct ? 1 : 0}`;
 const currentFavorite = () => state.favorites.findIndex(f => favKey(f) === favKey(currentSetting()));
 // the link of a favorite (its units, + Scav and Ref, the view of now): a favorite is a real link, so the middle mouse button or Ctrl+click opens it in a new tab
 function favLink(f) {
   const params = new URLSearchParams({ view: state.table ? 'table' : 'graphic' });
   if (f.scav) params.set('scav', '1');
   if (f.ref) params.set('ref', f.ref);
+  if (f.ref && f.pct) params.set('diff', 'pct');
   return '#/compare/' + f.units.join(',') + '?' + params;
 }
 
@@ -87,6 +88,8 @@ const ICONS = {
   counterparts: svgIcon('M2 5.5h11.5l-3-3M14 10.5H2.5l3 3'),                              // arrows both ways: the same job in the other factions
   ref: svgIcon('M8 2v12M4.5 14h7M2.5 4.5h11M2.5 4.5L1 9h3zM13.5 4.5L12 9h3z'),           // a balance: the unit the others are weighed against
 };
+// the two balances of a column: a badge at the bottom right says how the difference is shown, ± as it is, % in percent (refBadge: the icon with its badge)
+const refBadge = pct => `<span class="ref-ico" data-b="${pct ? '%' : '±'}">${ICONS.ref}</span>`;
 ICONS.menu = svgIcon('M3 8h.01M8 8h.01M13 8h.01');                                         // three dots: the menu of a column (phone)
 ICONS.info = svgIcon('M8 7.2v4.3M8 4.6h.01M2 8a6 6 0 1 0 12 0A6 6 0 0 0 2 8z');           // i in a circle: all values of a unit
 ICONS.undo = svgIcon('M5.5 3L2.5 6l3 3M2.5 6h7a4 4 0 0 1 0 8H7');                          // the toolbar of the compare: undo, redo,
@@ -255,6 +258,7 @@ function route() {
     state.versionsMode = params.get('versions') === '1' && state.versions.length > 1;
     const ref = params.get('ref');
     for (const c of displayColumns()) c.ref = tokenOf(c) === ref;
+    if (ref) state.refPct = params.get('diff') === 'pct';   // a link without a Ref keeps the mode chosen last
   } else {
     state.page = 'catalog';
     if (FACTIONS.some(f => f.id === a)) state.faction = a;
@@ -324,6 +328,7 @@ function compareLink() {
   const params = new URLSearchParams({ view: state.table ? 'table' : 'graphic' });
   if (state.scav) params.set('scav', '1');
   if (refUnit()) params.set('ref', refUnit());
+  if (refUnit() && state.refPct) params.set('diff', 'pct');   // the differences to the Ref in percent
   if (state.versionsMode) params.set('versions', '1');
   return '#/compare/' + chosenUnits().join(',') + '?' + params;
 }
@@ -344,7 +349,7 @@ function favPanelHtml() {
     const named = t => { const c = columnFromToken(t); return c && `${esc(unitOf(c).name)}${c.version ? ` <small>${esc(versionLabel(versionOf(c.version)).split(' · ')[0])}</small>` : ''}`; };
     const names = f.units.map(t => [t, named(t)]).filter(([, n]) => n).map(([t, n]) => `<span class="f-${columnFromToken(t).faction}">${n}</span>`);
     const ref = f.ref && named(f.ref);
-    const extras = [f.scav ? '+ Scav' : '', ref ? `Ref ${ref}${tokenUnit(f.ref).endsWith('_scav') ? ' (Scav)' : ''}` : ''].filter(Boolean);
+    const extras = [f.scav ? '+ Scav' : '', ref ? `Ref${f.pct ? ' %' : ''} ${ref}${tokenUnit(f.ref).endsWith('_scav') ? ' (Scav)' : ''}` : ''].filter(Boolean);
     return names.length ? `<div class="fav-item"><a class="fav-load" href="${esc(favLink(f))}" data-a="fav-load" data-v="${i}" title="Load these units into the comparison (Undo brings the old selection back; middle mouse button or Ctrl+click: in a new tab)">${names.join(', ')}${extras.length ? ` <em class="fav-extra">${extras.join(' · ')}</em>` : ''}</a><button class="fav-del" data-a="fav-del" data-v="${i}" title="Remove this favorite" aria-label="Remove this favorite">&#10005;</button></div>` : '';
   }).join('');
   return `<div class="fav-panel">${items || '<p class="empty">No favorites yet: press the star on the Compare page.</p>'}</div>`;
@@ -580,7 +585,8 @@ function renderHelp() {
       ${item('Ctrl+Z', 'takes back the last click (Ctrl+Y: repeats it).')}</ul>
     <h2>The compare</h2>
     <ul>${[
-      [`${ICONS.ref} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> more, <b>&minus;</b> less, ±0 equal (green or red says whether that is better or worse: 86 metal more is +86 in red); the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${refBadge(false)} Ref`, 'makes a unit the reference: the values of all other units turn green (better) or red (worse); equal values are greyed out, so you see at once where they differ. The other units show the difference to the reference instead of the value: <b>+</b> more, <b>&minus;</b> less, ±0 equal (green or red says whether that is better or worse: 86 metal more is +86 in red); the value itself stands small at the other end of the bar. The values of the reference itself are yellow. The column stays where it is; scrolled to the left edge, it stays in view as a narrow strip of its values.'],
+      [`${refBadge(true)} Ref %`, 'the same, but the differences are in percent of the value of the reference: 86 metal more than 54 is +159%. Press the other balance to switch between the two; the lit one pressed again switches the reference off.'],
       [`${ICONS.counterparts} Counterparts`, 'adds the units of the other factions that do the same job (also under the picture: a click adds one).'],
       [`${ICONS.counters} Counters`, 'replaces the other columns with the units that are good against this unit (from the counter charts of beyondallreason.info).'],
       ['+ Scav', 'shows the Scavenger copy of every unit next to it. Scavengers are the computer enemies; their units are a bit stronger.'],
@@ -768,7 +774,7 @@ function emptyCompareHtml() {
   return `<div class="cmp-empty"><h3>Nothing to compare yet</h3>
     <ol class="steps"><li><b>Pick units</b> ${isNarrow() ? 'with <b>+ Add units</b> at the bottom' : `in the list ${state.pickOpen ? 'on the right' : '(open it with the arrow on the right)'}`}: every click adds a column. The search finds units of all factions.</li>
       <li><b>Read the bars:</b> each value is drawn against the largest one in its row.</li>
-      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it (+ more, &minus; less), green if that is better, red if it is worse; equal values are greyed out.</li></ol>
+      <li><b>Press Ref</b> (the balance icon) on one unit: the others show the difference to it (+ more, &minus; less), green if that is better, red if it is worse; equal values are greyed out. The balance with % shows the differences in percent.</li></ol>
     ${examples.length ? `<p>Or start with an example:</p><div class="examples">${examples.map(([units, label]) => `<a class="example" href="#/compare/${units.map(esc).join(',')}?view=graphic">${units.slice(0, 4).map(n => pictureTag(n, '', state.units[n])).join('')}<span>${label}</span></a>`).join('')}</div>` : ''}
     <p class="hint">More: <a href="#/help">how the page works</a></p></div>`;
 }
@@ -929,8 +935,14 @@ function referenceFor(c, reference) {
   return a ? { ...unitOf(a), anchor: true } : null;   // no Ref: another version of the same unit left of it (equal values stay uncoloured)
 }
 
-const refButton = c => toolButton('ref', 'col-ref', c.ref ? 'Reference (on): the other columns are coloured against this unit. Press again to switch it off.'
-  : 'Ref: make this unit the reference. The values of all other columns turn green (better) or red (worse) against it; equal values are greyed out.', c.ref, true);
+// two balances: Ref with the differences as they are (±), Ref % with the differences in percent of the value of the reference. The lit one pressed again: no reference
+const refTip = (c, pct) => c.ref && state.refPct === pct ? `Reference (on${pct ? ', in percent' : ''}): the other columns are coloured against this unit. Press again to switch it off.`
+  : `Ref${pct ? ' %' : ''}: make this unit the reference. The values of all other columns turn green (better) or red (worse) against it; equal values are greyed out. They show the difference to it ${pct ? 'in percent of its value (+25%, −10%)' : 'as it is (+86, −0.5)'}.`;
+// one block that looks like one button: the balance, then its left half ± (the difference as it is) and its right half % (in percent)
+const balanceTip = c => c.ref ? 'Reference (on): press to switch it off' : `Make this unit the reference, ${state.refPct ? 'in percent (%)' : 'with the difference as it is (±)'}: the mode chosen last`;
+const refButton = c => `<span class="ref-grp${c.ref ? ' on' : ''}" role="group" aria-label="Reference"><button class="tool ref-w" data-a="col-ref-last" title="${balanceTip(c)}" aria-label="${balanceTip(c)}" aria-pressed="${!!c.ref}">${ICONS.ref}</button>`
+  + `<button class="tool ref${c.ref && !state.refPct ? ' active' : ''}" data-a="col-ref" title="${refTip(c, false)}" aria-label="${refTip(c, false)}" aria-pressed="${c.ref && !state.refPct}">±</button>`
+  + `<button class="tool ref pct${c.ref && state.refPct ? ' active' : ''}" data-a="col-ref-pct" title="${refTip(c, true)}" aria-label="${refTip(c, true)}" aria-pressed="${c.ref && state.refPct}">%</button></span>`;
 
 // the compact view: one row per value, one column per unit, the same red / green against the reference
 function tableHtml(columns, stats, max, reference) {
@@ -1064,7 +1076,12 @@ function valueText(s, v, ref) {
   const r = ref && !ref.anchor ? ref[s.key] : 0;
   if (!r) return s.show(v);
   const title = ` title="${esc(s.show(v))} (Ref: ${esc(s.show(r))})"`;
-  if (v === r) return `<span${title}>±0</span>`;
+  if (v === r) return `<span${title}>±0${state.refPct ? '%' : ''}</span>`;
+  if (state.refPct) {   // in percent of the value of the Ref: from 10 % on whole numbers, below one place after the point, a tiny one with its first digit
+    const p = Math.abs(v - r) / Math.abs(r) * 100;
+    const t = p >= 10 ? Math.round(p).toLocaleString('en-US') : p >= 0.1 ? String(Number(p.toFixed(1))) : String(Number(p.toPrecision(1)));
+    return `<span${title}>${v > r ? '+' : '−'}${t}%</span>`;
+  }
   const d = Math.abs(v - r);
   let t = s.show(d);
   if (/^[0:.]*$/.test(t)) t = d < 1 ? String(Number(d.toPrecision(1))) : t;   // a small difference that the format would show as 0
@@ -1109,6 +1126,16 @@ function step(from, to) {
   state.columns = old.filter(c => unitOf(c));   // a unit that the game version chosen since then does not have
   for (const c of displayColumns()) c.ref = tokenOf(c) === ref;
   keepAddress(); render();
+}
+
+// a balance pressed: this column the reference with the differences as they are or in percent; the lit one pressed again: no reference
+function setRef(c, pct) {
+  const off = c.ref && state.refPct === pct;
+  for (const o of displayColumns()) o.ref = false;
+  c.ref = !off;
+  state.refPct = pct;
+  save('refMode', pct ? 'pct' : 'abs');   // the mode chosen last, for the balance (also after a reload)
+  keepAddress(); renderCompare();
 }
 
 function addUnit(unit) { if (!isShown(unit)) state.columns.push(newColumn(unit)); }
@@ -1178,7 +1205,8 @@ function menuHtml(c) {
   const cOn = activeOf(c, 'counters'), hasCounters = countersOf(c.unit).length > 0;
   return `<div class="sheet-back" data-a="overlay-close"></div><div class="col-menu f-${c.faction}" data-col="${c.id}" role="dialog" aria-label="${esc(u.name)}">
     <div class="m-head">${pictureTag(c.unit, '', u)}<div class="m-text"><b>${esc(u.name)}</b><small>${esc(u.description)}</small></div><button class="btn go" data-a="overlay-close">Done</button></div>
-    ${item(ICONS.ref, 'col-ref', c.ref ? 'Reference: on' : 'Make it the reference', c.ref ? 'Tap to switch it off.' : 'The other units show + (better) and &minus; (worse) against it.', { on: c.ref })}
+    ${item(refBadge(false), 'col-ref', c.ref && !state.refPct ? 'Reference: on' : 'Make it the reference', c.ref && !state.refPct ? 'Tap to switch it off.' : 'The other units show + (better) and &minus; (worse) against it.', { on: c.ref && !state.refPct })}
+    ${item(refBadge(true), 'col-ref-pct', c.ref && state.refPct ? 'Reference in percent: on' : 'Make it the reference, in percent', c.ref && state.refPct ? 'Tap to switch it off.' : 'The same, the differences in percent of its value (+25%, &minus;10%).', { on: c.ref && state.refPct })}
     ${item(ICONS.info, 'detail', 'All values', 'This unit alone, with every value.', { v: c.unit })}
     ${item(ICONS.versions, 'col-versions', `Versions${n > 1 ? ` (${n})` : ''}`, vOn ? 'Shown. Tap to take them out again.' : more ? 'Add its other game versions as columns: what the balance changes did.' : n > 1 ? 'All its versions are shown already.' : 'It has only one version: it never changed.', { on: vOn, off: !vOn && !more })}
     ${item(ICONS.counterparts, 'add-counterparts', 'Counterparts', pOn ? 'Shown. Tap to take them out again.' : missing.length ? `Add ${missing.map(x => esc(state.units[x].name)).join(', ')}: the same job in the other factions.` : parts.length ? 'All of them are shown already.' : 'None known for this unit.', { on: pOn, off: !pOn && !missing.length })}
@@ -1319,6 +1347,7 @@ const actions = {
     state.columns = f.units.map(columnFromToken).filter(Boolean);
     state.scav = !!f.scav;
     for (const c of displayColumns()) c.ref = tokenOf(c) === f.ref;
+    state.refPct = !!f.pct;
     state.favOpen = false;
     if (location.hash === compareLink()) render(); else location.hash = compareLink();   // the address change shows the page
   },
@@ -1329,12 +1358,9 @@ const actions = {
     const c = columnOf(el);
     if (toggleTool(c, 'counters', () => { const list = countersOf(c.unit); if (!list.length) return false; state.columns = [c, ...list.map(n => newColumn(n))]; })) { keepAddress(); render(); }
   },
-  'col-ref'(v, el) {   // the reference column stays where it is: moved only by hand (drag and drop, the arrows)
-    const c = columnOf(el), was = c.ref;
-    for (const o of displayColumns()) o.ref = false;
-    c.ref = !was;
-    keepAddress(); renderCompare();
-  },
+  'col-ref'(v, el) { setRef(columnOf(el), false); },   // the reference column stays where it is: moved only by hand (drag and drop, the arrows)
+  'col-ref-pct'(v, el) { setRef(columnOf(el), true); },
+  'col-ref-last'(v, el) { setRef(columnOf(el), state.refPct); },   // the balance: the mode chosen last (at first ±); on: off
   'add-counterparts'(v, el) {
     const c = columnOf(el), was = activeOf(c, 'counterparts');
     const done = toggleTool(c, 'counterparts', () => { const missing = counterpartsOf(c.unit).filter(n => !isShown(n)); if (!missing.length) return false; missing.forEach(addUnit); });
