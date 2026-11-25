@@ -718,7 +718,7 @@ function renderCompare() {
   renderOverlay();
 }
 
-// the buttons above the columns, in groups: history (Undo, Clear, Redo), the view (graphic or table), + Scav, keep (Favorite, Share, Export).
+// the buttons above the columns, in groups from the left: the view (graphic or table), + Scav, history (Undo, Redo, Clear), keep (Favorite, Share, Export).
 // Every button has an icon; on a phone only the icons are shown (one line). Changed units only is in the unit selection: it changes only that list
 function toolbarHtml() {
   const fav = currentFavorite() >= 0, any = state.columns.length ? '' : 'disabled';
@@ -730,11 +730,11 @@ function toolbarHtml() {
     ? `<button class="btn on" title="${label} view (shown)" aria-pressed="true">${icon}<span class="lb">${label}</span></button>`
     : `<button class="btn" data-a="view-table" title="${tip}" aria-pressed="false">${icon}<span class="lb">${label}</span></button>`;
   return `<div class="cmp-clear">
+    ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}
+    ${group(btn('scav', ICONS.scav, '+ Scav', 'Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.', { on: state.scav, cls: 'tg' }))}
     ${(([undo, redo]) => group(undo, redo, btn('clear-all', ICONS.trash, 'Clear', 'Start again: remove all units and the Undo and Redo steps (asks first)', { off: !!any, cls: 'danger' })))([['undo', undoStack, ICONS.undo, 'Undo', 'Undo the last change of the columns (Ctrl+Z)'], ['redo', redoStack, ICONS.redo, 'Redo', 'Redo (Ctrl+Y)']].map(([a, stack, icon, label, tip]) =>
       // a badge with the number of steps that can be taken back (or repeated); none: no badge
       btn(a, icon, label, `${tip}${stack.length ? ` - ${stack.length} step${stack.length === 1 ? '' : 's'}` : ''}`, { off: !stack.length }).replace('<button class="btn', `<button ${stack.length ? `data-n="${stack.length}" ` : ''}class="btn${stack.length ? ' n-steps' : ''}`)))}
-    ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}
-    ${group(btn('scav', ICONS.scav, '+ Scav', 'Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.', { on: state.scav, cls: 'tg' }))}
     ${group(btn('fav-save', ICONS.star, fav ? 'Favorite' : 'Save', fav ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)', { on: fav, off: !!any, cls: 'fav-star tg' }),
       btn('share', ICONS.share, 'Share', 'Share this comparison: copies its link (on a phone: the share menu)', { off: !!any, cls: 'share' }),
       btn('export', ICONS.export, 'Export', 'Export the units shown with their values: a CSV or Excel file', { off: !!any }))}
