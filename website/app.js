@@ -101,6 +101,7 @@ ICONS.filter = svgIcon('M2 3h12L9.5 8.3V13l-3-1.4V8.3z');                       
 ICONS.star = svgIcon('M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z');  // a star: favorite
 ICONS.trash = svgIcon('M2.5 4.5h11M6.3 4.5V2.8h3.4v1.7M4 4.5l.7 9h6.6l.7-9');             // a bin: remove all units
 ICONS.share = svgIcon('M8 10V2M5 4.5l3-3 3 3M3.5 8v5.5h9V8');                            // an arrow out of a box: share the link
+ICONS.export = svgIcon('M8 2v8M5 7l3 3 3-3M2.5 11v2.5h11V11');                           // an arrow down into a tray: export the values as a file
 const toolButton = (kind, action, tip, on, enabled) => `<button class="tool ${kind}${on ? ' active' : ''}" data-a="${action}" title="${tip}" aria-label="${tip}" aria-pressed="${!!on}" ${enabled ? '' : 'disabled'}>${ICONS[kind]}</button>`;
 const isNarrow = () => window.innerWidth <= 900;
 const isPhone = () => window.innerWidth <= 600;   // a phone: the tools of a column are in a menu, the toolbar is one line
@@ -600,6 +601,7 @@ function renderHelp() {
       ['Undo / Redo', 'take back or repeat a change of the columns or of the game version (Ctrl+Z, Ctrl+Y; also in the catalog). The number on them: how many steps there are.'],
       ['Clear', '(right of Undo and Redo) starts again: removes all units and the Undo and Redo steps. It asks first.'],
       [`${ICONS.share} Share`, 'copies the link of the comparison, to send it to someone (on a phone: opens the share menu).'],
+      [`${ICONS.export} Export`, 'saves the units shown with their values as a file, CSV or Excel (.xlsx): one row per value, one column per unit, numbers as numbers (with a Ref also the differences to it), to work with them in a spreadsheet.'],
       ['The name of a value', 'click it (Metal, Hitpoints, ...) to sort the columns by this value, the best first; again: the worst first.'],
       ['&#8942;&#8942;', 'drag it to move a column (on a phone: Move left / Move right in the menu of the column).'],
       ['&#8249; &#8250;', '(at the edges) more columns are hidden there: a click scrolls to the next one.'],
@@ -712,7 +714,7 @@ function renderCompare() {
   renderOverlay();
 }
 
-// the buttons above the columns, in groups: history (Undo, Clear, Redo), the view (graphic or table), + Scav, keep (Favorite, Share).
+// the buttons above the columns, in groups: history (Undo, Clear, Redo), the view (graphic or table), + Scav, keep (Favorite, Share, Export).
 // Every button has an icon; on a phone only the icons are shown (one line). Changed units only is in the unit selection: it changes only that list
 function toolbarHtml() {
   const fav = currentFavorite() >= 0, any = state.columns.length ? '' : 'disabled';
@@ -730,7 +732,8 @@ function toolbarHtml() {
     ${group(view(false, ICONS.graphic, 'Graphic', 'Graphic view: pictures and bars'), view(true, ICONS.table, 'Table', 'Compact table: one row per value, one column per unit'))}
     ${group(btn('scav', ICONS.scav, '+ Scav', 'Scavengers: show the Scavenger copy of every unit right next to it (stronger: about 10 % more cost, 25 % more hitpoints). Press again to take them out.', { on: state.scav, cls: 'tg' }))}
     ${group(btn('fav-save', ICONS.star, fav ? 'Favorite' : 'Save', fav ? 'This selection is a favorite: press to remove it' : 'Save this selection of units as a favorite (list: Favorites at the top)', { on: fav, off: !!any, cls: 'fav-star tg' }),
-      btn('share', ICONS.share, 'Share', 'Share this comparison: copies its link (on a phone: the share menu)', { off: !!any, cls: 'share' }))}
+      btn('share', ICONS.share, 'Share', 'Share this comparison: copies its link (on a phone: the share menu)', { off: !!any, cls: 'share' }),
+      btn('export', ICONS.export, 'Export', 'Export the units shown with their values: a CSV or Excel file', { off: !!any }))}
     </div>`;
 }
 
@@ -962,12 +965,15 @@ function tableHtml(columns, stats, max, reference) {
     const ref = referenceFor(c, reference);
     return `<td data-col="${c.id}" class="num${rc}${verdictOf(s, v, ref)}${v === max[s.key] ? ' top' : ''}${changed}">${valueText(s, v, ref)}${absText(s, v, ref)}</td>`;
   };
-  // two lines per value: its name over the whole width (it stays at the left edge while the columns are scrolled), the values below it; the column of the names
-  // (.t-corner and the empty .t-nil of each row) has no width, so the units get the room
-  const span = columns.length + 1 + (reference ? 1 : 0);
-  const row = s => `<tr class="t-lab"><th colspan="${span}" class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}><span>${s.label}${sortMark(s)}</span></th></tr>`
-    + `<tr class="t-vals"><th class="t-nil"></th>${columns.map(c => cell(s, c)).join('')}</tr>`;
-  return `<table class="cmp-table two-line"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference ? '<th class="t-pad"></th>' : ''}</tr></thead>
+  // a wide window: the names of the values in a column at the left, one line per value (compact). A phone: two lines per value, its name over the whole width
+  // (it stays at the left edge while the columns are scrolled), the values below it; the column of the names (.t-corner and the empty .t-nil of each row) has
+  // no width, so the units get the room
+  const two = isPhone(), span = columns.length + 1 + (reference ? 1 : 0);
+  const row = s => two
+    ? `<tr class="t-lab"><th colspan="${span}" class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}><span>${s.label}${sortMark(s)}</span></th></tr>`
+      + `<tr class="t-vals"><th class="t-nil"></th>${columns.map(c => cell(s, c)).join('')}</tr>`
+    : `<tr><th class="${s.differs ? 'changed' : ''}" title="${esc(s.tip)}"${sortAttr(s)}>${s.label}${sortMark(s)}</th>${columns.map(c => cell(s, c)).join('')}</tr>`;
+  return `<table class="cmp-table${two ? ' two-line' : ''}"><thead><tr><th class="t-corner"></th>${columns.map(head).join('')}${reference ? '<th class="t-pad"></th>' : ''}</tr></thead>
     <tbody>${stats.map(row).join('')}</tbody></table>`;
 }
 
@@ -1192,9 +1198,105 @@ function renderOverlay() {
   if (!c) state.menu = null;
   if (state.detail && !pickUnit(state.detail)) state.detail = null;
   if (state.ask && state.page !== 'compare') state.ask = null;
-  overlay.innerHTML = state.ask ? askHtml() : state.detail ? detailHtml(state.detail) : c ? menuHtml(c) : '';
-  if (state.ask) overlay.querySelector('[data-a="clear-yes"]').focus();
+  overlay.innerHTML = state.ask === 'export' ? exportHtml() : state.ask ? askHtml() : state.detail ? detailHtml(state.detail) : c ? menuHtml(c) : '';
+  if (state.ask) overlay.querySelector('[data-a="clear-yes"], [data-a="export-xlsx"]').focus();
   document.body.classList.toggle('modal', overlay.innerHTML !== '');
+}
+// Export: the units shown with their values as a file, CSV or Excel (.xlsx), laid out as the table: one row per value, one column per unit, the heads of the
+// columns in the first rows. Numbers as numbers (the build time in seconds), not as the text on the page; with a Ref the differences follow in a block below
+function exportRows() {
+  const columns = shown.length ? shown : displayColumns(), reference = columns.find(c => c.ref);
+  const stats = STATS.filter(s => columns.some(c => s.key === 'weapons' ? unitOf(c).weapons.length : unitOf(c)[s.key]));
+  const num = v => Math.round(v * 100) / 100;
+  const label = s => s.key === 'buildTime' ? 'Build time (s)' : s.label;
+  const weaponOf = c => { const list = (unitsOf(c.version || state.versionDir)[c.unit] || {}).weaponList || [], on = list.find(w => w.id === c.weapon);
+    return on ? weaponLabel(on, list) : list.length > 1 ? `All weapons (${list.length})` : list.length ? weaponLabel(list[0]) : 'No weapons'; };
+  const rows = [['Unit', ...columns.map(c => unitOf(c).name)], ['Name', ...columns.map(c => c.unit)], ['Faction', ...columns.map(c => c.scavOf ? 'Scavengers' : factionName(c.faction))],
+    ['Tier', ...columns.map(c => `T${unitOf(c).tech}`)], ['Description', ...columns.map(c => unitOf(c).description)]];
+  if (state.versions.length > 1) rows.push(['Game version', ...columns.map(c => { const v = versionOf(stateVersion(c) || c.version || state.versionDir); return v ? versionLabel(v) : ''; })]);
+  rows.push(['Weapon', ...columns.map(weaponOf)]);
+  if (reference) rows.push(['Reference', ...columns.map(c => c.ref ? 'Ref' : '')]);
+  const head = rows.length;
+  for (const s of stats) rows.push([label(s), ...columns.map(c => { const u = unitOf(c); return s.key === 'weapons' ? u.weapons.join(', ') : u[s.key] ? num(u[s.key]) : ''; })]);
+  if (reference) {   // the differences to the Ref, as the page shows them: as they are (±) or in percent (%)
+    const r = unitOf(reference);
+    rows.push([], [`Difference to ${r.name}${state.refPct ? ' (%)' : ''}`, ...columns.map(c => unitOf(c).name)]);
+    for (const s of stats) if (s.key !== 'weapons' && r[s.key]) rows.push([label(s), ...columns.map(c => { const v = unitOf(c)[s.key];
+      return c.ref || !v ? '' : state.refPct ? Math.round((v - r[s.key]) / Math.abs(r[s.key]) * 1000) / 10 : num(v - r[s.key]); })]);
+  }
+  return { rows, head, columns };
+}
+const exportName = (columns, ext) => `bar-compare-${columns.slice(0, 6).map(c => c.unit).join('-')}${columns.length > 6 ? '-more' : ''}.${ext}`;
+function download(name, blob) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+// CSV in the language of the browser, as a spreadsheet there reads it: with a decimal comma (German and others) the numbers have a comma and the cells are
+// separated by semicolons, else a point and commas; no thousands separators; text in quotes where needed, UTF-8 with a BOM so that Excel reads the names right
+const decimalComma = (locale = navigator.language) => { try { return (1.5).toLocaleString(locale).includes(','); } catch { return false; } };
+function csvOf(rows, locale = navigator.language) {
+  const comma = decimalComma(locale), sep = comma ? ';' : ',', quote = new RegExp(`["${sep}\r\n]`);
+  const cell = v => typeof v === 'number' ? (comma ? String(v).replace('.', ',') : String(v)) : quote.test(v ?? '') ? `"${String(v).replace(/"/g, '""')}"` : String(v ?? '');
+  return '﻿' + rows.map(r => r.map(cell).join(sep)).join('\r\n') + '\r\n';
+}
+// Excel: a small .xlsx written here (a zip without compression): one sheet, the first column and the heads of the columns stay in view, the names bold
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+const crc32 = b => { let c = 0xffffffff; for (const x of b) c = CRC[(c ^ x) & 255] ^ (c >>> 8); return (c ^ 0xffffffff) >>> 0; };
+const putAll = (view, list) => list.forEach(([o, v, s]) => s === 4 ? view.setUint32(o, v, true) : view.setUint16(o, v, true));
+function zipOf(files) {   // [[name, text]]: a zip, stored
+  const enc = new TextEncoder(), parts = [], dir = [];
+  let at = 0;
+  for (const [name, text] of files) {
+    const n = enc.encode(name), d = enc.encode(text), crc = crc32(d);
+    const h = new DataView(new ArrayBuffer(30));
+    putAll(h, [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, d.length, 4], [22, d.length, 4], [26, n.length, 2], [28, 0, 2]]);
+    const c = new DataView(new ArrayBuffer(46));
+    putAll(c, [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, d.length, 4], [24, d.length, 4], [28, n.length, 2],
+      [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, at, 4]]);
+    parts.push(h, n, d); dir.push(c, n);
+    at += 30 + n.length + d.length;
+  }
+  const size = dir.reduce((a, x) => a + x.byteLength, 0), e = new DataView(new ArrayBuffer(22));
+  putAll(e, [[0, 0x06054b50, 4], [8, files.length, 2], [10, files.length, 2], [12, size, 4], [16, at, 4]]);
+  return new Blob([...parts, ...dir, e], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function xlsxOf({ rows, head }) {
+  const x = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g, '');
+  const col = i => { let s = ''; for (i++; i; i = Math.floor((i - 1) / 26)) s = String.fromCharCode(65 + (i - 1) % 26) + s; return s; };
+  const width = Math.max(...rows.map(r => r.length));
+  const sheetRows = rows.map((r, y) => `<row r="${y + 1}">${r.map((v, i) => {
+    const ref = `${col(i)}${y + 1}`, bold = i === 0 || y < 1 ? ' s="1"' : '';
+    if (v === '' || v == null) return '';
+    return typeof v === 'number' ? `<c r="${ref}"${bold}><v>${v}</v></c>` : `<c r="${ref}" t="inlineStr"${bold}><is><t xml:space="preserve">${x(v)}</t></is></c>`;
+  }).join('')}</row>`).join('');
+  const xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n';
+  const ns = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+  const rel = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships', ct = 'application/vnd.openxmlformats-officedocument.spreadsheetml';
+  return zipOf([
+    ['[Content_Types].xml', `${xml}<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>`
+      + `<Override PartName="/xl/workbook.xml" ContentType="${ct}.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="${ct}.worksheet+xml"/>`
+      + `<Override PartName="/xl/styles.xml" ContentType="${ct}.styles+xml"/></Types>`],
+    ['_rels/.rels', `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rel}/officeDocument" Target="xl/workbook.xml"/></Relationships>`],
+    ['xl/workbook.xml', `${xml}<workbook ${ns}><sheets><sheet name="Compare" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+    ['xl/_rels/workbook.xml.rels', `${xml}<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="${rel}/worksheet" Target="worksheets/sheet1.xml"/>`
+      + `<Relationship Id="rId2" Type="${rel}/styles" Target="styles.xml"/></Relationships>`],
+    ['xl/styles.xml', `${xml}<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>`
+      + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
+      + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+    ['xl/worksheets/sheet1.xml', `${xml}<worksheet ${ns}><sheetViews><sheetView workbookViewId="0"><pane xSplit="1" ySplit="${head}" topLeftCell="B${head + 1}" activePane="bottomRight" state="frozen"/></sheetView></sheetViews>`
+      + `<cols><col min="1" max="1" width="24" customWidth="1"/>${width > 1 ? `<col min="2" max="${width}" width="22" customWidth="1"/>` : ''}</cols><sheetData>${sheetRows}</sheetData></worksheet>`],
+  ]);
+}
+// the dialog of Export: what is in the file, then CSV or Excel
+function exportHtml() {
+  const { columns } = exportRows();
+  const ref = columns.find(c => c.ref);
+  return `<div class="sheet-back" data-a="overlay-close"></div><div class="detail ask" role="dialog" aria-label="Export">
+    <h3>Export</h3>
+    <p>The ${columns.length} unit${columns.length === 1 ? '' : 's'} shown, with their values as in the table: one row per value, one column per unit${ref ? `, and below the differences to ${esc(unitOf(ref).name)}${state.refPct ? ' in percent' : ''}` : ''}. Numbers as numbers (build time in seconds), to work with them in a spreadsheet. The CSV follows the language of your browser (${esc(navigator.language)}: ${decimalComma() ? 'decimal comma, separated by semicolons' : 'decimal point, separated by commas'}).</p>
+    <div class="d-actions"><button class="btn" data-a="overlay-close">Cancel</button><button class="btn" data-a="export-csv">${ICONS.export} CSV</button><button class="btn go" data-a="export-xlsx" title="An Excel file (.xlsx)">${ICONS.export} Excel</button></div></div>`;
 }
 // Clear asks first: all units and the Undo and Redo steps go, it cannot be taken back
 function askHtml() {
@@ -1320,7 +1422,10 @@ const actions = {
     renderCompare();
   },
   move(v, el) { moveColumn(columnOf(el), Number(v)); },
-  'clear-all'() { state.ask = 'clear'; renderOverlay(); },   // asks first (askHtml): it cannot be taken back
+  'clear-all'() { state.ask = 'clear'; renderOverlay(); },
+  export() { state.ask = 'export'; renderOverlay(); },
+  'export-csv'() { const e = exportRows(); download(exportName(e.columns, 'csv'), new Blob([csvOf(e.rows)], { type: 'text/csv;charset=utf-8' })); state.ask = null; renderOverlay(); },
+  'export-xlsx'() { const e = exportRows(); download(exportName(e.columns, 'xlsx'), xlsxOf(e)); state.ask = null; renderOverlay(); },   // asks first (askHtml): it cannot be taken back
   'clear-yes'() {   // start again: no units, no Undo and Redo steps
     state.ask = null; state.sort = null; state.columns = []; undoStack.length = 0; redoStack.length = 0;
     keepAddress(); render(); renderOverlay();

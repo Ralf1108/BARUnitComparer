@@ -41,9 +41,10 @@ A lit icon pressed again takes back what it added. Drag a column by its grip to 
 | At the top | |
 |---|---|
 | **Undo / Redo / Clear** | take back or repeat a change (also Ctrl+Z / Ctrl+Y; the badge says how many steps there are); Clear starts again (it asks first) |
-| **Graphic / Table** | bars with pictures, or a compact table (the name of a value in a line above its values, so the units get the whole width) |
+| **Graphic / Table** | bars with pictures, or a compact table (on a phone the name of a value in a line above its values, so the units get the whole width) |
 | **+ Scav** | the Scavenger copy of every unit next to it |
 | **Save / Share** | keep the selection as a favorite, or share its link (the link holds the units with their versions and weapons, the view, + Scav and the Ref with ± or %). **Favorites** in the header lists them; the middle mouse button opens one in a new tab |
+| **Export** | download the units shown with their values as **CSV** (in the language of the browser: German with 16,5 and semicolons) or **Excel** (.xlsx): one row per value, one column per unit, the name, faction, tier, game version and weapon at the top, numbers as numbers (build time in seconds); with a Ref also the differences to it (± or %) in a block below |
 
 Click the name of a value (Metal, Hitpoints, ...) to sort the columns by it. Besides cost, hitpoints, speed and range the page shows **damage per shot**, **shots per second**, **DPS**, **DPS vs air** and the **area of effect**, and **HP per metal** and **DPS per metal**. The **game version** at the top shows the units as they were in an older patch; it always starts at the newest, and an older one is gold so that it is seen.
 

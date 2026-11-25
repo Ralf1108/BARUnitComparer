@@ -72,8 +72,26 @@ try {
   // views and the link: table, + Scav, Ref; a link opens the same view
   await page.click('[data-a="view-table"]');
   check(await page.locator('.cmp-table tbody tr').count() > 5, 'table view has the value rows', await page.locator('.cmp-table tbody tr').count());
-  check(await page.locator('.cmp-table.two-line tr.t-lab').count() > 5 && await page.locator('.cmp-table tr.t-lab').count() === await page.locator('.cmp-table tr.t-vals').count(),
-    'table: two lines per value, the name above its values', await page.locator('.cmp-table tr.t-lab').count());
+  check(await page.locator('.cmp-table.two-line').count() === 0 && await page.locator('.cmp-table tbody th[data-v="hitpoints"]').count() === 1,
+    'table (wide window): one line per value, the names in a column at the left', await page.locator('.cmp-table.two-line').count());
+  // Export: a dialog, then a CSV or Excel file with one row per value and one column per unit. The file is caught in the page (the link that downloads
+  // it reads its data instead): a real download left an empty page behind in the headless browser, and closing the browser failed on it
+  await page.evaluate(() => { window.__files = []; const click = HTMLAnchorElement.prototype.click;
+    HTMLAnchorElement.prototype.click = function () { if (!this.download) return click.call(this);
+      const name = this.download; window.__files.push(fetch(this.href).then(r => r.arrayBuffer()).then(b => ({ name, bytes: [...new Uint8Array(b)] }))); }; });
+  await page.click('[data-a="export"]');
+  check(await page.locator('[data-a="export-csv"]').count() === 1 && await page.locator('[data-a="export-xlsx"]').count() === 1, 'Export asks: CSV or Excel', '');
+  await page.click('[data-a="export-csv"]');
+  check(await page.locator('.detail.ask').count() === 0, 'the Export dialog closes after the download', '');
+  await page.click('[data-a="export"]');
+  await page.click('[data-a="export-xlsx"]');
+  const [csvFile, xlsxFile] = await page.evaluate(() => Promise.all(window.__files));
+  const csv = Buffer.from(csvFile.bytes).toString('utf8').replace(/^﻿/, '').split('\r\n');
+  check(/\.csv$/.test(csvFile.name) && csv[0].split(/[,;]/).length === 6 && csv.some(l => /^Hitpoints[,;]\d/.test(l)), 'Export CSV: a column per unit, a row per value', `${csvFile.name}: ${csv.slice(0, 2).join(' | ')}`);
+  const de = await page.evaluate(() => csvOf([['Build time (s)', 16.5, 'a; b']], 'de-DE')), en = await page.evaluate(() => csvOf([['Build time (s)', 16.5, 'a, b']], 'en-US'));
+  check(de.includes('Build time (s);16,5;"a; b"') && en.includes('Build time (s),16.5,"a, b"'), 'Export CSV: the language of the browser (German: 16,5 and semicolons)', `${de.trim()} / ${en.trim()}`);
+  const xlsx = Buffer.from(xlsxFile.bytes);
+  check(/\.xlsx$/.test(xlsxFile.name) && xlsx.subarray(0, 2).toString() === 'PK' && xlsx.includes('xl/worksheets/sheet1.xml') && xlsx.includes('<v>'), 'Export Excel: an .xlsx with the values', xlsxFile.name);
   await page.click('[data-a="view-table"]');
   await page.click('[data-a="scav"]');
   check(await page.locator('.c-head').count() > 5, '+ Scav adds Scavenger columns', await page.locator('.c-head').count());
@@ -706,6 +724,8 @@ try {
   // a phone, the table with a Ref: after a swipe no column rests under the strip of the reference column
   await page.goto(base + '#/compare/armpw,corak,leggob,armflea,armllt?view=table&ref=armpw');
   await page.waitForSelector('.cmp-table');
+  check(await page.locator('.cmp-table.two-line tr.t-lab').count() > 5 && await page.locator('.cmp-table tr.t-lab').count() === await page.locator('.cmp-table tr.t-vals').count(),
+    'phone, table: two lines per value, the name above its values', await page.locator('.cmp-table tr.t-lab').count());
   await page.evaluate(() => { document.documentElement.classList.add('touch'); document.querySelector('.cmp-scroll').scrollLeft = 170; });   // touch: set by the first touch
   await page.waitForTimeout(1200);
   const rest = await page.evaluate(() => { const strip = document.querySelector('th.is-ref').getBoundingClientRect().right; return [...document.querySelectorAll('thead th[data-col]:not(.is-ref)')].map(h => Math.round(h.getBoundingClientRect().left - strip)).filter(x => x > -40)[0]; });
