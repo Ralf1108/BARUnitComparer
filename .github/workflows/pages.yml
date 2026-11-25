@@ -50,10 +50,14 @@ jobs:
 
       - uses: actions/configure-pages@v6
 
+      # one artifact per attempt: "Re-run jobs" keeps the artifact of the attempt before, and two of the same name make deploy-pages fail
       - uses: actions/upload-pages-artifact@v5
         with:
           path: website
+          name: github-pages-${{ github.run_attempt }}
 
       - name: Publish
         id: deployment
         uses: actions/deploy-pages@v5
+        with:
+          artifact_name: github-pages-${{ github.run_attempt }}
