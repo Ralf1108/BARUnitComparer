@@ -168,7 +168,7 @@ The server listens on `127.0.0.1` only. It keeps its connections open (HTTP/1.1:
 
 ## 6. Publishing with GitHub Pages
 
-`.github/workflows/pages.yml` publishes `website/` at `https://ralf1108.github.io/BARUnitComparer/` on every push to `main` that changes it (or by hand: "Run workflow"). One time: **Settings > Pages > Source: GitHub Actions**.
+`.github/workflows/pages.yml` publishes `website/` at `https://ralf1108.github.io/BARUnitComparer/` on every push to `main` that changes it (or by hand: "Run workflow"). One time: **Settings > Pages > Source: GitHub Actions**. To publish again after a failure, use **Run workflow** (a new run), not "Re-run jobs": a re-run keeps the artifact `github-pages` of the attempt before, and two of that name make `deploy-pages` fail (a name of its own per attempt was tried: `deploy-pages` then often did not find the artifact at all).
 
 - **Tests first** (`tests.yml`, also for pull requests and other branches); the site is published only if they pass:
   - `tests/test_data.py`: the rules and the data files (versions, reduced file, chain of diffs, history, pictures with lower case names, counterparts, counters).
